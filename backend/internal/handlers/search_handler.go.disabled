@@ -1,0 +1,547 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"thyne-jewels-backend/internal/models"
+	"thyne-jewels-backend/internal/services"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+// SearchHandler handles search endpoints
+type SearchHandler struct {
+	searchService *services.SearchService
+}
+
+// NewSearchHandler creates a new search handler
+func NewSearchHandler(searchService *services.SearchService) *SearchHandler {
+	return &SearchHandler{
+		searchService: searchService,
+	}
+}
+
+// Search performs product search
+// @Summary Search products
+// @Description Search for products with filters and sorting
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param query query string false "Search query"
+// @Param category query string false "Category filter"
+// @Param subCategory query string false "Sub-category filter"
+// @Param minPrice query number false "Minimum price"
+// @Param maxPrice query number false "Maximum price"
+// @Param metalType query string false "Metal type filter"
+// @Param gemstoneType query string false "Gemstone type filter"
+// @Param purity query string false "Purity filter"
+// @Param brand query string false "Brand filter"
+// @Param tags query array false "Tags filter"
+// @Param inStock query boolean false "In stock filter"
+// @Param featured query boolean false "Featured filter"
+// @Param onSale query boolean false "On sale filter"
+// @Param sortBy query string false "Sort by: price_asc, price_desc, name_asc, name_desc, rating_desc, newest"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Results per page" default(20)
+// @Success 200 {object} models.SearchResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search [get]
+func (h *SearchHandler) Search(c *gin.Context) {
+	// Parse search request from query parameters
+	req := &models.SearchRequest{}
+
+	req.Query = c.Query("query")
+	req.Category = c.Query("category")
+	req.SubCategory = c.Query("subCategory")
+	req.MetalType = c.Query("metalType")
+	req.GemstoneType = c.Query("gemstoneType")
+	req.Purity = c.Query("purity")
+	req.Brand = c.Query("brand")
+	req.SortBy = c.Query("sortBy")
+
+	// Parse numeric fields
+	if minPriceStr := c.Query("minPrice"); minPriceStr != "" {
+		if minPrice, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
+			req.MinPrice = minPrice
+		}
+	}
+
+	if maxPriceStr := c.Query("maxPrice"); maxPriceStr != "" {
+		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
+			req.MaxPrice = maxPrice
+		}
+	}
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil {
+			req.Page = page
+		}
+	}
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			req.Limit = limit
+		}
+	}
+
+	// Parse boolean fields
+	if inStockStr := c.Query("inStock"); inStockStr != "" {
+		if inStock, err := strconv.ParseBool(inStockStr); err == nil {
+			req.InStock = &inStock
+		}
+	}
+
+	if featuredStr := c.Query("featured"); featuredStr != "" {
+		if featured, err := strconv.ParseBool(featuredStr); err == nil {
+			req.Featured = &featured
+		}
+	}
+
+	if onSaleStr := c.Query("onSale"); onSaleStr != "" {
+		if onSale, err := strconv.ParseBool(onSaleStr); err == nil {
+			req.OnSale = &onSale
+		}
+	}
+
+	// Parse tags array
+	if tags := c.QueryArray("tags"); len(tags) > 0 {
+		req.Tags = tags
+	}
+
+	// Get user ID if authenticated
+	var userID *primitive.ObjectID
+	if userIDVal, exists := c.Get("userID"); exists {
+		uid := userIDVal.(primitive.ObjectID)
+		userID = &uid
+	}
+
+	// Perform search
+	response, err := h.searchService.Search(c.Request.Context(), req, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    response,
+	})
+}
+
+// Autocomplete provides search suggestions
+// @Summary Get search autocomplete
+// @Description Get search suggestions and autocomplete results
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param query query string true "Search query" minlength(1)
+// @Param category query string false "Category filter"
+// @Param limit query int false "Number of suggestions" default(8)
+// @Success 200 {object} models.AutocompleteResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/autocomplete [get]
+func (h *SearchHandler) Autocomplete(c *gin.Context) {
+	req := &models.AutocompleteRequest{
+		Query:    c.Query("query"),
+		Category: c.Query("category"),
+	}
+
+	if req.Query == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Query parameter is required"})
+		return
+	}
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			req.Limit = limit
+		}
+	}
+
+	response, err := h.searchService.Autocomplete(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    response,
+	})
+}
+
+// GetTrendingSearches returns trending search queries
+// @Summary Get trending searches
+// @Description Get trending search queries
+// @Tags search
+// @Produce json
+// @Param period query string false "Time period: daily, weekly, monthly" default(daily)
+// @Param limit query int false "Number of results" default(10)
+// @Success 200 {array} models.TrendingSearch
+// @Failure 500 {object} ErrorResponse
+// @Router /search/trending [get]
+func (h *SearchHandler) GetTrendingSearches(c *gin.Context) {
+	period := c.DefaultQuery("period", "daily")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = 10
+	}
+
+	trending, err := h.searchService.GetTrendingSearches(c.Request.Context(), period, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    trending,
+	})
+}
+
+// GetPopularSearches returns popular search queries
+// @Summary Get popular searches
+// @Description Get popular search queries
+// @Tags search
+// @Produce json
+// @Param category query string false "Category filter"
+// @Param limit query int false "Number of results" default(20)
+// @Success 200 {array} models.PopularSearch
+// @Failure 500 {object} ErrorResponse
+// @Router /search/popular [get]
+func (h *SearchHandler) GetPopularSearches(c *gin.Context) {
+	category := c.Query("category")
+	limitStr := c.DefaultQuery("limit", "20")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = 20
+	}
+
+	popular, err := h.searchService.GetPopularSearches(c.Request.Context(), category, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    popular,
+	})
+}
+
+// GetPersonalizedResults returns personalized search results
+// @Summary Get personalized results
+// @Description Get personalized product recommendations for authenticated user
+// @Tags search
+// @Security BearerAuth
+// @Produce json
+// @Param limit query int false "Number of results" default(20)
+// @Success 200 {array} models.Product
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/personalized [get]
+func (h *SearchHandler) GetPersonalizedResults(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "User not authenticated"})
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = 20
+	}
+
+	products, err := h.searchService.GetPersonalizedResults(c.Request.Context(), userID.(primitive.ObjectID), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    products,
+	})
+}
+
+// RecordProductClickRequest represents a product click record request
+type RecordProductClickRequest struct {
+	Query     string             `json:"query" binding:"required"`
+	ProductID primitive.ObjectID `json:"productId" binding:"required"`
+}
+
+// RecordProductClick records when a user clicks on a search result
+// @Summary Record product click
+// @Description Record when a user clicks on a search result for analytics
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param request body RecordProductClickRequest true "Product click request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/click [post]
+func (h *SearchHandler) RecordProductClick(c *gin.Context) {
+	var req RecordProductClickRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	var userID *primitive.ObjectID
+	if userIDVal, exists := c.Get("userID"); exists {
+		uid := userIDVal.(primitive.ObjectID)
+		userID = &uid
+	}
+
+	err := h.searchService.RecordProductClick(c.Request.Context(), req.Query, req.ProductID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Product click recorded successfully",
+	})
+}
+
+// UpdatePersonalizationRequest represents a personalization update request
+type UpdatePersonalizationRequest struct {
+	Preferences map[string]interface{} `json:"preferences" binding:"required"`
+}
+
+// UpdatePersonalization updates user search personalization
+// @Summary Update search personalization
+// @Description Update user search personalization preferences
+// @Tags search
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdatePersonalizationRequest true "Personalization update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/personalization [put]
+func (h *SearchHandler) UpdatePersonalization(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "User not authenticated"})
+		return
+	}
+
+	var req UpdatePersonalizationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.searchService.UpdatePersonalization(c.Request.Context(), userID.(primitive.ObjectID), req.Preferences)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Search personalization updated successfully",
+	})
+}
+
+// GetSearchAnalytics returns search analytics data (Admin only)
+// @Summary Get search analytics
+// @Description Get search analytics data (Admin only)
+// @Tags search
+// @Security BearerAuth
+// @Produce json
+// @Param startDate query string false "Start date (YYYY-MM-DD)"
+// @Param endDate query string false "End date (YYYY-MM-DD)"
+// @Success 200 {array} models.SearchAnalytics
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/analytics [get]
+func (h *SearchHandler) GetSearchAnalytics(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	// Parse date range
+	startDateStr := c.Query("startDate")
+	endDateStr := c.Query("endDate")
+
+	var startDate, endDate time.Time
+	var err error
+
+	if startDateStr != "" {
+		startDate, err = time.Parse("2006-01-02", startDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid start date format. Use YYYY-MM-DD"})
+			return
+		}
+	} else {
+		startDate = time.Now().AddDate(0, 0, -30) // Default to last 30 days
+	}
+
+	if endDateStr != "" {
+		endDate, err = time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid end date format. Use YYYY-MM-DD"})
+			return
+		}
+	} else {
+		endDate = time.Now()
+	}
+
+	analytics, err := h.searchService.GetSearchAnalytics(c.Request.Context(), startDate, endDate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    analytics,
+	})
+}
+
+// AddSearchSynonymRequest represents a search synonym request
+type AddSearchSynonymRequest struct {
+	Term     string   `json:"term" binding:"required"`
+	Synonyms []string `json:"synonyms" binding:"required"`
+	Category string   `json:"category"`
+}
+
+// AddSearchSynonym adds a search synonym (Admin only)
+// @Summary Add search synonym
+// @Description Add a search synonym for better matching (Admin only)
+// @Tags search
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body AddSearchSynonymRequest true "Search synonym request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/synonyms [post]
+func (h *SearchHandler) AddSearchSynonym(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	var req AddSearchSynonymRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	synonym := &models.SearchSynonym{
+		Term:     req.Term,
+		Synonyms: req.Synonyms,
+		Category: req.Category,
+	}
+
+	err := h.searchService.AddSearchSynonym(c.Request.Context(), synonym)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Search synonym added successfully",
+		Data:    synonym,
+	})
+}
+
+// UpdateSearchConfigRequest represents a search config update request
+type UpdateSearchConfigRequest struct {
+	AutocompleteEnabled   bool                    `json:"autocompleteEnabled"`
+	SuggestionsEnabled    bool                    `json:"suggestionsEnabled"`
+	FacetsEnabled         bool                    `json:"facetsEnabled"`
+	AnalyticsEnabled      bool                    `json:"analyticsEnabled"`
+	MaxSuggestions        int                     `json:"maxSuggestions"`
+	MaxAutocomplete       int                     `json:"maxAutocomplete"`
+	MinQueryLength        int                     `json:"minQueryLength"`
+	SearchFields          []models.SearchField    `json:"searchFields"`
+	BoostFields           []models.BoostField     `json:"boostFields"`
+	DefaultSortBy         string                  `json:"defaultSortBy"`
+	ResultsPerPage        int                     `json:"resultsPerPage"`
+	MaxResultsPerPage     int                     `json:"maxResultsPerPage"`
+	EnableSpellCheck      bool                    `json:"enableSpellCheck"`
+	EnableFuzzySearch     bool                    `json:"enableFuzzySearch"`
+}
+
+// UpdateSearchConfig updates search configuration (Admin only)
+// @Summary Update search configuration
+// @Description Update search configuration settings (Admin only)
+// @Tags search
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateSearchConfigRequest true "Search config update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /search/config [put]
+func (h *SearchHandler) UpdateSearchConfig(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	var req UpdateSearchConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	config := &models.SearchConfig{
+		AutocompleteEnabled:   req.AutocompleteEnabled,
+		SuggestionsEnabled:    req.SuggestionsEnabled,
+		FacetsEnabled:         req.FacetsEnabled,
+		AnalyticsEnabled:      req.AnalyticsEnabled,
+		MaxSuggestions:        req.MaxSuggestions,
+		MaxAutocomplete:       req.MaxAutocomplete,
+		MinQueryLength:        req.MinQueryLength,
+		SearchFields:          req.SearchFields,
+		BoostFields:           req.BoostFields,
+		DefaultSortBy:         req.DefaultSortBy,
+		ResultsPerPage:        req.ResultsPerPage,
+		MaxResultsPerPage:     req.MaxResultsPerPage,
+		EnableSpellCheck:      req.EnableSpellCheck,
+		EnableFuzzySearch:     req.EnableFuzzySearch,
+	}
+
+	err := h.searchService.UpdateSearchConfig(c.Request.Context(), config)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Search configuration updated successfully",
+	})
+}

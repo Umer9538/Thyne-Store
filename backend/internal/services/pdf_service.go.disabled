@@ -1,0 +1,798 @@
+package services
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"html/template"
+	"path/filepath"
+	"strconv"
+	"time"
+
+	"thyne-jewels-backend/internal/models"
+	"thyne-jewels-backend/internal/repository"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/SebastiaanKlippert/go-wkhtmltopdf"
+)
+
+// PDFService handles PDF generation and management
+type PDFService struct {
+	pdfRepo         repository.PDFRepository
+	orderRepo       repository.OrderRepository
+	userRepo        repository.UserRepository
+	productRepo     repository.ProductRepository
+	storageService  *StorageService
+	emailService    *EmailService
+	companyInfo     models.CompanyInfo
+}
+
+// NewPDFService creates a new PDF service
+func NewPDFService(
+	pdfRepo repository.PDFRepository,
+	orderRepo repository.OrderRepository,
+	userRepo repository.UserRepository,
+	productRepo repository.ProductRepository,
+	storageService *StorageService,
+	emailService *EmailService,
+) *PDFService {
+	return &PDFService{
+		pdfRepo:        pdfRepo,
+		orderRepo:      orderRepo,
+		userRepo:       userRepo,
+		productRepo:    productRepo,
+		storageService: storageService,
+		emailService:   emailService,
+		companyInfo:    getCompanyInfo(),
+	}
+}
+
+// GenerateInvoice generates an invoice PDF for an order
+func (s *PDFService) GenerateInvoice(ctx context.Context, orderID primitive.ObjectID) (*models.PDFDocument, error) {
+	// Get order details
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := s.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Prepare invoice data
+	invoiceData, err := s.prepareInvoiceData(ctx, order, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare invoice data: %w", err)
+	}
+
+	// Generate PDF
+	pdfBytes, err := s.generatePDFFromTemplate(ctx, "invoice", invoiceData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate PDF: %w", err)
+	}
+
+	// Upload to storage
+	filename := fmt.Sprintf("invoice_%s_%d.pdf", order.OrderNumber, time.Now().Unix())
+	fileURL, err := s.storageService.UploadFile(ctx, pdfBytes, filename, "application/pdf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload PDF: %w", err)
+	}
+
+	// Save PDF document record
+	pdfDoc := &models.PDFDocument{
+		ID:          primitive.NewObjectID(),
+		Type:        "invoice",
+		OrderID:     orderID,
+		UserID:      order.UserID,
+		FileURL:     fileURL,
+		Filename:    filename,
+		Size:        int64(len(pdfBytes)),
+		GeneratedAt: time.Now(),
+		IsActive:    true,
+	}
+
+	if err := s.pdfRepo.Create(ctx, pdfDoc); err != nil {
+		return nil, fmt.Errorf("failed to save PDF document: %w", err)
+	}
+
+	return pdfDoc, nil
+}
+
+// GenerateWarrantyCertificate generates a warranty certificate
+func (s *PDFService) GenerateWarrantyCertificate(ctx context.Context, warrantyID primitive.ObjectID) (*models.PDFDocument, error) {
+	warranty, err := s.pdfRepo.GetWarrantyByID(ctx, warrantyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get warranty: %w", err)
+	}
+
+	// Get order and product details
+	order, err := s.orderRepo.GetByID(ctx, warranty.OrderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	product, err := s.productRepo.GetByID(ctx, warranty.ProductID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get product: %w", err)
+	}
+
+	// Prepare warranty data
+	warrantyData := map[string]interface{}{
+		"Warranty": warranty,
+		"Order":    order,
+		"Product":  product,
+		"Company":  s.companyInfo,
+	}
+
+	// Generate PDF
+	pdfBytes, err := s.generatePDFFromTemplate(ctx, "warranty", warrantyData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate warranty PDF: %w", err)
+	}
+
+	// Upload to storage
+	filename := fmt.Sprintf("warranty_%s_%d.pdf", warranty.WarrantyNumber, time.Now().Unix())
+	fileURL, err := s.storageService.UploadFile(ctx, pdfBytes, filename, "application/pdf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload warranty PDF: %w", err)
+	}
+
+	// Save PDF document record
+	pdfDoc := &models.PDFDocument{
+		ID:          primitive.NewObjectID(),
+		Type:        "warranty",
+		OrderID:     warranty.OrderID,
+		UserID:      warranty.UserID,
+		FileURL:     fileURL,
+		Filename:    filename,
+		Size:        int64(len(pdfBytes)),
+		GeneratedAt: time.Now(),
+		IsActive:    true,
+	}
+
+	if err := s.pdfRepo.Create(ctx, pdfDoc); err != nil {
+		return nil, fmt.Errorf("failed to save warranty PDF document: %w", err)
+	}
+
+	return pdfDoc, nil
+}
+
+// GetOrderTracking gets tracking information for an order
+func (s *PDFService) GetOrderTracking(ctx context.Context, orderID primitive.ObjectID) (*models.OrderTracking, error) {
+	return s.pdfRepo.GetOrderTracking(ctx, orderID)
+}
+
+// UpdateOrderTracking updates order tracking information
+func (s *PDFService) UpdateOrderTracking(ctx context.Context, tracking *models.OrderTracking) error {
+	tracking.UpdatedAt = time.Now()
+	return s.pdfRepo.UpdateOrderTracking(ctx, tracking)
+}
+
+// AddTrackingEvent adds a new tracking event
+func (s *PDFService) AddTrackingEvent(ctx context.Context, orderID primitive.ObjectID, event *models.TrackingEvent) error {
+	event.ID = primitive.NewObjectID()
+	event.Timestamp = time.Now()
+
+	tracking, err := s.GetOrderTracking(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get tracking: %w", err)
+	}
+
+	tracking.Events = append(tracking.Events, *event)
+	tracking.Status = event.Status
+	tracking.CurrentLocation = event.Location
+
+	if event.IsDelivered {
+		now := time.Now()
+		tracking.ActualDelivery = &now
+	}
+
+	return s.UpdateOrderTracking(ctx, tracking)
+}
+
+// CreateWarranty creates a new warranty record
+func (s *PDFService) CreateWarranty(ctx context.Context, warranty *models.WarrantyInfo) error {
+	warranty.ID = primitive.NewObjectID()
+	warranty.CreatedAt = time.Now()
+	warranty.UpdatedAt = time.Now()
+	warranty.IsActive = true
+
+	return s.pdfRepo.CreateWarranty(ctx, warranty)
+}
+
+// GetUserPDFs gets all PDFs for a user
+func (s *PDFService) GetUserPDFs(ctx context.Context, userID primitive.ObjectID, pdfType string) ([]models.PDFDocument, error) {
+	return s.pdfRepo.GetByUserID(ctx, userID, pdfType)
+}
+
+// DownloadPDF marks a PDF as downloaded and returns the file URL
+func (s *PDFService) DownloadPDF(ctx context.Context, pdfID primitive.ObjectID, userID primitive.ObjectID) (string, error) {
+	pdf, err := s.pdfRepo.GetByID(ctx, pdfID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get PDF: %w", err)
+	}
+
+	// Verify user access
+	if pdf.UserID != userID {
+		return "", fmt.Errorf("unauthorized access to PDF")
+	}
+
+	// Mark as downloaded
+	now := time.Now()
+	pdf.DownloadedAt = &now
+	if err := s.pdfRepo.Update(ctx, pdf); err != nil {
+		return "", fmt.Errorf("failed to update PDF record: %w", err)
+	}
+
+	return pdf.FileURL, nil
+}
+
+// SendInvoiceEmail sends invoice via email
+func (s *PDFService) SendInvoiceEmail(ctx context.Context, orderID primitive.ObjectID) error {
+	// Generate invoice if not exists
+	invoice, err := s.pdfRepo.GetByOrderID(ctx, orderID, "invoice")
+	if err != nil {
+		invoice, err = s.GenerateInvoice(ctx, orderID)
+		if err != nil {
+			return fmt.Errorf("failed to generate invoice: %w", err)
+		}
+	}
+
+	// Get order and user details
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	user, err := s.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Send email with invoice attachment
+	emailData := map[string]interface{}{
+		"User":  user,
+		"Order": order,
+	}
+
+	return s.emailService.SendWithAttachment(
+		ctx,
+		user.Email,
+		"Your Invoice - Order #"+order.OrderNumber,
+		"invoice_email",
+		emailData,
+		invoice.FileURL,
+		invoice.Filename,
+	)
+}
+
+// prepareInvoiceData prepares data for invoice generation
+func (s *PDFService) prepareInvoiceData(ctx context.Context, order *models.Order, user *models.User) (*models.InvoiceData, error) {
+	// Get order items with product details
+	invoiceItems := make([]models.InvoiceItem, len(order.Items))
+	for i, item := range order.Items {
+		product, err := s.productRepo.GetByID(ctx, item.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get product %s: %w", item.ProductID.Hex(), err)
+		}
+
+		invoiceItems[i] = models.InvoiceItem{
+			ProductID:    item.ProductID,
+			ProductName:  product.Name,
+			SKU:          product.SKU,
+			Quantity:     item.Quantity,
+			UnitPrice:    item.Price,
+			TotalPrice:   item.Price * float64(item.Quantity),
+			TaxRate:      0.18, // Default GST rate
+			TaxAmount:    (item.Price * float64(item.Quantity)) * 0.18,
+			Description:  product.Description,
+			MetalType:    product.MetalType,
+			GemstoneType: product.GemstoneType,
+			Weight:       product.Weight,
+			Purity:       product.Purity,
+		}
+	}
+
+	// Calculate totals
+	subtotal := order.Total - order.ShippingCost
+	taxAmount := subtotal * 0.18
+	subtotalBeforeTax := subtotal - taxAmount
+
+	totals := models.InvoiceTotals{
+		Subtotal:     subtotalBeforeTax,
+		TaxAmount:    taxAmount,
+		ShippingCost: order.ShippingCost,
+		Discount:     order.DiscountAmount,
+		VoucherValue: 0, // Add voucher logic if needed
+		Total:        order.Total,
+	}
+
+	// Generate QR code for payment verification
+	qrData := fmt.Sprintf("ORDER:%s|AMOUNT:%.2f|DATE:%s",
+		order.OrderNumber, order.Total, order.CreatedAt.Format("2006-01-02"))
+
+	return &models.InvoiceData{
+		Order:   *order,
+		User:    *user,
+		Company: s.companyInfo,
+		TaxDetails: models.TaxDetails{
+			TaxType: "GST",
+			TaxRate: 18.0,
+			TaxID:   s.companyInfo.TaxID,
+		},
+		PaymentDetails: models.PaymentInfo{
+			Method:        order.PaymentMethod,
+			TransactionID: order.PaymentDetails["transactionId"].(string),
+			PaymentDate:   order.CreatedAt,
+			PaymentStatus: order.PaymentStatus,
+			CurrencyCode:  "INR",
+		},
+		ShippingDetails: models.ShippingInfo{
+			Method:       order.ShippingMethod,
+			ShippingCost: order.ShippingCost,
+			Address:      order.ShippingAddress,
+		},
+		Items:  invoiceItems,
+		Totals: totals,
+		QRCode: qrData,
+	}, nil
+}
+
+// generatePDFFromTemplate generates PDF from HTML template
+func (s *PDFService) generatePDFFromTemplate(ctx context.Context, templateType string, data interface{}) ([]byte, error) {
+	// Get template
+	tmpl, err := s.pdfRepo.GetTemplate(ctx, templateType)
+	if err != nil {
+		// Use default template if not found
+		tmpl = getDefaultTemplate(templateType)
+	}
+
+	// Parse template
+	htmlTemplate, err := template.New(templateType).Parse(tmpl.Template)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	// Execute template
+	var htmlBuffer bytes.Buffer
+	if err := htmlTemplate.Execute(&htmlBuffer, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	// Generate PDF using wkhtmltopdf
+	pdfg, err := wkhtmltopdf.NewPDFGenerator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PDF generator: %w", err)
+	}
+
+	// Configure PDF options
+	pdfg.Dpi.Set(300)
+	pdfg.Orientation.Set(wkhtmltopdf.OrientationPortrait)
+	pdfg.Grayscale.Set(false)
+	pdfg.PageSize.Set(wkhtmltopdf.PageSizeA4)
+	pdfg.MarginBottom.Set(10)
+	pdfg.MarginLeft.Set(10)
+	pdfg.MarginRight.Set(10)
+	pdfg.MarginTop.Set(10)
+
+	// Add page
+	page := wkhtmltopdf.NewPage(bytes.NewReader(htmlBuffer.Bytes()))
+	page.EnableLocalFileAccess.Set(true)
+	pdfg.AddPage(page)
+
+	// Create PDF
+	if err := pdfg.Create(); err != nil {
+		return nil, fmt.Errorf("failed to create PDF: %w", err)
+	}
+
+	return pdfg.Bytes(), nil
+}
+
+// getCompanyInfo returns company information
+func getCompanyInfo() models.CompanyInfo {
+	return models.CompanyInfo{
+		Name:           "Thyne Jewels",
+		Address:        "123 Jewelry Street",
+		City:           "Mumbai",
+		State:          "Maharashtra",
+		PostalCode:     "400001",
+		Country:        "India",
+		Phone:          "+91-22-12345678",
+		Email:          "info@thynejewels.com",
+		Website:        "www.thynejewels.com",
+		TaxID:          "GSTIN123456789",
+		RegistrationNo: "CIN123456789",
+		LogoURL:        "https://thynejewels.com/logo.png",
+	}
+}
+
+// getDefaultTemplate returns default template for the given type
+func getDefaultTemplate(templateType string) *models.PDFTemplate {
+	templates := map[string]string{
+		"invoice": defaultInvoiceTemplate,
+		"warranty": defaultWarrantyTemplate,
+		"receipt": defaultReceiptTemplate,
+	}
+
+	return &models.PDFTemplate{
+		Type:     templateType,
+		Template: templates[templateType],
+		Styles:   defaultStyles,
+		IsActive: true,
+	}
+}
+
+const defaultInvoiceTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice</title>
+    <style>{{.Styles}}</style>
+</head>
+<body>
+    <div class="invoice-header">
+        <div class="company-info">
+            <img src="{{.Company.LogoURL}}" alt="Company Logo" class="logo">
+            <h1>{{.Company.Name}}</h1>
+            <p>{{.Company.Address}}, {{.Company.City}}, {{.Company.State}} {{.Company.PostalCode}}</p>
+            <p>Phone: {{.Company.Phone}} | Email: {{.Company.Email}}</p>
+            <p>GSTIN: {{.Company.TaxID}}</p>
+        </div>
+        <div class="invoice-details">
+            <h2>INVOICE</h2>
+            <p><strong>Invoice #:</strong> {{.Order.OrderNumber}}</p>
+            <p><strong>Date:</strong> {{.Order.CreatedAt.Format "Jan 02, 2006"}}</p>
+            <p><strong>Due Date:</strong> {{.Order.CreatedAt.Format "Jan 02, 2006"}}</p>
+        </div>
+    </div>
+
+    <div class="billing-info">
+        <div class="bill-to">
+            <h3>Bill To:</h3>
+            <p><strong>{{.User.FirstName}} {{.User.LastName}}</strong></p>
+            <p>{{.User.Email}}</p>
+            <p>{{.User.Phone}}</p>
+            <p>{{.Order.BillingAddress.Street}}</p>
+            <p>{{.Order.BillingAddress.City}}, {{.Order.BillingAddress.State}} {{.Order.BillingAddress.PostalCode}}</p>
+        </div>
+        <div class="ship-to">
+            <h3>Ship To:</h3>
+            <p>{{.Order.ShippingAddress.Street}}</p>
+            <p>{{.Order.ShippingAddress.City}}, {{.Order.ShippingAddress.State}} {{.Order.ShippingAddress.PostalCode}}</p>
+        </div>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>SKU</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Tax</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Items}}
+            <tr>
+                <td>
+                    <strong>{{.ProductName}}</strong><br>
+                    <small>{{.Description}}</small>
+                    {{if .MetalType}}<br><small>Metal: {{.MetalType}} {{.Purity}}</small>{{end}}
+                    {{if .GemstoneType}}<br><small>Gemstone: {{.GemstoneType}}</small>{{end}}
+                </td>
+                <td>{{.SKU}}</td>
+                <td>{{.Quantity}}</td>
+                <td>₹{{printf "%.2f" .UnitPrice}}</td>
+                <td>₹{{printf "%.2f" .TaxAmount}}</td>
+                <td>₹{{printf "%.2f" .TotalPrice}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <table class="totals-table">
+            <tr>
+                <td>Subtotal:</td>
+                <td>₹{{printf "%.2f" .Totals.Subtotal}}</td>
+            </tr>
+            <tr>
+                <td>Tax ({{.TaxDetails.TaxRate}}%):</td>
+                <td>₹{{printf "%.2f" .Totals.TaxAmount}}</td>
+            </tr>
+            <tr>
+                <td>Shipping:</td>
+                <td>₹{{printf "%.2f" .Totals.ShippingCost}}</td>
+            </tr>
+            {{if gt .Totals.Discount 0}}
+            <tr>
+                <td>Discount:</td>
+                <td>-₹{{printf "%.2f" .Totals.Discount}}</td>
+            </tr>
+            {{end}}
+            <tr class="total-row">
+                <td><strong>Total:</strong></td>
+                <td><strong>₹{{printf "%.2f" .Totals.Total}}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="payment-info">
+        <h3>Payment Information</h3>
+        <p><strong>Method:</strong> {{.PaymentDetails.Method}}</p>
+        <p><strong>Transaction ID:</strong> {{.PaymentDetails.TransactionID}}</p>
+        <p><strong>Status:</strong> {{.PaymentDetails.PaymentStatus}}</p>
+    </div>
+
+    <div class="qr-code">
+        <p>Scan QR code for verification:</p>
+        <p>{{.QRCode}}</p>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for your business!</p>
+        <p><small>This is a computer-generated invoice. No signature required.</small></p>
+    </div>
+</body>
+</html>
+`
+
+const defaultWarrantyTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Warranty Certificate</title>
+    <style>{{.Styles}}</style>
+</head>
+<body>
+    <div class="warranty-header">
+        <img src="{{.Company.LogoURL}}" alt="Company Logo" class="logo">
+        <h1>WARRANTY CERTIFICATE</h1>
+        <p class="warranty-number">Certificate #: {{.Warranty.WarrantyNumber}}</p>
+    </div>
+
+    <div class="warranty-details">
+        <h2>Product Information</h2>
+        <table>
+            <tr>
+                <td><strong>Product:</strong></td>
+                <td>{{.Product.Name}}</td>
+            </tr>
+            <tr>
+                <td><strong>SKU:</strong></td>
+                <td>{{.Product.SKU}}</td>
+            </tr>
+            <tr>
+                <td><strong>Order Number:</strong></td>
+                <td>{{.Order.OrderNumber}}</td>
+            </tr>
+            <tr>
+                <td><strong>Purchase Date:</strong></td>
+                <td>{{.Warranty.PurchaseDate.Format "Jan 02, 2006"}}</td>
+            </tr>
+            <tr>
+                <td><strong>Warranty Period:</strong></td>
+                <td>{{.Warranty.WarrantyStart.Format "Jan 02, 2006"}} to {{.Warranty.WarrantyEnd.Format "Jan 02, 2006"}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="coverage-details">
+        <h2>Coverage Details</h2>
+        <ul>
+            {{range .Warranty.CoverageDetails}}
+            <li><strong>{{.Type}}:</strong> {{.Description}} (Max Claims: {{.MaxClaims}})</li>
+            {{end}}
+        </ul>
+    </div>
+
+    <div class="terms">
+        <h2>Terms & Conditions</h2>
+        <ul>
+            {{range .Warranty.Terms}}
+            <li>{{.}}</li>
+            {{end}}
+        </ul>
+    </div>
+
+    <div class="company-signature">
+        <p><strong>{{.Company.Name}}</strong></p>
+        <p>{{.Company.Address}}</p>
+        <p>Phone: {{.Company.Phone}} | Email: {{.Company.Email}}</p>
+    </div>
+</body>
+</html>
+`
+
+const defaultReceiptTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt</title>
+    <style>{{.Styles}}</style>
+</head>
+<body>
+    <div class="receipt-header">
+        <h1>{{.Company.Name}}</h1>
+        <p>{{.Company.Address}}</p>
+        <p>Phone: {{.Company.Phone}}</p>
+        <hr>
+        <p><strong>Receipt #:</strong> {{.Order.OrderNumber}}</p>
+        <p><strong>Date:</strong> {{.Order.CreatedAt.Format "Jan 02, 2006 15:04"}}</p>
+    </div>
+
+    <div class="items">
+        {{range .Items}}
+        <div class="item">
+            <p><strong>{{.ProductName}}</strong></p>
+            <p>{{.Quantity}} x ₹{{printf "%.2f" .UnitPrice}} = ₹{{printf "%.2f" .TotalPrice}}</p>
+        </div>
+        {{end}}
+    </div>
+
+    <hr>
+    <div class="totals">
+        <p>Subtotal: ₹{{printf "%.2f" .Totals.Subtotal}}</p>
+        <p>Tax: ₹{{printf "%.2f" .Totals.TaxAmount}}</p>
+        <p><strong>Total: ₹{{printf "%.2f" .Totals.Total}}</strong></p>
+    </div>
+
+    <div class="payment">
+        <p><strong>Payment Method:</strong> {{.PaymentDetails.Method}}</p>
+        <p><strong>Transaction ID:</strong> {{.PaymentDetails.TransactionID}}</p>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for shopping with us!</p>
+    </div>
+</body>
+</html>
+`
+
+const defaultStyles = `
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #333;
+    padding-bottom: 20px;
+}
+
+.company-info {
+    flex: 1;
+}
+
+.invoice-details {
+    text-align: right;
+    flex: 1;
+}
+
+.logo {
+    width: 100px;
+    height: auto;
+    margin-bottom: 10px;
+}
+
+.billing-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.bill-to, .ship-to {
+    flex: 1;
+    margin-right: 20px;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+}
+
+.items-table th,
+.items-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.items-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.totals {
+    text-align: right;
+    margin-bottom: 30px;
+}
+
+.totals-table {
+    margin-left: auto;
+    border-collapse: collapse;
+}
+
+.totals-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.total-row td {
+    border-top: 2px solid #333;
+    font-size: 1.2em;
+}
+
+.payment-info {
+    margin-bottom: 30px;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 50px;
+    border-top: 1px solid #ddd;
+    padding-top: 20px;
+}
+
+.warranty-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.warranty-number {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #666;
+}
+
+.warranty-details table {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.warranty-details td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.coverage-details,
+.terms {
+    margin-bottom: 30px;
+}
+
+.company-signature {
+    text-align: center;
+    margin-top: 50px;
+    border-top: 1px solid #ddd;
+    padding-top: 20px;
+}
+
+.receipt-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.item {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 20px 0;
+}
+`

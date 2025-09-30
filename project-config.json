@@ -1,0 +1,52 @@
+{
+  "project": {
+    "name": "Thyne Jewels",
+    "version": "1.0.0",
+    "description": "Jewelry E-commerce Platform"
+  },
+  "backend": {
+    "port": 8080,
+    "host": "localhost",
+    "build_path": "backend/bin/server",
+    "main_file": "backend/cmd/server/main.go",
+    "env_file": "backend/.env",
+    "log_file": "backend.log"
+  },
+  "frontend": {
+    "web_port": 3000,
+    "default_platform": "chrome",
+    "platforms": {
+      "android": "android",
+      "ios": "ios", 
+      "web": "chrome",
+      "desktop_windows": "windows",
+      "desktop_macos": "macos",
+      "desktop_linux": "linux"
+    }
+  },
+  "database": {
+    "type": "mongodb",
+    "host": "localhost",
+    "port": 27017,
+    "name": "thyne_jewels",
+    "data_dir": "~/mongodb-data",
+    "init_script": "backend/migrations/init-mongo.js"
+  },
+  "services": {
+    "mongodb_required": true,
+    "redis_optional": false,
+    "email_service": false
+  },
+  "development": {
+    "hot_reload": true,
+    "debug_mode": true,
+    "auto_open_browser": true,
+    "show_performance_overlay": false
+  },
+  "paths": {
+    "backend_dir": "backend",
+    "frontend_dir": ".",
+    "logs_dir": "logs",
+    "uploads_dir": "backend/uploads"
+  }
+}

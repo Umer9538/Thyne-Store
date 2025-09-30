@@ -1,0 +1,900 @@
+package services
+
+import (
+	"context"
+	"crypto/md5"
+	"fmt"
+	"math"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"thyne-jewels-backend/internal/models"
+	"thyne-jewels-backend/internal/repository"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+// SearchService handles search functionality
+type SearchService struct {
+	searchRepo     repository.SearchRepository
+	productRepo    repository.ProductRepository
+	cacheService   *CacheService
+	config         *models.SearchConfig
+}
+
+// NewSearchService creates a new search service
+func NewSearchService(
+	searchRepo repository.SearchRepository,
+	productRepo repository.ProductRepository,
+	cacheService *CacheService,
+) *SearchService {
+	return &SearchService{
+		searchRepo:   searchRepo,
+		productRepo:  productRepo,
+		cacheService: cacheService,
+		config:       models.GetDefaultSearchConfig(),
+	}
+}
+
+// Search performs a comprehensive product search
+func (s *SearchService) Search(ctx context.Context, req *models.SearchRequest, userID *primitive.ObjectID) (*models.SearchResponse, error) {
+	startTime := time.Now()
+
+	// Set defaults
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.Limit <= 0 {
+		req.Limit = s.config.ResultsPerPage
+	}
+	if req.Limit > s.config.MaxResultsPerPage {
+		req.Limit = s.config.MaxResultsPerPage
+	}
+	if req.SortBy == "" {
+		req.SortBy = s.config.DefaultSortBy
+	}
+
+	// Check cache first
+	if s.cacheService != nil {
+		if cached := s.getCachedResults(ctx, req); cached != nil {
+			s.recordSearchAnalytics(ctx, req, cached, userID, time.Since(startTime))
+			return cached, nil
+		}
+	}
+
+	// Build search pipeline
+	pipeline, err := s.buildSearchPipeline(ctx, req, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build search pipeline: %w", err)
+	}
+
+	// Execute search
+	products, total, err := s.productRepo.SearchWithPipeline(ctx, pipeline, req.Page, req.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute search: %w", err)
+	}
+
+	// Get facets
+	facets, err := s.buildFacets(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build facets: %w", err)
+	}
+
+	// Get suggestions if no results
+	var suggestions []string
+	if total == 0 && req.Query != "" {
+		suggestions = s.getSearchSuggestions(ctx, req.Query)
+	}
+
+	// Get related products
+	relatedProducts := s.getRelatedProducts(ctx, req, products)
+
+	// Calculate total pages
+	totalPages := int(math.Ceil(float64(total) / float64(req.Limit)))
+
+	response := &models.SearchResponse{
+		Query:           req.Query,
+		Results:         products,
+		Total:           total,
+		Page:            req.Page,
+		Limit:           req.Limit,
+		TotalPages:      totalPages,
+		Facets:          *facets,
+		Suggestions:     suggestions,
+		SearchTime:      time.Since(startTime),
+		RelatedProducts: relatedProducts,
+	}
+
+	// Cache results
+	if s.cacheService != nil {
+		s.cacheResults(ctx, req, response)
+	}
+
+	// Record analytics
+	s.recordSearchAnalytics(ctx, req, response, userID, time.Since(startTime))
+
+	return response, nil
+}
+
+// Autocomplete provides search suggestions as user types
+func (s *SearchService) Autocomplete(ctx context.Context, req *models.AutocompleteRequest) (*models.AutocompleteResponse, error) {
+	if len(req.Query) < s.config.MinQueryLength {
+		return &models.AutocompleteResponse{
+			Query:       req.Query,
+			Suggestions: []models.AutocompleteSuggestion{},
+			Products:    []models.ProductSuggestion{},
+			Categories:  []models.CategorySuggestion{},
+		}, nil
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = s.config.MaxAutocomplete
+	}
+
+	// Get query suggestions
+	suggestions := s.getQuerySuggestions(ctx, req.Query, req.Limit)
+
+	// Get product suggestions
+	products := s.getProductSuggestions(ctx, req.Query, req.Category, req.Limit)
+
+	// Get category suggestions
+	categories := s.getCategorySuggestions(ctx, req.Query, req.Limit)
+
+	return &models.AutocompleteResponse{
+		Query:       req.Query,
+		Suggestions: suggestions,
+		Products:    products,
+		Categories:  categories,
+	}, nil
+}
+
+// GetTrendingSearches returns trending search queries
+func (s *SearchService) GetTrendingSearches(ctx context.Context, period string, limit int) ([]models.TrendingSearch, error) {
+	return s.searchRepo.GetTrendingSearches(ctx, period, limit)
+}
+
+// GetPopularSearches returns popular search queries
+func (s *SearchService) GetPopularSearches(ctx context.Context, category string, limit int) ([]models.PopularSearch, error) {
+	return s.searchRepo.GetPopularSearches(ctx, category, limit)
+}
+
+// UpdateSearchConfig updates search configuration
+func (s *SearchService) UpdateSearchConfig(ctx context.Context, config *models.SearchConfig) error {
+	config.UpdatedAt = time.Now()
+	s.config = config
+	return s.searchRepo.UpdateSearchConfig(ctx, config)
+}
+
+// GetSearchAnalytics returns search analytics data
+func (s *SearchService) GetSearchAnalytics(ctx context.Context, startDate, endDate time.Time) ([]models.SearchAnalytics, error) {
+	return s.searchRepo.GetSearchAnalytics(ctx, startDate, endDate)
+}
+
+// AddSearchSynonym adds a search synonym
+func (s *SearchService) AddSearchSynonym(ctx context.Context, synonym *models.SearchSynonym) error {
+	synonym.ID = primitive.NewObjectID()
+	synonym.CreatedAt = time.Now()
+	synonym.UpdatedAt = time.Now()
+	synonym.IsActive = true
+	return s.searchRepo.CreateSynonym(ctx, synonym)
+}
+
+// GetPersonalizedResults returns personalized search results
+func (s *SearchService) GetPersonalizedResults(ctx context.Context, userID primitive.ObjectID, limit int) ([]models.Product, error) {
+	// Get user preferences
+	personalization, err := s.searchRepo.GetPersonalization(ctx, userID)
+	if err != nil {
+		// Return popular products if no personalization data
+		return s.productRepo.GetPopularProducts(ctx, limit)
+	}
+
+	// Build personalized search based on user preferences
+	req := &models.SearchRequest{
+		Category: strings.Join(personalization.PreferredCategories, ","),
+		Brand:    strings.Join(personalization.PreferredBrands, ","),
+		MinPrice: personalization.PriceRange.Min,
+		MaxPrice: personalization.PriceRange.Max,
+		SortBy:   models.SortByRelevance,
+		Limit:    limit,
+	}
+
+	pipeline, err := s.buildPersonalizedPipeline(ctx, req, personalization)
+	if err != nil {
+		return nil, err
+	}
+
+	products, _, err := s.productRepo.SearchWithPipeline(ctx, pipeline, 1, limit)
+	return products, err
+}
+
+// RecordProductClick records when a user clicks on a search result
+func (s *SearchService) RecordProductClick(ctx context.Context, query string, productID primitive.ObjectID, userID *primitive.ObjectID) error {
+	return s.searchRepo.RecordProductClick(ctx, query, productID, userID)
+}
+
+// UpdatePersonalization updates user search personalization
+func (s *SearchService) UpdatePersonalization(ctx context.Context, userID primitive.ObjectID, preferences map[string]interface{}) error {
+	personalization, err := s.searchRepo.GetPersonalization(ctx, userID)
+	if err != nil {
+		// Create new personalization
+		personalization = &models.SearchPersonalization{
+			ID:          primitive.NewObjectID(),
+			UserID:      userID,
+			Preferences: preferences,
+			CreatedAt:   time.Now(),
+		}
+	}
+
+	personalization.Preferences = preferences
+	personalization.UpdatedAt = time.Now()
+
+	return s.searchRepo.UpdatePersonalization(ctx, personalization)
+}
+
+// buildSearchPipeline builds MongoDB aggregation pipeline for search
+func (s *SearchService) buildSearchPipeline(ctx context.Context, req *models.SearchRequest, userID *primitive.ObjectID) ([]bson.M, error) {
+	pipeline := []bson.M{}
+
+	// Match stage
+	matchStage := bson.M{}
+
+	// Text search
+	if req.Query != "" {
+		// Expand query with synonyms
+		expandedQuery := s.expandQueryWithSynonyms(ctx, req.Query)
+
+		// Apply spell correction if needed
+		if s.config.EnableSpellCheck {
+			correctedQuery := s.correctSpelling(ctx, expandedQuery)
+			if correctedQuery != expandedQuery {
+				expandedQuery = correctedQuery
+			}
+		}
+
+		// Build text search
+		textSearch := bson.M{"$text": bson.M{"$search": expandedQuery}}
+		if s.config.EnableFuzzySearch {
+			textSearch["$text"].(bson.M)["$caseSensitive"] = false
+			textSearch["$text"].(bson.M)["$diacriticSensitive"] = false
+		}
+		matchStage = textSearch
+	}
+
+	// Category filter
+	if req.Category != "" {
+		matchStage["category"] = bson.M{"$in": strings.Split(req.Category, ",")}
+	}
+
+	// Sub-category filter
+	if req.SubCategory != "" {
+		matchStage["subCategory"] = req.SubCategory
+	}
+
+	// Price range filter
+	if req.MinPrice > 0 || req.MaxPrice > 0 {
+		priceFilter := bson.M{}
+		if req.MinPrice > 0 {
+			priceFilter["$gte"] = req.MinPrice
+		}
+		if req.MaxPrice > 0 {
+			priceFilter["$lte"] = req.MaxPrice
+		}
+		matchStage["price"] = priceFilter
+	}
+
+	// Metal type filter
+	if req.MetalType != "" {
+		matchStage["metalType"] = req.MetalType
+	}
+
+	// Gemstone type filter
+	if req.GemstoneType != "" {
+		matchStage["gemstoneType"] = req.GemstoneType
+	}
+
+	// Purity filter
+	if req.Purity != "" {
+		matchStage["purity"] = req.Purity
+	}
+
+	// Brand filter
+	if req.Brand != "" {
+		matchStage["brand"] = bson.M{"$in": strings.Split(req.Brand, ",")}
+	}
+
+	// Tags filter
+	if len(req.Tags) > 0 {
+		matchStage["tags"] = bson.M{"$in": req.Tags}
+	}
+
+	// Stock filter
+	if req.InStock != nil {
+		if *req.InStock {
+			matchStage["stockQuantity"] = bson.M{"$gt": 0}
+		}
+	}
+
+	// Featured filter
+	if req.Featured != nil {
+		matchStage["featured"] = *req.Featured
+	}
+
+	// On sale filter
+	if req.OnSale != nil {
+		if *req.OnSale {
+			matchStage["discountPercentage"] = bson.M{"$gt": 0}
+		}
+	}
+
+	// Additional filters
+	for key, value := range req.Filters {
+		matchStage[key] = value
+	}
+
+	if len(matchStage) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": matchStage})
+	}
+
+	// Add score stage for text search
+	if req.Query != "" {
+		pipeline = append(pipeline, bson.M{
+			"$addFields": bson.M{
+				"searchScore": bson.M{"$meta": "textScore"},
+			},
+		})
+	}
+
+	// Apply boosting
+	if userID != nil {
+		pipeline = append(pipeline, s.buildBoostingStage(ctx, *userID))
+	}
+
+	// Sort stage
+	sortStage := s.buildSortStage(req.SortBy, req.Query != "")
+	pipeline = append(pipeline, bson.M{"$sort": sortStage})
+
+	return pipeline, nil
+}
+
+// buildSortStage builds sort stage for pipeline
+func (s *SearchService) buildSortStage(sortBy string, hasTextSearch bool) bson.M {
+	switch sortBy {
+	case models.SortByPriceAsc:
+		return bson.M{"price": 1}
+	case models.SortByPriceDesc:
+		return bson.M{"price": -1}
+	case models.SortByNameAsc:
+		return bson.M{"name": 1}
+	case models.SortByNameDesc:
+		return bson.M{"name": -1}
+	case models.SortByRatingDesc:
+		return bson.M{"rating": -1}
+	case models.SortByNewest:
+		return bson.M{"createdAt": -1}
+	case models.SortByBestSeller:
+		return bson.M{"salesCount": -1}
+	case models.SortByDiscount:
+		return bson.M{"discountPercentage": -1}
+	case models.SortByPopularity:
+		return bson.M{"viewCount": -1}
+	default: // relevance
+		if hasTextSearch {
+			return bson.M{"searchScore": bson.M{"$meta": "textScore"}, "rating": -1}
+		}
+		return bson.M{"featured": -1, "rating": -1, "salesCount": -1}
+	}
+}
+
+// buildBoostingStage builds boosting stage based on user preferences
+func (s *SearchService) buildBoostingStage(ctx context.Context, userID primitive.ObjectID) bson.M {
+	// Get user personalization
+	personalization, err := s.searchRepo.GetPersonalization(ctx, userID)
+	if err != nil {
+		// Default boosting
+		return bson.M{
+			"$addFields": bson.M{
+				"boostScore": bson.M{
+					"$add": []interface{}{
+						bson.M{"$cond": []interface{}{bson.M{"$eq": []interface{}{"$featured", true}}, 2.0, 0}},
+						bson.M{"$cond": []interface{}{bson.M{"$gt": []interface{}{"$stockQuantity", 0}}, 1.5, 0}},
+						bson.M{"$multiply": []interface{}{"$rating", 0.2}},
+					},
+				},
+			},
+		}
+	}
+
+	// Personalized boosting
+	boostConditions := []interface{}{}
+
+	// Boost preferred categories
+	if len(personalization.PreferredCategories) > 0 {
+		boostConditions = append(boostConditions,
+			bson.M{"$cond": []interface{}{
+				bson.M{"$in": []interface{}{"$category", personalization.PreferredCategories}},
+				3.0, 0,
+			}})
+	}
+
+	// Boost preferred brands
+	if len(personalization.PreferredBrands) > 0 {
+		boostConditions = append(boostConditions,
+			bson.M{"$cond": []interface{}{
+				bson.M{"$in": []interface{}{"$brand", personalization.PreferredBrands}},
+				2.5, 0,
+			}})
+	}
+
+	// Boost viewed products
+	if len(personalization.ViewedProducts) > 0 {
+		boostConditions = append(boostConditions,
+			bson.M{"$cond": []interface{}{
+				bson.M{"$in": []interface{}{"$_id", personalization.ViewedProducts}},
+				1.5, 0,
+			}})
+	}
+
+	// Default boosts
+	boostConditions = append(boostConditions,
+		bson.M{"$cond": []interface{}{bson.M{"$eq": []interface{}{"$featured", true}}, 2.0, 0}},
+		bson.M{"$cond": []interface{}{bson.M{"$gt": []interface{}{"$stockQuantity", 0}}, 1.5, 0}},
+		bson.M{"$multiply": []interface{}{"$rating", 0.2}},
+	)
+
+	return bson.M{
+		"$addFields": bson.M{
+			"personalizedScore": bson.M{"$add": boostConditions},
+		},
+	}
+}
+
+// buildFacets builds search facets
+func (s *SearchService) buildFacets(ctx context.Context, req *models.SearchRequest) (*models.SearchFacets, error) {
+	// Build base match stage for facets (without current filters)
+	baseMatch := bson.M{}
+	if req.Query != "" {
+		baseMatch["$text"] = bson.M{"$search": req.Query}
+	}
+
+	facets := &models.SearchFacets{}
+
+	// Get category facets
+	categories, err := s.searchRepo.GetCategoryFacets(ctx, baseMatch)
+	if err == nil {
+		facets.Categories = categories
+	}
+
+	// Get brand facets
+	brands, err := s.searchRepo.GetBrandFacets(ctx, baseMatch)
+	if err == nil {
+		facets.Brands = brands
+	}
+
+	// Get metal type facets
+	metalTypes, err := s.searchRepo.GetMetalTypeFacets(ctx, baseMatch)
+	if err == nil {
+		facets.MetalTypes = metalTypes
+	}
+
+	// Get gemstone type facets
+	gemstoneTypes, err := s.searchRepo.GetGemstoneTypeFacets(ctx, baseMatch)
+	if err == nil {
+		facets.GemstoneTypes = gemstoneTypes
+	}
+
+	// Get price range facets
+	priceRanges, err := s.searchRepo.GetPriceRangeFacets(ctx, baseMatch)
+	if err == nil {
+		facets.PriceRanges = priceRanges
+	}
+
+	// Get purity facets
+	purities, err := s.searchRepo.GetPurityFacets(ctx, baseMatch)
+	if err == nil {
+		facets.Purities = purities
+	}
+
+	// Get tag facets
+	tags, err := s.searchRepo.GetTagFacets(ctx, baseMatch)
+	if err == nil {
+		facets.Tags = tags
+	}
+
+	return facets, nil
+}
+
+// getQuerySuggestions returns query suggestions for autocomplete
+func (s *SearchService) getQuerySuggestions(ctx context.Context, query string, limit int) []models.AutocompleteSuggestion {
+	suggestions := []models.AutocompleteSuggestion{}
+
+	// Get popular searches that match
+	popular, err := s.searchRepo.GetPopularSearches(ctx, "", limit*2)
+	if err == nil {
+		for _, p := range popular {
+			if strings.Contains(strings.ToLower(p.Query), strings.ToLower(query)) {
+				suggestions = append(suggestions, models.AutocompleteSuggestion{
+					Text:        p.Query,
+					Type:        "query",
+					Count:       p.Count,
+					Highlighted: highlightMatch(p.Query, query),
+				})
+			}
+		}
+	}
+
+	// Sort by relevance and limit
+	sort.Slice(suggestions, func(i, j int) bool {
+		return suggestions[i].Count > suggestions[j].Count
+	})
+
+	if len(suggestions) > limit {
+		suggestions = suggestions[:limit]
+	}
+
+	return suggestions
+}
+
+// getProductSuggestions returns product suggestions for autocomplete
+func (s *SearchService) getProductSuggestions(ctx context.Context, query, category string, limit int) []models.ProductSuggestion {
+	// Search products matching the query
+	searchReq := &models.SearchRequest{
+		Query:    query,
+		Category: category,
+		Limit:    limit,
+		SortBy:   models.SortByRelevance,
+	}
+
+	pipeline, err := s.buildSearchPipeline(ctx, searchReq, nil)
+	if err != nil {
+		return []models.ProductSuggestion{}
+	}
+
+	products, _, err := s.productRepo.SearchWithPipeline(ctx, pipeline, 1, limit)
+	if err != nil {
+		return []models.ProductSuggestion{}
+	}
+
+	suggestions := make([]models.ProductSuggestion, len(products))
+	for i, product := range products {
+		imageURL := ""
+		if len(product.Images) > 0 {
+			imageURL = product.Images[0]
+		}
+
+		suggestions[i] = models.ProductSuggestion{
+			ID:       product.ID,
+			Name:     product.Name,
+			Price:    product.Price,
+			ImageURL: imageURL,
+			Category: product.Category,
+			Brand:    product.Brand,
+			Rating:   product.Rating,
+		}
+	}
+
+	return suggestions
+}
+
+// getCategorySuggestions returns category suggestions for autocomplete
+func (s *SearchService) getCategorySuggestions(ctx context.Context, query string, limit int) []models.CategorySuggestion {
+	return s.searchRepo.GetCategorySuggestions(ctx, query, limit)
+}
+
+// getSearchSuggestions returns alternative search suggestions when no results found
+func (s *SearchService) getSearchSuggestions(ctx context.Context, query string) []string {
+	suggestions := []string{}
+
+	// Get spelling corrections
+	if s.config.EnableSpellCheck {
+		corrected := s.correctSpelling(ctx, query)
+		if corrected != query {
+			suggestions = append(suggestions, corrected)
+		}
+	}
+
+	// Get synonyms
+	synonyms := s.getSynonyms(ctx, query)
+	suggestions = append(suggestions, synonyms...)
+
+	// Get related popular searches
+	popular, err := s.searchRepo.GetPopularSearches(ctx, "", 5)
+	if err == nil {
+		for _, p := range popular {
+			if isSimilar(query, p.Query) {
+				suggestions = append(suggestions, p.Query)
+			}
+		}
+	}
+
+	return suggestions
+}
+
+// getRelatedProducts returns related products for search results
+func (s *SearchService) getRelatedProducts(ctx context.Context, req *models.SearchRequest, results []models.Product) []models.Product {
+	if len(results) == 0 {
+		return []models.Product{}
+	}
+
+	// Get categories from current results
+	categories := make(map[string]bool)
+	brands := make(map[string]bool)
+
+	for _, product := range results {
+		categories[product.Category] = true
+		brands[product.Brand] = true
+	}
+
+	// Build related search
+	categoryList := make([]string, 0, len(categories))
+	for cat := range categories {
+		categoryList = append(categoryList, cat)
+	}
+
+	relatedReq := &models.SearchRequest{
+		Category: strings.Join(categoryList, ","),
+		SortBy:   models.SortByPopularity,
+		Limit:    5,
+	}
+
+	pipeline, err := s.buildSearchPipeline(ctx, relatedReq, nil)
+	if err != nil {
+		return []models.Product{}
+	}
+
+	// Exclude current results
+	resultIDs := make([]primitive.ObjectID, len(results))
+	for i, product := range results {
+		resultIDs[i] = product.ID
+	}
+
+	pipeline = append(pipeline, bson.M{
+		"$match": bson.M{
+			"_id": bson.M{"$nin": resultIDs},
+		},
+	})
+
+	related, _, err := s.productRepo.SearchWithPipeline(ctx, pipeline, 1, 5)
+	if err != nil {
+		return []models.Product{}
+	}
+
+	return related
+}
+
+// expandQueryWithSynonyms expands query with synonyms
+func (s *SearchService) expandQueryWithSynonyms(ctx context.Context, query string) string {
+	words := strings.Fields(strings.ToLower(query))
+	expandedWords := []string{}
+
+	for _, word := range words {
+		expandedWords = append(expandedWords, word)
+		synonyms := s.getSynonyms(ctx, word)
+		expandedWords = append(expandedWords, synonyms...)
+	}
+
+	return strings.Join(expandedWords, " ")
+}
+
+// getSynonyms gets synonyms for a term
+func (s *SearchService) getSynonyms(ctx context.Context, term string) []string {
+	synonyms, err := s.searchRepo.GetSynonyms(ctx, term)
+	if err != nil {
+		return []string{}
+	}
+	return synonyms
+}
+
+// correctSpelling provides basic spelling correction
+func (s *SearchService) correctSpelling(ctx context.Context, query string) string {
+	// Basic implementation - in production, you'd use a proper spell checker
+	words := strings.Fields(query)
+	correctedWords := make([]string, len(words))
+
+	for i, word := range words {
+		corrected := s.getSpellingCorrection(ctx, word)
+		if corrected != "" {
+			correctedWords[i] = corrected
+		} else {
+			correctedWords[i] = word
+		}
+	}
+
+	return strings.Join(correctedWords, " ")
+}
+
+// getSpellingCorrection gets spelling correction for a word
+func (s *SearchService) getSpellingCorrection(ctx context.Context, word string) string {
+	// Simple implementation - check against popular terms
+	popular, err := s.searchRepo.GetPopularSearches(ctx, "", 100)
+	if err != nil {
+		return ""
+	}
+
+	bestMatch := ""
+	minDistance := 3 // Max edit distance
+
+	for _, p := range popular {
+		for _, queryWord := range strings.Fields(p.Query) {
+			distance := levenshteinDistance(strings.ToLower(word), strings.ToLower(queryWord))
+			if distance < minDistance && distance > 0 {
+				minDistance = distance
+				bestMatch = queryWord
+			}
+		}
+	}
+
+	return bestMatch
+}
+
+// getCachedResults gets cached search results
+func (s *SearchService) getCachedResults(ctx context.Context, req *models.SearchRequest) *models.SearchResponse {
+	queryHash := s.hashSearchRequest(req)
+	cached, err := s.searchRepo.GetCachedResults(ctx, queryHash)
+	if err != nil {
+		return nil
+	}
+
+	// Check if cache is still valid
+	if cached.ExpiresAt.Before(time.Now()) {
+		return nil
+	}
+
+	// Update hit count
+	s.searchRepo.UpdateCacheHit(ctx, queryHash)
+
+	return &cached.Results
+}
+
+// cacheResults caches search results
+func (s *SearchService) cacheResults(ctx context.Context, req *models.SearchRequest, response *models.SearchResponse) {
+	queryHash := s.hashSearchRequest(req)
+
+	cache := &models.SearchCache{
+		QueryHash: queryHash,
+		Query:     *req,
+		Results:   *response,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(time.Hour), // Cache for 1 hour
+		HitCount:  0,
+		LastHit:   time.Now(),
+	}
+
+	s.searchRepo.CacheResults(ctx, cache)
+}
+
+// hashSearchRequest creates a hash for search request
+func (s *SearchService) hashSearchRequest(req *models.SearchRequest) string {
+	data := fmt.Sprintf("%s|%s|%s|%.2f|%.2f|%s|%s|%s|%s|%v|%v|%v|%s|%d|%d",
+		req.Query, req.Category, req.SubCategory, req.MinPrice, req.MaxPrice,
+		req.MetalType, req.GemstoneType, req.Purity, req.Brand,
+		req.InStock, req.Featured, req.OnSale, req.SortBy, req.Page, req.Limit)
+
+	hash := md5.Sum([]byte(data))
+	return fmt.Sprintf("%x", hash)
+}
+
+// recordSearchAnalytics records search analytics
+func (s *SearchService) recordSearchAnalytics(ctx context.Context, req *models.SearchRequest, response *models.SearchResponse, userID *primitive.ObjectID, duration time.Duration) {
+	if !s.config.AnalyticsEnabled {
+		return
+	}
+
+	analytics := &models.SearchAnalytics{
+		Query:       req.Query,
+		UserID:      userID,
+		SessionID:   generateSessionID(),
+		ResultCount: response.Total,
+		Filters:     req.Filters,
+		SearchTime:  duration.Milliseconds(),
+		Timestamp:   time.Now(),
+	}
+
+	s.searchRepo.RecordSearchAnalytics(ctx, analytics)
+
+	// Update popular searches
+	s.searchRepo.UpdatePopularSearch(ctx, req.Query, req.Category)
+}
+
+// buildPersonalizedPipeline builds personalized search pipeline
+func (s *SearchService) buildPersonalizedPipeline(ctx context.Context, req *models.SearchRequest, personalization *models.SearchPersonalization) ([]bson.M, error) {
+	pipeline, err := s.buildSearchPipeline(ctx, req, &personalization.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add personalized boosting
+	personalizedBoost := bson.M{
+		"$addFields": bson.M{
+			"personalizedScore": bson.M{
+				"$add": []interface{}{
+					// Boost based on viewed products
+					bson.M{"$cond": []interface{}{
+						bson.M{"$in": []interface{}{"$_id", personalization.ViewedProducts}},
+						5.0, 0,
+					}},
+					// Boost based on preferred categories
+					bson.M{"$cond": []interface{}{
+						bson.M{"$in": []interface{}{"$category", personalization.PreferredCategories}},
+						3.0, 0,
+					}},
+					// Boost based on preferred brands
+					bson.M{"$cond": []interface{}{
+						bson.M{"$in": []interface{}{"$brand", personalization.PreferredBrands}},
+						2.0, 0,
+					}},
+				},
+			},
+		},
+	}
+
+	pipeline = append(pipeline, personalizedBoost)
+
+	// Update sort to include personalized score
+	pipeline = append(pipeline, bson.M{
+		"$sort": bson.M{
+			"personalizedScore": -1,
+			"rating":           -1,
+			"salesCount":       -1,
+		},
+	})
+
+	return pipeline, nil
+}
+
+// Helper functions
+
+func highlightMatch(text, query string) string {
+	re := regexp.MustCompile("(?i)" + regexp.QuoteMeta(query))
+	return re.ReplaceAllStringFunc(text, func(match string) string {
+		return "<mark>" + match + "</mark>"
+	})
+}
+
+func isSimilar(a, b string) bool {
+	distance := levenshteinDistance(strings.ToLower(a), strings.ToLower(b))
+	maxLen := math.Max(float64(len(a)), float64(len(b)))
+	similarity := 1.0 - float64(distance)/maxLen
+	return similarity > 0.6
+}
+
+func levenshteinDistance(a, b string) int {
+	if len(a) == 0 {
+		return len(b)
+	}
+	if len(b) == 0 {
+		return len(a)
+	}
+
+	matrix := make([][]int, len(a)+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len(b)+1)
+		matrix[i][0] = i
+	}
+
+	for j := 1; j <= len(b); j++ {
+		matrix[0][j] = j
+	}
+
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			cost := 0
+			if a[i-1] != b[j-1] {
+				cost = 1
+			}
+
+			matrix[i][j] = int(math.Min(
+				math.Min(float64(matrix[i-1][j]+1), float64(matrix[i][j-1]+1)),
+				float64(matrix[i-1][j-1]+cost),
+			))
+		}
+	}
+
+	return matrix[len(a)][len(b)]
+}
+
+func generateSessionID() string {
+	return fmt.Sprintf("session_%d_%d", time.Now().Unix(), time.Now().Nanosecond())
+}

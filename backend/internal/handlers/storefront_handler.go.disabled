@@ -1,0 +1,829 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"thyne-jewels-backend/internal/models"
+	"thyne-jewels-backend/internal/services"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+// StorefrontHandler handles storefront configuration endpoints
+type StorefrontHandler struct {
+	storefrontService *services.StorefrontService
+}
+
+// NewStorefrontHandler creates a new storefront handler
+func NewStorefrontHandler(storefrontService *services.StorefrontService) *StorefrontHandler {
+	return &StorefrontHandler{
+		storefrontService: storefrontService,
+	}
+}
+
+// GetStorefrontConfig gets the current storefront configuration
+// @Summary Get storefront configuration
+// @Description Get the current storefront configuration
+// @Tags storefront
+// @Produce json
+// @Success 200 {object} models.StorefrontConfig
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/config [get]
+func (h *StorefrontHandler) GetStorefrontConfig(c *gin.Context) {
+	config, err := h.storefrontService.GetStorefrontConfig(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    config,
+	})
+}
+
+// UpdateStorefrontConfigRequest represents a storefront config update request
+type UpdateStorefrontConfigRequest struct {
+	HomePage           models.HomePageConfig         `json:"homePage" binding:"required"`
+	CategoryVisibility []models.CategoryVisibility   `json:"categoryVisibility" binding:"required"`
+	PromotionalBanners models.PromotionalBanners     `json:"promotionalBanners" binding:"required"`
+	ThemeConfig        models.ThemeConfig            `json:"themeConfig" binding:"required"`
+	FeatureFlags       models.FeatureFlags           `json:"featureFlags" binding:"required"`
+}
+
+// UpdateStorefrontConfig updates the storefront configuration (Admin only)
+// @Summary Update storefront configuration
+// @Description Update the storefront configuration (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateStorefrontConfigRequest true "Storefront config update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/config [put]
+func (h *StorefrontHandler) UpdateStorefrontConfig(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req UpdateStorefrontConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	config := &models.StorefrontConfig{
+		HomePage:           req.HomePage,
+		CategoryVisibility: req.CategoryVisibility,
+		PromotionalBanners: req.PromotionalBanners,
+		ThemeConfig:        req.ThemeConfig,
+		FeatureFlags:       req.FeatureFlags,
+	}
+
+	// Validate configuration
+	if err := h.storefrontService.ValidateStorefrontConfig(config); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.storefrontService.UpdateStorefrontConfig(c.Request.Context(), config, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Storefront configuration updated successfully",
+	})
+}
+
+// GetHomePageConfig gets homepage configuration with resolved data
+// @Summary Get homepage configuration
+// @Description Get homepage configuration with resolved data
+// @Tags storefront
+// @Produce json
+// @Success 200 {object} models.HomePageConfig
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/homepage [get]
+func (h *StorefrontHandler) GetHomePageConfig(c *gin.Context) {
+	config, err := h.storefrontService.GetHomePageConfig(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    config,
+	})
+}
+
+// GetFeaturedProducts gets featured products based on configuration
+// @Summary Get featured products
+// @Description Get featured products based on storefront configuration
+// @Tags storefront
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.Product
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/featured-products [get]
+func (h *StorefrontHandler) GetFeaturedProducts(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	products, err := h.storefrontService.GetFeaturedProducts(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    products,
+	})
+}
+
+// GetNewArrivals gets new arrival products if enabled
+// @Summary Get new arrivals
+// @Description Get new arrival products if enabled in configuration
+// @Tags storefront
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.Product
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/new-arrivals [get]
+func (h *StorefrontHandler) GetNewArrivals(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	products, err := h.storefrontService.GetNewArrivals(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    products,
+	})
+}
+
+// GetBestSellers gets best selling products if enabled
+// @Summary Get best sellers
+// @Description Get best selling products if enabled in configuration
+// @Tags storefront
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.Product
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/best-sellers [get]
+func (h *StorefrontHandler) GetBestSellers(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	products, err := h.storefrontService.GetBestSellers(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    products,
+	})
+}
+
+// GetVisibleCategories gets categories that are configured to be visible
+// @Summary Get visible categories
+// @Description Get categories that are configured to be visible
+// @Tags storefront
+// @Produce json
+// @Success 200 {array} models.CategoryVisibility
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/categories [get]
+func (h *StorefrontHandler) GetVisibleCategories(c *gin.Context) {
+	categories, err := h.storefrontService.GetVisibleCategories(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    categories,
+	})
+}
+
+// CreateHeroBannerRequest represents a hero banner creation request
+type CreateHeroBannerRequest struct {
+	ImageURL  string     `json:"imageUrl" binding:"required"`
+	Title     *string    `json:"title,omitempty"`
+	Subtitle  *string    `json:"subtitle,omitempty"`
+	CTAText   *string    `json:"ctaText,omitempty"`
+	CTALink   *string    `json:"ctaLink,omitempty"`
+	Order     int        `json:"order" binding:"required"`
+	IsActive  bool       `json:"isActive"`
+	StartDate *time.Time `json:"startDate,omitempty"`
+	EndDate   *time.Time `json:"endDate,omitempty"`
+}
+
+// CreateHeroBanner creates a new hero banner (Admin only)
+// @Summary Create hero banner
+// @Description Create a new hero banner (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body CreateHeroBannerRequest true "Hero banner creation request"
+// @Success 201 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/hero-banners [post]
+func (h *StorefrontHandler) CreateHeroBanner(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req CreateHeroBannerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	banner := &models.HeroBanner{
+		ImageURL:  req.ImageURL,
+		Title:     req.Title,
+		Subtitle:  req.Subtitle,
+		CTAText:   req.CTAText,
+		CTALink:   req.CTALink,
+		Order:     req.Order,
+		IsActive:  req.IsActive,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+	}
+
+	err := h.storefrontService.CreateHeroBanner(c.Request.Context(), banner, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Success: true,
+		Message: "Hero banner created successfully",
+	})
+}
+
+// UpdateHeroBanner updates an existing hero banner (Admin only)
+// @Summary Update hero banner
+// @Description Update an existing hero banner (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Banner ID"
+// @Param request body CreateHeroBannerRequest true "Hero banner update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/hero-banners/{id} [put]
+func (h *StorefrontHandler) UpdateHeroBanner(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	bannerID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid banner ID"})
+		return
+	}
+
+	var req CreateHeroBannerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	banner := &models.HeroBanner{
+		ImageURL:  req.ImageURL,
+		Title:     req.Title,
+		Subtitle:  req.Subtitle,
+		CTAText:   req.CTAText,
+		CTALink:   req.CTALink,
+		Order:     req.Order,
+		IsActive:  req.IsActive,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+	}
+
+	err = h.storefrontService.UpdateHeroBanner(c.Request.Context(), bannerID, banner, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Hero banner updated successfully",
+	})
+}
+
+// DeleteHeroBanner deletes a hero banner (Admin only)
+// @Summary Delete hero banner
+// @Description Delete a hero banner (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Param id path string true "Banner ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/hero-banners/{id} [delete]
+func (h *StorefrontHandler) DeleteHeroBanner(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	bannerID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid banner ID"})
+		return
+	}
+
+	err = h.storefrontService.DeleteHeroBanner(c.Request.Context(), bannerID, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Hero banner deleted successfully",
+	})
+}
+
+// UpdateCategoryVisibilityRequest represents a category visibility update request
+type UpdateCategoryVisibilityRequest struct {
+	Categories []models.CategoryVisibility `json:"categories" binding:"required"`
+}
+
+// UpdateCategoryVisibility updates category visibility settings (Admin only)
+// @Summary Update category visibility
+// @Description Update category visibility settings (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateCategoryVisibilityRequest true "Category visibility update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/categories/visibility [put]
+func (h *StorefrontHandler) UpdateCategoryVisibility(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req UpdateCategoryVisibilityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.storefrontService.UpdateCategoryVisibility(c.Request.Context(), req.Categories, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Category visibility updated successfully",
+	})
+}
+
+// UpdatePromotionalBannersRequest represents a promotional banners update request
+type UpdatePromotionalBannersRequest struct {
+	models.PromotionalBanners
+}
+
+// UpdatePromotionalBanners updates promotional banner settings (Admin only)
+// @Summary Update promotional banners
+// @Description Update promotional banner settings (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdatePromotionalBannersRequest true "Promotional banners update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/promotional-banners [put]
+func (h *StorefrontHandler) UpdatePromotionalBanners(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req UpdatePromotionalBannersRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.storefrontService.UpdatePromotionalBanners(c.Request.Context(), &req.PromotionalBanners, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Promotional banners updated successfully",
+	})
+}
+
+// UpdateThemeConfigRequest represents a theme config update request
+type UpdateThemeConfigRequest struct {
+	models.ThemeConfig
+}
+
+// UpdateThemeConfig updates theme configuration (Admin only)
+// @Summary Update theme configuration
+// @Description Update theme configuration (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateThemeConfigRequest true "Theme config update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/theme [put]
+func (h *StorefrontHandler) UpdateThemeConfig(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req UpdateThemeConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.storefrontService.UpdateThemeConfig(c.Request.Context(), &req.ThemeConfig, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Theme configuration updated successfully",
+	})
+}
+
+// UpdateFeatureFlagsRequest represents a feature flags update request
+type UpdateFeatureFlagsRequest struct {
+	models.FeatureFlags
+}
+
+// UpdateFeatureFlags updates feature flags (Admin only)
+// @Summary Update feature flags
+// @Description Update feature flags (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body UpdateFeatureFlagsRequest true "Feature flags update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/features [put]
+func (h *StorefrontHandler) UpdateFeatureFlags(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req UpdateFeatureFlagsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.storefrontService.UpdateFeatureFlags(c.Request.Context(), &req.FeatureFlags, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Feature flags updated successfully",
+	})
+}
+
+// CheckFeature checks if a specific feature is enabled
+// @Summary Check feature status
+// @Description Check if a specific feature is enabled
+// @Tags storefront
+// @Param feature path string true "Feature name"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/features/{feature} [get]
+func (h *StorefrontHandler) CheckFeature(c *gin.Context) {
+	feature := c.Param("feature")
+	if feature == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Feature name is required"})
+		return
+	}
+
+	enabled, err := h.storefrontService.IsFeatureEnabled(c.Request.Context(), feature)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"feature": feature,
+			"enabled": enabled,
+		},
+	})
+}
+
+// GetActivePopupBanners gets currently active popup banners
+// @Summary Get active popup banners
+// @Description Get currently active popup banners
+// @Tags storefront
+// @Produce json
+// @Success 200 {array} models.PopupBanner
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/popup-banners [get]
+func (h *StorefrontHandler) GetActivePopupBanners(c *gin.Context) {
+	banners, err := h.storefrontService.GetActivePopupBanners(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    banners,
+	})
+}
+
+// RecordAnalyticsRequest represents an analytics recording request
+type RecordAnalyticsRequest struct {
+	Type string `json:"type" binding:"required"` // "banner_click", "section_view", "feature_usage"
+	ID   string `json:"id" binding:"required"`   // Banner ID, section name, or feature name
+}
+
+// RecordAnalytics records analytics data for storefront
+// @Summary Record analytics
+// @Description Record analytics data for storefront interactions
+// @Tags storefront
+// @Accept json
+// @Produce json
+// @Param request body RecordAnalyticsRequest true "Analytics recording request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/analytics [post]
+func (h *StorefrontHandler) RecordAnalytics(c *gin.Context) {
+	var req RecordAnalyticsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	var err error
+	switch req.Type {
+	case "banner_click":
+		err = h.storefrontService.RecordBannerClick(c.Request.Context(), req.ID)
+	case "section_view":
+		err = h.storefrontService.RecordSectionView(c.Request.Context(), req.ID)
+	case "feature_usage":
+		err = h.storefrontService.RecordFeatureUsage(c.Request.Context(), req.ID)
+	default:
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid analytics type"})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Analytics recorded successfully",
+	})
+}
+
+// GetStorefrontAnalytics gets storefront analytics data (Admin only)
+// @Summary Get storefront analytics
+// @Description Get storefront analytics data (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Param start_date query string false "Start date (YYYY-MM-DD)"
+// @Param end_date query string false "End date (YYYY-MM-DD)"
+// @Success 200 {array} models.StorefrontAnalytics
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/analytics [get]
+func (h *StorefrontHandler) GetStorefrontAnalytics(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	// Parse dates
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	var startDate, endDate time.Time
+	var err error
+
+	if startDateStr != "" {
+		startDate, err = time.Parse("2006-01-02", startDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid start date format"})
+			return
+		}
+	} else {
+		startDate = time.Now().AddDate(0, 0, -30) // Default to 30 days ago
+	}
+
+	if endDateStr != "" {
+		endDate, err = time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid end date format"})
+			return
+		}
+	} else {
+		endDate = time.Now() // Default to now
+	}
+
+	analytics, err := h.storefrontService.GetStorefrontAnalytics(c.Request.Context(), startDate, endDate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    analytics,
+	})
+}
+
+// GetConfigurationHistory gets configuration change history (Admin only)
+// @Summary Get configuration history
+// @Description Get storefront configuration change history (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.StorefrontConfig
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/config/history [get]
+func (h *StorefrontHandler) GetConfigurationHistory(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	history, err := h.storefrontService.GetConfigurationHistory(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    history,
+	})
+}
+
+// RevertConfigRequest represents a config revert request
+type RevertConfigRequest struct {
+	Version int `json:"version" binding:"required"`
+}
+
+// RevertToConfigVersion reverts to a specific configuration version (Admin only)
+// @Summary Revert configuration
+// @Description Revert to a specific storefront configuration version (Admin only)
+// @Tags storefront
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body RevertConfigRequest true "Config revert request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /storefront/config/revert [post]
+func (h *StorefrontHandler) RevertToConfigVersion(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	adminID := c.GetString("userID")
+	adminObjectID, _ := primitive.ObjectIDFromHex(adminID)
+
+	var req RevertConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.storefrontService.RevertToConfigVersion(c.Request.Context(), req.Version, adminObjectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Configuration reverted successfully",
+	})
+}

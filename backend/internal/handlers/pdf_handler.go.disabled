@@ -1,0 +1,496 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"thyne-jewels-backend/internal/models"
+	"thyne-jewels-backend/internal/services"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+// PDFHandler handles PDF generation and tracking endpoints
+type PDFHandler struct {
+	pdfService *services.PDFService
+}
+
+// NewPDFHandler creates a new PDF handler
+func NewPDFHandler(pdfService *services.PDFService) *PDFHandler {
+	return &PDFHandler{
+		pdfService: pdfService,
+	}
+}
+
+// GenerateInvoice generates an invoice PDF for an order
+// @Summary Generate invoice
+// @Description Generate invoice PDF for an order
+// @Tags pdf
+// @Security BearerAuth
+// @Produce json
+// @Param orderId path string true "Order ID"
+// @Success 200 {object} models.PDFDocument
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /pdf/invoice/{orderId} [post]
+func (h *PDFHandler) GenerateInvoice(c *gin.Context) {
+	orderIDStr := c.Param("orderId")
+	orderID, err := primitive.ObjectIDFromHex(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid order ID"})
+		return
+	}
+
+	pdfDoc, err := h.pdfService.GenerateInvoice(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    pdfDoc,
+		Message: "Invoice generated successfully",
+	})
+}
+
+// GenerateWarranty generates a warranty certificate PDF
+// @Summary Generate warranty certificate
+// @Description Generate warranty certificate PDF
+// @Tags pdf
+// @Security BearerAuth
+// @Produce json
+// @Param warrantyId path string true "Warranty ID"
+// @Success 200 {object} models.PDFDocument
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /pdf/warranty/{warrantyId} [post]
+func (h *PDFHandler) GenerateWarranty(c *gin.Context) {
+	warrantyIDStr := c.Param("warrantyId")
+	warrantyID, err := primitive.ObjectIDFromHex(warrantyIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid warranty ID"})
+		return
+	}
+
+	pdfDoc, err := h.pdfService.GenerateWarrantyCertificate(c.Request.Context(), warrantyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    pdfDoc,
+		Message: "Warranty certificate generated successfully",
+	})
+}
+
+// GetUserPDFs gets all PDFs for a user
+// @Summary Get user PDFs
+// @Description Get all PDFs generated for the authenticated user
+// @Tags pdf
+// @Security BearerAuth
+// @Produce json
+// @Param type query string false "PDF type filter"
+// @Success 200 {array} models.PDFDocument
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /pdf/my [get]
+func (h *PDFHandler) GetUserPDFs(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "User not authenticated"})
+		return
+	}
+
+	pdfType := c.Query("type")
+
+	pdfs, err := h.pdfService.GetUserPDFs(c.Request.Context(), userID.(primitive.ObjectID), pdfType)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    pdfs,
+	})
+}
+
+// DownloadPDF downloads a PDF file
+// @Summary Download PDF
+// @Description Download a PDF file by ID
+// @Tags pdf
+// @Security BearerAuth
+// @Produce json
+// @Param pdfId path string true "PDF ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /pdf/download/{pdfId} [get]
+func (h *PDFHandler) DownloadPDF(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "User not authenticated"})
+		return
+	}
+
+	pdfIDStr := c.Param("pdfId")
+	pdfID, err := primitive.ObjectIDFromHex(pdfIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid PDF ID"})
+		return
+	}
+
+	fileURL, err := h.pdfService.DownloadPDF(c.Request.Context(), pdfID, userID.(primitive.ObjectID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    gin.H{"downloadUrl": fileURL},
+		Message: "PDF ready for download",
+	})
+}
+
+// SendInvoiceEmail sends invoice via email
+// @Summary Send invoice email
+// @Description Send invoice PDF via email
+// @Tags pdf
+// @Security BearerAuth
+// @Produce json
+// @Param orderId path string true "Order ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /pdf/invoice/{orderId}/email [post]
+func (h *PDFHandler) SendInvoiceEmail(c *gin.Context) {
+	orderIDStr := c.Param("orderId")
+	orderID, err := primitive.ObjectIDFromHex(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid order ID"})
+		return
+	}
+
+	err = h.pdfService.SendInvoiceEmail(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Invoice sent via email successfully",
+	})
+}
+
+// GetOrderTracking gets order tracking information
+// @Summary Get order tracking
+// @Description Get tracking information for an order
+// @Tags tracking
+// @Security BearerAuth
+// @Produce json
+// @Param orderId path string true "Order ID"
+// @Success 200 {object} models.OrderTracking
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /tracking/{orderId} [get]
+func (h *PDFHandler) GetOrderTracking(c *gin.Context) {
+	orderIDStr := c.Param("orderId")
+	orderID, err := primitive.ObjectIDFromHex(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid order ID"})
+		return
+	}
+
+	tracking, err := h.pdfService.GetOrderTracking(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "Tracking information not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Data:    tracking,
+	})
+}
+
+// UpdateTrackingRequest represents a tracking update request
+type UpdateTrackingRequest struct {
+	TrackingID      string `json:"trackingId" binding:"required"`
+	Carrier         string `json:"carrier" binding:"required"`
+	Service         string `json:"service"`
+	Status          string `json:"status" binding:"required"`
+	CurrentLocation string `json:"currentLocation"`
+	EstimatedDelivery string `json:"estimatedDelivery"`
+}
+
+// UpdateOrderTracking updates order tracking information (Admin only)
+// @Summary Update order tracking
+// @Description Update tracking information for an order (Admin only)
+// @Tags tracking
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param orderId path string true "Order ID"
+// @Param request body UpdateTrackingRequest true "Tracking update request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tracking/{orderId} [put]
+func (h *PDFHandler) UpdateOrderTracking(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	orderIDStr := c.Param("orderId")
+	orderID, err := primitive.ObjectIDFromHex(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid order ID"})
+		return
+	}
+
+	var req UpdateTrackingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Get existing tracking or create new
+	tracking, err := h.pdfService.GetOrderTracking(c.Request.Context(), orderID)
+	if err != nil {
+		// Create new tracking
+		tracking = &models.OrderTracking{
+			ID:      primitive.NewObjectID(),
+			OrderID: orderID,
+			Events:  []models.TrackingEvent{},
+		}
+	}
+
+	// Parse estimated delivery
+	estimatedDelivery, err := parseDate(req.EstimatedDelivery)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid estimated delivery date"})
+		return
+	}
+
+	// Update tracking info
+	tracking.TrackingID = req.TrackingID
+	tracking.Carrier = req.Carrier
+	tracking.Service = req.Service
+	tracking.Status = req.Status
+	tracking.CurrentLocation = req.CurrentLocation
+	tracking.EstimatedDelivery = estimatedDelivery
+
+	err = h.pdfService.UpdateOrderTracking(c.Request.Context(), tracking)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Tracking information updated successfully",
+	})
+}
+
+// AddTrackingEventRequest represents a tracking event request
+type AddTrackingEventRequest struct {
+	Status      string `json:"status" binding:"required"`
+	Description string `json:"description" binding:"required"`
+	Location    string `json:"location"`
+	IsDelivered bool   `json:"isDelivered"`
+	IsMilestone bool   `json:"isMilestone"`
+	SignedBy    string `json:"signedBy"`
+	Notes       string `json:"notes"`
+}
+
+// AddTrackingEvent adds a tracking event (Admin only)
+// @Summary Add tracking event
+// @Description Add a new tracking event for an order (Admin only)
+// @Tags tracking
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param orderId path string true "Order ID"
+// @Param request body AddTrackingEventRequest true "Tracking event request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tracking/{orderId}/events [post]
+func (h *PDFHandler) AddTrackingEvent(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	orderIDStr := c.Param("orderId")
+	orderID, err := primitive.ObjectIDFromHex(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid order ID"})
+		return
+	}
+
+	var req AddTrackingEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	event := &models.TrackingEvent{
+		Status:      req.Status,
+		Description: req.Description,
+		Location:    req.Location,
+		IsDelivered: req.IsDelivered,
+		IsMilestone: req.IsMilestone,
+		SignedBy:    req.SignedBy,
+		Notes:       req.Notes,
+	}
+
+	err = h.pdfService.AddTrackingEvent(c.Request.Context(), orderID, event)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Tracking event added successfully",
+	})
+}
+
+// CreateWarrantyRequest represents a warranty creation request
+type CreateWarrantyRequest struct {
+	OrderID         string               `json:"orderId" binding:"required"`
+	ProductID       string               `json:"productId" binding:"required"`
+	UserID          string               `json:"userId" binding:"required"`
+	WarrantyType    string               `json:"warrantyType" binding:"required"`
+	WarrantyStart   string               `json:"warrantyStart" binding:"required"`
+	WarrantyEnd     string               `json:"warrantyEnd" binding:"required"`
+	CoverageDetails []models.CoverageDetail `json:"coverageDetails"`
+	Terms           []string             `json:"terms"`
+	Exclusions      []string             `json:"exclusions"`
+}
+
+// CreateWarranty creates a new warranty record (Admin only)
+// @Summary Create warranty
+// @Description Create a new warranty record (Admin only)
+// @Tags warranty
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body CreateWarrantyRequest true "Warranty creation request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /warranty [post]
+func (h *PDFHandler) CreateWarranty(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "Admin access required"})
+		return
+	}
+
+	var req CreateWarrantyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Parse ObjectIDs
+	orderID, err := primitive.ObjectIDFromHex(req.OrderID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid order ID"})
+		return
+	}
+
+	productID, err := primitive.ObjectIDFromHex(req.ProductID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid product ID"})
+		return
+	}
+
+	userID, err := primitive.ObjectIDFromHex(req.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
+
+	// Parse dates
+	warrantyStart, err := parseDate(req.WarrantyStart)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid warranty start date"})
+		return
+	}
+
+	warrantyEnd, err := parseDate(req.WarrantyEnd)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid warranty end date"})
+		return
+	}
+
+	// Generate warranty number
+	warrantyNumber := generateWarrantyNumber(orderID, productID)
+
+	warranty := &models.WarrantyInfo{
+		OrderID:         orderID,
+		ProductID:       productID,
+		UserID:          userID,
+		WarrantyNumber:  warrantyNumber,
+		WarrantyType:    req.WarrantyType,
+		PurchaseDate:    warrantyStart, // Assuming purchase date is warranty start
+		WarrantyStart:   warrantyStart,
+		WarrantyEnd:     warrantyEnd,
+		CoverageDetails: req.CoverageDetails,
+		Terms:           req.Terms,
+		Exclusions:      req.Exclusions,
+	}
+
+	err = h.pdfService.CreateWarranty(c.Request.Context(), warranty)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Success: true,
+		Message: "Warranty created successfully",
+		Data:    warranty,
+	})
+}
+
+// Helper functions
+
+func parseDate(dateStr string) (time.Time, error) {
+	if dateStr == "" {
+		return time.Time{}, fmt.Errorf("date string is empty")
+	}
+	return time.Parse("2006-01-02", dateStr)
+}
+
+func generateWarrantyNumber(orderID, productID primitive.ObjectID) string {
+	return fmt.Sprintf("WTY-%s-%s-%d",
+		orderID.Hex()[:8],
+		productID.Hex()[:8],
+		time.Now().Unix())
+}

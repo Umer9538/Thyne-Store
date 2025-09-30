@@ -1,0 +1,272 @@
+package repository
+
+import (
+	"context"
+	"time"
+
+	"thyne-jewels-backend/internal/models"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+// UserRepository defines user data access methods
+type UserRepository interface {
+	Create(ctx context.Context, user *models.User) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByPhone(ctx context.Context, phone string) (*models.User, error)
+	Update(ctx context.Context, user *models.User) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	List(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.User, int64, error)
+	GetUserStatistics(ctx context.Context) (*models.UserStatistics, error)
+	GetRecentUsers(ctx context.Context, limit int) ([]models.User, error)
+	ExportUsers(ctx context.Context, format string, startDate, endDate time.Time, filters map[string]interface{}) (string, error)
+	GetAuditLogs(ctx context.Context, page, limit int, action, userID string) ([]models.AuditLog, int64, error)
+	CreateAuditLog(ctx context.Context, log *models.AuditLog) error
+}
+
+// ProductRepository defines product data access methods
+type ProductRepository interface {
+	Create(ctx context.Context, product *models.Product) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Product, error)
+	GetBySKU(ctx context.Context, sku string) (*models.Product, error)
+	Update(ctx context.Context, product *models.Product) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	List(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.Product, int64, error)
+	GetByIDs(ctx context.Context, ids []primitive.ObjectID) ([]models.Product, error)
+	GetFeaturedProducts(ctx context.Context, limit int) ([]models.Product, error)
+	GetNewArrivals(ctx context.Context, limit int) ([]models.Product, error)
+	GetBestSellers(ctx context.Context, limit int) ([]models.Product, error)
+	GetPopularProducts(ctx context.Context, limit int) ([]models.Product, error)
+	SearchWithPipeline(ctx context.Context, pipeline []interface{}, page, limit int) ([]models.Product, int64, error)
+	GetProductStatistics(ctx context.Context) (*models.ProductStatistics, error)
+	GetRecentProducts(ctx context.Context, limit int) ([]models.Product, error)
+	ExportProducts(ctx context.Context, format string, filters map[string]interface{}) (string, error)
+	UpdateStock(ctx context.Context, productID primitive.ObjectID, quantity int) error
+	GetByCategory(ctx context.Context, category string, page, limit int) ([]models.Product, int64, error)
+}
+
+// OrderRepository defines order data access methods
+type OrderRepository interface {
+	Create(ctx context.Context, order *models.Order) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Order, error)
+	GetByOrderNumber(ctx context.Context, orderNumber string) (*models.Order, error)
+	Update(ctx context.Context, order *models.Order) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	GetUserOrders(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Order, int64, error)
+	List(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.Order, int64, error)
+	GetOrderStatistics(ctx context.Context) (*models.OrderStatistics, error)
+	GetRecentOrders(ctx context.Context, limit int) ([]models.Order, error)
+	ExportOrders(ctx context.Context, format string, startDate, endDate time.Time, filters map[string]interface{}) (string, error)
+	UpdateStatus(ctx context.Context, orderID primitive.ObjectID, status string) error
+	GetOrdersByStatus(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error)
+}
+
+// LoyaltyRepository defines loyalty program data access methods
+type LoyaltyRepository interface {
+	CreateProgram(ctx context.Context, program *models.LoyaltyProgram) error
+	GetProgramByUserID(ctx context.Context, userID primitive.ObjectID) (*models.LoyaltyProgram, error)
+	UpdateProgram(ctx context.Context, program *models.LoyaltyProgram) error
+	AddTransaction(ctx context.Context, transaction *models.PointTransaction) error
+	GetTransactionHistory(ctx context.Context, userID primitive.ObjectID, limit, offset int) ([]models.PointTransaction, error)
+	GetConfig(ctx context.Context) (*models.LoyaltyConfig, error)
+	UpdateConfig(ctx context.Context, config *models.LoyaltyConfig) error
+	GetLoyaltyStatistics(ctx context.Context) (*models.LoyaltyStatistics, error)
+	ExportLoyaltyData(ctx context.Context, format string, startDate, endDate time.Time) (string, error)
+	GetTopLoyaltyMembers(ctx context.Context, limit int) ([]models.TopLoyaltyMember, error)
+}
+
+// NotificationRepository defines notification data access methods
+type NotificationRepository interface {
+	Create(ctx context.Context, notification *models.Notification) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Notification, error)
+	Update(ctx context.Context, notification *models.Notification) error
+	GetUserNotifications(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Notification, int64, error)
+	MarkAsRead(ctx context.Context, id primitive.ObjectID) error
+	MarkAllAsRead(ctx context.Context, userID primitive.ObjectID) error
+	GetUnreadCount(ctx context.Context, userID primitive.ObjectID) (int64, error)
+	CreateFCMToken(ctx context.Context, token *models.FCMToken) error
+	GetFCMTokensByUserID(ctx context.Context, userID primitive.ObjectID) ([]models.FCMToken, error)
+	UpdateFCMToken(ctx context.Context, token *models.FCMToken) error
+	DeleteFCMToken(ctx context.Context, tokenValue string) error
+	CreateCampaign(ctx context.Context, campaign *models.NotificationCampaign) error
+	GetCampaignByID(ctx context.Context, id primitive.ObjectID) (*models.NotificationCampaign, error)
+	UpdateCampaign(ctx context.Context, campaign *models.NotificationCampaign) error
+	GetCampaigns(ctx context.Context, page, limit int) ([]models.NotificationCampaign, int64, error)
+	GetUserPreferences(ctx context.Context, userID primitive.ObjectID) (*models.NotificationPreferences, error)
+	UpdateUserPreferences(ctx context.Context, preferences *models.NotificationPreferences) error
+	GetNotificationStatistics(ctx context.Context) (*models.NotificationStatistics, error)
+	CreateTemplate(ctx context.Context, template *models.NotificationTemplate) error
+	GetTemplateByType(ctx context.Context, templateType string) (*models.NotificationTemplate, error)
+}
+
+// StorefrontRepository defines storefront configuration data access methods
+type StorefrontRepository interface {
+	GetConfig(ctx context.Context) (*models.StorefrontConfig, error)
+	CreateConfig(ctx context.Context, config *models.StorefrontConfig) error
+	UpdateConfig(ctx context.Context, config *models.StorefrontConfig) error
+	GetConfigHistory(ctx context.Context, limit int) ([]models.StorefrontConfig, error)
+	GetConfigByVersion(ctx context.Context, version int) (*models.StorefrontConfig, error)
+	CreatePopupBanner(ctx context.Context, banner *models.PopupBanner) error
+	GetActivePopupBanners(ctx context.Context) ([]models.PopupBanner, error)
+	UpdateMenuConfig(ctx context.Context, menuConfig *models.MenuConfig) error
+	GetMenuConfig(ctx context.Context) (*models.MenuConfig, error)
+	UpdateSEOConfig(ctx context.Context, seoConfig *models.SEOConfig) error
+	GetSEOConfig(ctx context.Context) (*models.SEOConfig, error)
+	RecordBannerClick(ctx context.Context, bannerID string) error
+	RecordSectionView(ctx context.Context, sectionName string) error
+	RecordFeatureUsage(ctx context.Context, feature string) error
+	GetAnalytics(ctx context.Context, startDate, endDate time.Time) ([]models.StorefrontAnalytics, error)
+	GetBusinessConfig(ctx context.Context) (*models.BusinessConfig, error)
+	UpdateBusinessConfig(ctx context.Context, config *models.BusinessConfig) error
+}
+
+// SearchRepository defines search data access methods
+type SearchRepository interface {
+	GetPopularSearches(ctx context.Context, category string, limit int) ([]models.PopularSearch, error)
+	GetTrendingSearches(ctx context.Context, period string, limit int) ([]models.TrendingSearch, error)
+	UpdatePopularSearch(ctx context.Context, query, category string) error
+	RecordSearchAnalytics(ctx context.Context, analytics *models.SearchAnalytics) error
+	GetSearchAnalytics(ctx context.Context, startDate, endDate time.Time) ([]models.SearchAnalytics, error)
+	CreateSynonym(ctx context.Context, synonym *models.SearchSynonym) error
+	GetSynonyms(ctx context.Context, term string) ([]string, error)
+	UpdateSearchConfig(ctx context.Context, config *models.SearchConfig) error
+	GetSearchConfig(ctx context.Context) (*models.SearchConfig, error)
+	GetPersonalization(ctx context.Context, userID primitive.ObjectID) (*models.SearchPersonalization, error)
+	UpdatePersonalization(ctx context.Context, personalization *models.SearchPersonalization) error
+	RecordProductClick(ctx context.Context, query string, productID primitive.ObjectID, userID *primitive.ObjectID) error
+	GetCategorySuggestions(ctx context.Context, query string, limit int) ([]models.CategorySuggestion, error)
+	GetCategoryFacets(ctx context.Context, baseMatch interface{}) ([]models.FacetItem, error)
+	GetBrandFacets(ctx context.Context, baseMatch interface{}) ([]models.FacetItem, error)
+	GetMetalTypeFacets(ctx context.Context, baseMatch interface{}) ([]models.FacetItem, error)
+	GetGemstoneTypeFacets(ctx context.Context, baseMatch interface{}) ([]models.FacetItem, error)
+	GetPriceRangeFacets(ctx context.Context, baseMatch interface{}) ([]models.PriceRange, error)
+	GetPurityFacets(ctx context.Context, baseMatch interface{}) ([]models.FacetItem, error)
+	GetTagFacets(ctx context.Context, baseMatch interface{}) ([]models.FacetItem, error)
+	CacheResults(ctx context.Context, cache *models.SearchCache) error
+	GetCachedResults(ctx context.Context, queryHash string) (*models.SearchCache, error)
+	UpdateCacheHit(ctx context.Context, queryHash string) error
+}
+
+// VoucherRepository defines voucher and rewards data access methods
+type VoucherRepository interface {
+	Create(ctx context.Context, voucher *models.Voucher) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Voucher, error)
+	GetByCode(ctx context.Context, code string) (*models.Voucher, error)
+	Update(ctx context.Context, voucher *models.Voucher) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	GetAvailable(ctx context.Context) ([]models.Voucher, error)
+	GetRedemptionCount(ctx context.Context, voucherID primitive.ObjectID) (int, error)
+	GetUserRedemptionCount(ctx context.Context, userID, voucherID primitive.ObjectID) (int, error)
+	CreateUserVoucher(ctx context.Context, userVoucher *models.UserVoucher) error
+	GetUserVouchers(ctx context.Context, userID primitive.ObjectID, onlyUnused bool) ([]models.UserVoucher, error)
+	GetUserVoucherByCode(ctx context.Context, userID primitive.ObjectID, code string) (*models.UserVoucher, error)
+	UpdateUserVoucher(ctx context.Context, userVoucher *models.UserVoucher) error
+	CreateReward(ctx context.Context, reward *models.Reward) error
+	GetRewardByID(ctx context.Context, id primitive.ObjectID) (*models.Reward, error)
+	UpdateReward(ctx context.Context, reward *models.Reward) error
+	GetUserRewards(ctx context.Context, userID primitive.ObjectID, status string) ([]models.Reward, error)
+	GetAnalytics(ctx context.Context, startDate, endDate time.Time) (*models.VoucherAnalytics, error)
+}
+
+// PDFRepository defines PDF and tracking data access methods
+type PDFRepository interface {
+	Create(ctx context.Context, pdf *models.PDFDocument) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.PDFDocument, error)
+	GetByOrderID(ctx context.Context, orderID primitive.ObjectID, pdfType string) (*models.PDFDocument, error)
+	Update(ctx context.Context, pdf *models.PDFDocument) error
+	GetByUserID(ctx context.Context, userID primitive.ObjectID, pdfType string) ([]models.PDFDocument, error)
+	GetOrderTracking(ctx context.Context, orderID primitive.ObjectID) (*models.OrderTracking, error)
+	CreateOrderTracking(ctx context.Context, tracking *models.OrderTracking) error
+	UpdateOrderTracking(ctx context.Context, tracking *models.OrderTracking) error
+	CreateWarranty(ctx context.Context, warranty *models.WarrantyInfo) error
+	GetWarrantyByID(ctx context.Context, id primitive.ObjectID) (*models.WarrantyInfo, error)
+	UpdateWarranty(ctx context.Context, warranty *models.WarrantyInfo) error
+	GetTemplate(ctx context.Context, templateType string) (*models.PDFTemplate, error)
+	CreateTemplate(ctx context.Context, template *models.PDFTemplate) error
+	UpdateTemplate(ctx context.Context, template *models.PDFTemplate) error
+}
+
+// CategoryRepository defines category data access methods
+type CategoryRepository interface {
+	Create(ctx context.Context, category *models.Category) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Category, error)
+	GetBySlug(ctx context.Context, slug string) (*models.Category, error)
+	Update(ctx context.Context, category *models.Category) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	List(ctx context.Context, page, limit int) ([]models.Category, int64, error)
+	GetActive(ctx context.Context) ([]models.Category, error)
+	GetHierarchy(ctx context.Context) ([]models.Category, error)
+	GetByParentID(ctx context.Context, parentID primitive.ObjectID) ([]models.Category, error)
+}
+
+// WishlistRepository defines wishlist data access methods
+type WishlistRepository interface {
+	Create(ctx context.Context, wishlist *models.Wishlist) error
+	GetByUserID(ctx context.Context, userID primitive.ObjectID) (*models.Wishlist, error)
+	AddItem(ctx context.Context, userID, productID primitive.ObjectID) error
+	RemoveItem(ctx context.Context, userID, productID primitive.ObjectID) error
+	IsInWishlist(ctx context.Context, userID, productID primitive.ObjectID) (bool, error)
+	GetWishlistItems(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Product, int64, error)
+	ClearWishlist(ctx context.Context, userID primitive.ObjectID) error
+}
+
+// ReviewRepository defines review data access methods
+type ReviewRepository interface {
+	Create(ctx context.Context, review *models.Review) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Review, error)
+	Update(ctx context.Context, review *models.Review) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	GetProductReviews(ctx context.Context, productID primitive.ObjectID, page, limit int) ([]models.Review, int64, error)
+	GetUserReviews(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Review, int64, error)
+	GetProductRating(ctx context.Context, productID primitive.ObjectID) (float64, int64, error)
+	MarkAsHelpful(ctx context.Context, reviewID, userID primitive.ObjectID) error
+	MarkAsUnhelpful(ctx context.Context, reviewID, userID primitive.ObjectID) error
+	GetPendingReviews(ctx context.Context, page, limit int) ([]models.Review, int64, error)
+	ApproveReview(ctx context.Context, reviewID primitive.ObjectID) error
+	RejectReview(ctx context.Context, reviewID primitive.ObjectID) error
+}
+
+// CartRepository defines shopping cart data access methods
+type CartRepository interface {
+	Create(ctx context.Context, cart *models.Cart) error
+	GetByUserID(ctx context.Context, userID primitive.ObjectID) (*models.Cart, error)
+	GetByGuestID(ctx context.Context, guestID string) (*models.Cart, error)
+	Update(ctx context.Context, cart *models.Cart) error
+	AddItem(ctx context.Context, cartID primitive.ObjectID, item *models.CartItem) error
+	UpdateItem(ctx context.Context, cartID primitive.ObjectID, productID primitive.ObjectID, quantity int) error
+	RemoveItem(ctx context.Context, cartID primitive.ObjectID, productID primitive.ObjectID) error
+	ClearCart(ctx context.Context, cartID primitive.ObjectID) error
+	MergeGuestCart(ctx context.Context, guestID string, userID primitive.ObjectID) error
+}
+
+// AddressRepository defines address data access methods
+type AddressRepository interface {
+	Create(ctx context.Context, address *models.Address) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.Address, error)
+	Update(ctx context.Context, address *models.Address) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	GetUserAddresses(ctx context.Context, userID primitive.ObjectID) ([]models.Address, error)
+	SetDefault(ctx context.Context, userID, addressID primitive.ObjectID) error
+	GetDefault(ctx context.Context, userID primitive.ObjectID) (*models.Address, error)
+}
+
+// AdminRepository defines admin-specific data access methods
+type AdminRepository interface {
+	CreateAdminUser(ctx context.Context, adminUser *models.AdminUser) error
+	GetAdminUserByUserID(ctx context.Context, userID primitive.ObjectID) (*models.AdminUser, error)
+	UpdateAdminUser(ctx context.Context, adminUser *models.AdminUser) error
+	CreateRole(ctx context.Context, role *models.AdminRole) error
+	GetRoleByID(ctx context.Context, id primitive.ObjectID) (*models.AdminRole, error)
+	UpdateRole(ctx context.Context, role *models.AdminRole) error
+	GetRoles(ctx context.Context) ([]models.AdminRole, error)
+	CreateBackupRecord(ctx context.Context, backup *models.BackupRecord) error
+	GetBackupRecords(ctx context.Context, page, limit int) ([]models.BackupRecord, int64, error)
+	CreateFeatureFlag(ctx context.Context, flag *models.FeatureFlag) error
+	GetFeatureFlags(ctx context.Context) ([]models.FeatureFlag, error)
+	UpdateFeatureFlag(ctx context.Context, flag *models.FeatureFlag) error
+	CreateAdminNotification(ctx context.Context, notification *models.AdminNotification) error
+	GetAdminNotifications(ctx context.Context, page, limit int) ([]models.AdminNotification, int64, error)
+	MarkAdminNotificationAsRead(ctx context.Context, id primitive.ObjectID) error
+	RecordSystemMetrics(ctx context.Context, metrics *models.SystemMetrics) error
+	GetSystemMetrics(ctx context.Context, startDate, endDate time.Time) ([]models.SystemMetrics, error)
+}

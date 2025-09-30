@@ -1,0 +1,3063 @@
+basePath: /api/v1
+definitions:
+  handlers.AddPointsRequest:
+    properties:
+      description:
+        type: string
+      points:
+        type: integer
+      type:
+        $ref: '#/definitions/models.TransactionType'
+      userId:
+        type: string
+    required:
+    - description
+    - points
+    - type
+    - userId
+    type: object
+  handlers.CreateRewardRequest:
+    properties:
+      metadata:
+        additionalProperties: true
+        type: object
+      type:
+        type: string
+      userId:
+        type: string
+    required:
+    - type
+    - userId
+    type: object
+  handlers.CreateVoucherRequest:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      discountType:
+        type: string
+      imageUrl:
+        type: string
+      maxDiscount:
+        type: number
+      maxPerUser:
+        type: integer
+      maxRedemptions:
+        type: integer
+      minOrderValue:
+        type: number
+      pointsCost:
+        type: integer
+      terms:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      type:
+        type: string
+      usageConditions:
+        additionalProperties: true
+        type: object
+      validFrom:
+        type: string
+      validUntil:
+        type: string
+      value:
+        type: number
+    required:
+    - discountType
+    - title
+    - type
+    - value
+    type: object
+  handlers.RedeemVoucherRequest:
+    properties:
+      voucherId:
+        type: string
+    required:
+    - voucherId
+    type: object
+  handlers.UpdateLoyaltyConfigRequest:
+    properties:
+      basePointsPerDollar:
+        minimum: 0
+        type: number
+      dailyLoginBonus:
+        minimum: 0
+        type: integer
+      referralBonus:
+        minimum: 0
+        type: integer
+      reviewBonus:
+        minimum: 0
+        type: integer
+      streakBonusDays:
+        minimum: 1
+        type: integer
+      streakBonusPoints:
+        minimum: 0
+        type: integer
+      welcomeBonus:
+        minimum: 0
+        type: integer
+    required:
+    - basePointsPerDollar
+    - dailyLoginBonus
+    - referralBonus
+    - reviewBonus
+    - streakBonusDays
+    - streakBonusPoints
+    - welcomeBonus
+    type: object
+  handlers.UpdateVoucherRequest:
+    properties:
+      description:
+        type: string
+      discountType:
+        type: string
+      imageUrl:
+        type: string
+      isActive:
+        type: boolean
+      maxDiscount:
+        type: number
+      maxPerUser:
+        type: integer
+      maxRedemptions:
+        type: integer
+      minOrderValue:
+        type: number
+      pointsCost:
+        type: integer
+      terms:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      type:
+        type: string
+      usageConditions:
+        additionalProperties: true
+        type: object
+      validFrom:
+        type: string
+      validUntil:
+        type: string
+      value:
+        type: number
+    type: object
+  handlers.UseVoucherRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  handlers.ValidateVoucherRequest:
+    properties:
+      code:
+        type: string
+      orderValue:
+        type: number
+    required:
+    - code
+    - orderValue
+    type: object
+  models.AddAddressRequest:
+    properties:
+      city:
+        maxLength: 100
+        minLength: 2
+        type: string
+      country:
+        maxLength: 100
+        minLength: 2
+        type: string
+      isDefault:
+        type: boolean
+      state:
+        maxLength: 100
+        minLength: 2
+        type: string
+      street:
+        maxLength: 200
+        minLength: 5
+        type: string
+      zipCode:
+        maxLength: 10
+        minLength: 3
+        type: string
+    required:
+    - city
+    - country
+    - state
+    - street
+    - zipCode
+    type: object
+  models.Address:
+    properties:
+      city:
+        maxLength: 100
+        minLength: 2
+        type: string
+      country:
+        maxLength: 100
+        minLength: 2
+        type: string
+      id:
+        type: string
+      isDefault:
+        type: boolean
+      state:
+        maxLength: 100
+        minLength: 2
+        type: string
+      street:
+        maxLength: 200
+        minLength: 5
+        type: string
+      zipCode:
+        maxLength: 10
+        minLength: 3
+        type: string
+    required:
+    - city
+    - country
+    - id
+    - state
+    - street
+    - zipCode
+    type: object
+  models.ChangePasswordRequest:
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        minLength: 6
+        type: string
+    type: object
+  models.CreateOrderRequest:
+    properties:
+      couponCode:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/models.OrderItem'
+        minItems: 1
+        type: array
+      paymentMethod:
+        $ref: '#/definitions/models.PaymentMethod'
+      shippingAddress:
+        $ref: '#/definitions/models.Address'
+    required:
+    - items
+    - paymentMethod
+    - shippingAddress
+    type: object
+  models.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      password:
+        minLength: 6
+        type: string
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+    type: object
+  models.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  models.LoyaltyConfig:
+    properties:
+      basePointsPerDollar:
+        type: number
+      dailyLoginBonus:
+        type: integer
+      id:
+        type: string
+      referralBonus:
+        type: integer
+      reviewBonus:
+        type: integer
+      streakBonusDays:
+        type: integer
+      streakBonusPoints:
+        type: integer
+      updatedAt:
+        type: string
+      welcomeBonus:
+        type: integer
+    type: object
+  models.LoyaltyProgram:
+    properties:
+      currentPoints:
+        type: integer
+      id:
+        type: string
+      joinedAt:
+        type: string
+      lastLoginDate:
+        type: string
+      loginStreak:
+        type: integer
+      tier:
+        $ref: '#/definitions/models.LoyaltyTier'
+      totalOrders:
+        type: integer
+      totalPoints:
+        type: integer
+      totalSpent:
+        type: number
+      transactions:
+        items:
+          $ref: '#/definitions/models.PointTransaction'
+        type: array
+      updatedAt:
+        type: string
+      userId:
+        type: string
+      vouchers:
+        items:
+          $ref: '#/definitions/models.UserVoucher'
+        type: array
+    type: object
+  models.LoyaltyTier:
+    enum:
+    - bronze
+    - silver
+    - gold
+    - platinum
+    type: string
+    x-enum-varnames:
+    - TierBronze
+    - TierSilver
+    - TierGold
+    - TierPlatinum
+  models.MonthlyVoucherUsage:
+    properties:
+      discount:
+        type: number
+      month:
+        type: string
+      redemptions:
+        type: integer
+      usage:
+        type: integer
+    type: object
+  models.OrderItem:
+    properties:
+      image:
+        type: string
+      name:
+        type: string
+      price:
+        minimum: 0
+        type: number
+      productId:
+        type: string
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - name
+    - price
+    - productId
+    - quantity
+    type: object
+  models.PaymentMethod:
+    enum:
+    - razorpay
+    - upi
+    - wallet
+    - cod
+    type: string
+    x-enum-varnames:
+    - PaymentMethodRazorpay
+    - PaymentMethodUPI
+    - PaymentMethodWallet
+    - PaymentMethodCOD
+  models.PointTransaction:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      orderId:
+        type: string
+      points:
+        type: integer
+      type:
+        $ref: '#/definitions/models.TransactionType'
+    type: object
+  models.ResetPasswordRequest:
+    properties:
+      newPassword:
+        minLength: 6
+        type: string
+      token:
+        type: string
+    type: object
+  models.Reward:
+    properties:
+      claimedAt:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      earnedAt:
+        type: string
+      expiresAt:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      status:
+        description: '"earned", "claimed", "expired"'
+        type: string
+      type:
+        description: '"first_order", "review_submitted", "referral_successful", etc.'
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+      value:
+        description: Points or monetary value
+        type: integer
+    type: object
+  models.TierInfo:
+    properties:
+      benefits:
+        items:
+          type: string
+        type: array
+      icon:
+        type: string
+      multiplier:
+        type: number
+      name:
+        type: string
+      pointsRequired:
+        type: integer
+    type: object
+  models.TransactionType:
+    enum:
+    - earned
+    - redeemed
+    - bonus
+    - expired
+    type: string
+    x-enum-varnames:
+    - TransactionEarned
+    - TransactionRedeemed
+    - TransactionBonus
+    - TransactionExpired
+  models.UpdateProfileRequest:
+    properties:
+      addresses:
+        items:
+          $ref: '#/definitions/models.Address'
+        type: array
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+      profileImage:
+        type: string
+    type: object
+  models.UserVoucher:
+    properties:
+      code:
+        type: string
+      discountType:
+        type: string
+      expiresAt:
+        type: string
+      id:
+        type: string
+      isUsed:
+        type: boolean
+      issuedAt:
+        type: string
+      maxDiscount:
+        type: number
+      minOrderValue:
+        type: number
+      orderId:
+        type: string
+      usageConditions:
+        additionalProperties: true
+        type: object
+      usedAt:
+        type: string
+      userId:
+        type: string
+      value:
+        type: number
+      voucherId:
+        type: string
+    type: object
+  models.Voucher:
+    properties:
+      code:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      discountType:
+        description: '"percentage", "fixed"'
+        type: string
+      id:
+        type: string
+      imageUrl:
+        type: string
+      isActive:
+        type: boolean
+      maxDiscount:
+        type: number
+      maxPerUser:
+        description: 0 = unlimited
+        type: integer
+      maxRedemptions:
+        description: 0 = unlimited
+        type: integer
+      minOrderValue:
+        type: number
+      pointsCost:
+        type: integer
+      terms:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      type:
+        description: '"welcome", "loyalty", "seasonal", "special"'
+        type: string
+      updatedAt:
+        type: string
+      usageConditions:
+        additionalProperties: true
+        type: object
+      validFrom:
+        type: string
+      validUntil:
+        type: string
+      value:
+        description: Percentage or fixed amount
+        type: number
+    type: object
+  models.VoucherAnalytics:
+    properties:
+      activeVouchers:
+        type: integer
+      averageDiscount:
+        type: number
+      conversionRate:
+        description: redemptions to usage ratio
+        type: number
+      popularVouchers:
+        items:
+          $ref: '#/definitions/models.VoucherPopularity'
+        type: array
+      redemptionsByType:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      totalDiscountValue:
+        type: number
+      totalRedemptions:
+        type: integer
+      totalUsage:
+        type: integer
+      totalVouchers:
+        type: integer
+      usageByMonth:
+        items:
+          $ref: '#/definitions/models.MonthlyVoucherUsage'
+        type: array
+    type: object
+  models.VoucherPopularity:
+    properties:
+      redemptions:
+        type: integer
+      totalDiscount:
+        type: number
+      usage:
+        type: integer
+      voucherId:
+        type: string
+      voucherTitle:
+        type: string
+    type: object
+  models.VoucherValidation:
+    properties:
+      discountAmount:
+        type: number
+      error:
+        type: string
+      finalAmount:
+        type: number
+      isValid:
+        type: boolean
+      userVoucher:
+        $ref: '#/definitions/models.UserVoucher'
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API documentation for Thyne Jewels e-commerce platform
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Thyne Jewels API
+  version: "1.0"
+paths:
+  /admin/categories:
+    post:
+      consumes:
+      - application/json
+      description: Create a new product category (Admin only)
+      parameters:
+      - description: Category creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Category created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Admin access required
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create category
+      tags:
+      - Admin
+  /admin/dashboard/activities:
+    get:
+      consumes:
+      - application/json
+      description: Get recent admin activities (Admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recent activities retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Admin access required
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get recent activities
+      tags:
+      - Admin
+  /admin/dashboard/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get admin dashboard statistics (Admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dashboard statistics retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Admin access required
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get dashboard stats
+      tags:
+      - Admin
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Get all users in the system (Admin only)
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Admin access required
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all users
+      tags:
+      - Admin
+  /admin/users/search:
+    get:
+      consumes:
+      - application/json
+      description: Search users by query string (Admin only)
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users found successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Search query is required
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Admin access required
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Search users
+      tags:
+      - Admin
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Send password reset email to user
+      parameters:
+      - description: Forgot password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset email sent successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to send email
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Forgot password
+      tags:
+      - Authentication
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login user with email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login user
+      tags:
+      - Authentication
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refresh the access token using refresh token
+      parameters:
+      - description: Refresh token request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token refreshed successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid refresh token
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh token
+      tags:
+      - Authentication
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email, name, phone, and password
+      parameters:
+      - description: User registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: User already exists
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register a new user
+      tags:
+      - Authentication
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Reset user password using reset token
+      parameters:
+      - description: Reset password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data or token
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reset password
+      tags:
+      - Authentication
+  /cart:
+    get:
+      consumes:
+      - application/json
+      description: Get the user's shopping cart (authenticated or guest)
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cart retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get cart
+      tags:
+      - Cart
+  /cart/add:
+    post:
+      consumes:
+      - application/json
+      description: Add a product to the shopping cart
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Add to cart request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item added to cart successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Add item to cart
+      tags:
+      - Cart
+  /cart/clear:
+    delete:
+      consumes:
+      - application/json
+      description: Remove all items from the shopping cart
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cart cleared successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Clear cart
+      tags:
+      - Cart
+  /cart/coupon:
+    delete:
+      consumes:
+      - application/json
+      description: Remove applied coupon from the cart
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Coupon removed successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Remove coupon
+      tags:
+      - Cart
+    post:
+      consumes:
+      - application/json
+      description: Apply a coupon code to the cart
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Apply coupon request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Coupon applied successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid coupon code
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Apply coupon
+      tags:
+      - Cart
+  /cart/remove/{productId}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a product from the shopping cart
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Product ID to remove
+        in: path
+        name: productId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item removed from cart successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid product ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Remove item from cart
+      tags:
+      - Cart
+  /cart/update:
+    put:
+      consumes:
+      - application/json
+      description: Update quantity of an item in the cart
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Update cart item request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cart item updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update cart item
+      tags:
+      - Cart
+  /guest/session:
+    post:
+      consumes:
+      - application/json
+      description: Create a new guest session for anonymous users
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Guest session created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create guest session
+      tags:
+      - Guest
+  /guest/session/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a guest session
+      parameters:
+      - description: Guest session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Guest session deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid session ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Session not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete guest session
+      tags:
+      - Guest
+    get:
+      consumes:
+      - application/json
+      description: Get a guest session by its ID
+      parameters:
+      - description: Guest session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Guest session retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid session ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Session not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get guest session
+      tags:
+      - Guest
+    put:
+      consumes:
+      - application/json
+      description: Update a guest session
+      parameters:
+      - description: Guest session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Session update data
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Guest session updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Session not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update guest session
+      tags:
+      - Guest
+  /loyalty/config:
+    get:
+      description: Get loyalty program configuration
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LoyaltyConfig'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get loyalty configuration
+      tags:
+      - loyalty
+    put:
+      consumes:
+      - application/json
+      description: Update loyalty program configuration (Admin only)
+      parameters:
+      - description: Loyalty config update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateLoyaltyConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update loyalty configuration
+      tags:
+      - loyalty
+  /loyalty/daily-login:
+    post:
+      description: Check and award daily login bonus for the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Check daily login
+      tags:
+      - loyalty
+  /loyalty/points/add:
+    post:
+      consumes:
+      - application/json
+      description: Add loyalty points to a user's account (Admin only)
+      parameters:
+      - description: Add points request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddPointsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add points to user
+      tags:
+      - loyalty
+  /loyalty/points/history:
+    get:
+      description: Get user's loyalty points transaction history
+      parameters:
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.PointTransaction'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get points history
+      tags:
+      - loyalty
+  /loyalty/program:
+    get:
+      description: Get user's loyalty program information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LoyaltyProgram'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get loyalty program
+      tags:
+      - loyalty
+  /loyalty/tiers:
+    get:
+      description: Get information about all loyalty tiers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TierInfo'
+            type: array
+      summary: Get tier information
+      tags:
+      - loyalty
+  /loyalty/vouchers/available:
+    get:
+      description: Get all vouchers available for points redemption
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Voucher'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get available vouchers
+      tags:
+      - loyalty
+  /loyalty/vouchers/my:
+    get:
+      description: Get vouchers owned by the user
+      parameters:
+      - default: false
+        description: Get only unused vouchers
+        in: query
+        name: unused_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.UserVoucher'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user vouchers
+      tags:
+      - loyalty
+  /loyalty/vouchers/redeem:
+    post:
+      consumes:
+      - application/json
+      description: Redeem a voucher using loyalty points
+      parameters:
+      - description: Voucher redemption request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RedeemVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserVoucher'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Redeem voucher
+      tags:
+      - loyalty
+  /loyalty/vouchers/use:
+    post:
+      consumes:
+      - application/json
+      description: Mark a user voucher as used during checkout
+      parameters:
+      - description: Voucher usage request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UseVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Use voucher
+      tags:
+      - loyalty
+  /orders:
+    get:
+      consumes:
+      - application/json
+      description: Get all orders for the authenticated user or guest
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Orders retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get orders
+      tags:
+      - Orders
+    post:
+      consumes:
+      - application/json
+      description: Create a new order from cart items
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Order creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Order created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create order
+      tags:
+      - Orders
+  /orders/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Cancel an existing order
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Order cancelled successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid order ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cancel order
+      tags:
+      - Orders
+    get:
+      consumes:
+      - application/json
+      description: Get a single order by its ID
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Order retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid order ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get order
+      tags:
+      - Orders
+  /orders/{id}/track:
+    get:
+      consumes:
+      - application/json
+      description: Get tracking information for an order
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Order tracking retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid order ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Order not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Track order
+      tags:
+      - Orders
+  /payment/create-order:
+    post:
+      consumes:
+      - application/json
+      description: Create a payment order for Razorpay
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Payment order creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment order created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create payment order
+      tags:
+      - Payment
+  /payment/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verify a Razorpay payment
+      parameters:
+      - description: Guest session ID for guest users
+        in: header
+        name: X-Guest-Session-ID
+        type: string
+      - description: Payment verification data
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment verified successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid payment data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify payment
+      tags:
+      - Payment
+  /products:
+    get:
+      consumes:
+      - application/json
+      description: Get all products with filtering, pagination, and sorting options
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Product category
+        in: query
+        name: category
+        type: string
+      - description: Product subcategory
+        in: query
+        name: subcategory
+        type: string
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      - default: popularity
+        description: Sort by field
+        in: query
+        name: sortBy
+        type: string
+      - description: Minimum price
+        in: query
+        name: minPrice
+        type: number
+      - description: Maximum price
+        in: query
+        name: maxPrice
+        type: number
+      - description: Filter by stock availability
+        in: query
+        name: inStock
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Products retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get products
+      tags:
+      - Products
+  /products/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a single product by its ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid product ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Product not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get product by ID
+      tags:
+      - Products
+  /products/{id}/reviews:
+    get:
+      consumes:
+      - application/json
+      description: Get reviews for a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Reviews retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid product ID
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get product reviews
+      tags:
+      - Products
+  /products/categories:
+    get:
+      consumes:
+      - application/json
+      description: Get all product categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get categories
+      tags:
+      - Products
+  /products/featured:
+    get:
+      consumes:
+      - application/json
+      description: Get all featured products
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Featured products retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get featured products
+      tags:
+      - Products
+  /products/search:
+    get:
+      consumes:
+      - application/json
+      description: Search products by query string
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Products found successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Search query is required
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Search products
+      tags:
+      - Products
+  /reviews:
+    post:
+      consumes:
+      - application/json
+      description: Create a new product review
+      parameters:
+      - description: Review creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Review created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create review
+      tags:
+      - Reviews
+  /reviews/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an existing product review
+      parameters:
+      - description: Review ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Review deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Review not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete review
+      tags:
+      - Reviews
+    put:
+      consumes:
+      - application/json
+      description: Update an existing product review
+      parameters:
+      - description: Review ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Review update data
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Review updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Review not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update review
+      tags:
+      - Reviews
+  /rewards:
+    post:
+      consumes:
+      - application/json
+      description: Create a reward for user actions (Admin only)
+      parameters:
+      - description: Reward creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateRewardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create reward
+      tags:
+      - rewards
+  /rewards/{rewardId}/claim:
+    post:
+      description: Claim a pending reward
+      parameters:
+      - description: Reward ID
+        in: path
+        name: rewardId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Claim reward
+      tags:
+      - rewards
+  /rewards/my:
+    get:
+      description: Get rewards for the authenticated user
+      parameters:
+      - description: 'Filter by status: earned, claimed, expired'
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Reward'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user rewards
+      tags:
+      - rewards
+  /rewards/order/{orderId}/process:
+    post:
+      description: Process rewards for order completion (Internal API)
+      parameters:
+      - description: Order ID
+        in: path
+        name: orderId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Process order rewards
+      tags:
+      - rewards
+  /users/addresses:
+    post:
+      consumes:
+      - application/json
+      description: Add a new address to the user's profile
+      parameters:
+      - description: Address data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Address added successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add address
+      tags:
+      - Users
+  /users/addresses/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an address from the user's profile
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Address deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Address not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete address
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update an existing address in the user's profile
+      parameters:
+      - description: Address ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Address update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Address updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update address
+      tags:
+      - Users
+  /users/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the authenticated user's password
+      parameters:
+      - description: Password change data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - Users
+  /users/profile:
+    get:
+      consumes:
+      - application/json
+      description: Get the authenticated user's profile information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: User not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated user's profile information
+      parameters:
+      - description: Profile update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - Users
+  /users/wishlist:
+    get:
+      consumes:
+      - application/json
+      description: Get the authenticated user's wishlist
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Wishlist retrieved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get wishlist
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Add a product to the user's wishlist
+      parameters:
+      - description: Add to wishlist request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product added to wishlist successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add to wishlist
+      tags:
+      - Users
+  /users/wishlist/{productId}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a product from the user's wishlist
+      parameters:
+      - description: Product ID to remove
+        in: path
+        name: productId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product removed from wishlist successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove from wishlist
+      tags:
+      - Users
+  /vouchers:
+    post:
+      consumes:
+      - application/json
+      description: Create a new voucher template (Admin only)
+      parameters:
+      - description: Voucher creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Voucher'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create voucher
+      tags:
+      - vouchers
+  /vouchers/{voucherId}:
+    put:
+      consumes:
+      - application/json
+      description: Update an existing voucher (Admin only)
+      parameters:
+      - description: Voucher ID
+        in: path
+        name: voucherId
+        required: true
+        type: string
+      - description: Voucher update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update voucher
+      tags:
+      - vouchers
+  /vouchers/{voucherId}/deactivate:
+    post:
+      description: Deactivate a voucher (Admin only)
+      parameters:
+      - description: Voucher ID
+        in: path
+        name: voucherId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Deactivate voucher
+      tags:
+      - vouchers
+  /vouchers/analytics:
+    get:
+      description: Get voucher usage analytics (Admin only)
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: startDate
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: endDate
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.VoucherAnalytics'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get voucher analytics
+      tags:
+      - vouchers
+  /vouchers/available:
+    get:
+      description: Get all vouchers available for points redemption
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Voucher'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get available vouchers
+      tags:
+      - vouchers
+  /vouchers/my:
+    get:
+      description: Get vouchers owned by the authenticated user
+      parameters:
+      - default: false
+        description: Get only unused vouchers
+        in: query
+        name: unused_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.UserVoucher'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user vouchers
+      tags:
+      - vouchers
+  /vouchers/redeem:
+    post:
+      consumes:
+      - application/json
+      description: Redeem a voucher using loyalty points
+      parameters:
+      - description: Voucher redemption request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RedeemVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserVoucher'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Redeem voucher
+      tags:
+      - vouchers
+  /vouchers/use:
+    post:
+      consumes:
+      - application/json
+      description: Mark a user voucher as used during checkout
+      parameters:
+      - description: Voucher usage request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UseVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Use voucher
+      tags:
+      - vouchers
+  /vouchers/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate a voucher code for an order
+      parameters:
+      - description: Voucher validation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ValidateVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.VoucherValidation'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Validate voucher
+      tags:
+      - vouchers
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
