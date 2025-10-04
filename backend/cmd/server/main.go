@@ -170,6 +170,7 @@ func main() {
 			users.POST("/addresses", userHandler.AddAddress)
 			users.PUT("/addresses/:id", userHandler.UpdateAddress)
 			users.DELETE("/addresses/:id", userHandler.DeleteAddress)
+			users.POST("/addresses/:id/default", userHandler.SetDefaultAddress)
 			users.POST("/change-password", userHandler.ChangePassword)
 			users.GET("/wishlist", userHandler.GetWishlist)
 			users.POST("/wishlist", userHandler.AddToWishlist)
@@ -208,6 +209,7 @@ func main() {
 		{
 			orders.POST("", orderHandler.CreateOrder)
 			orders.GET("", orderHandler.GetOrders)
+			orders.GET("/search", orderHandler.SearchOrders)
 			orders.GET("/:id", orderHandler.GetOrder)
 			orders.DELETE("/:id", orderHandler.CancelOrder)
 			orders.POST("/:id/return", orderHandler.ReturnOrder)
@@ -262,6 +264,7 @@ func main() {
 			admin.PUT("/products/:id", productHandler.UpdateProduct)
 			admin.DELETE("/products/:id", productHandler.DeleteProduct)
 			admin.PUT("/products/:id/stock", productHandler.UpdateProductStock)
+			admin.POST("/products/bulk-upload", adminHandler.BulkUploadProducts)
 
 			// Category management
 			admin.GET("/categories", categoryHandler.GetAllCategories)

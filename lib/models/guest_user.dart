@@ -44,12 +44,16 @@ class GuestUser {
 
   factory GuestUser.fromJson(Map<String, dynamic> json) {
     return GuestUser(
-      sessionId: json['sessionId'],
-      email: json['email'],
-      phone: json['phone'],
-      name: json['name'],
-      createdAt: DateTime.parse(json['createdAt']),
-      lastActivity: DateTime.parse(json['lastActivity']),
+      sessionId: json['sessionId']?.toString() ?? '',
+      email: json['email']?.toString(),
+      phone: json['phone']?.toString(),
+      name: json['name']?.toString(),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
+      lastActivity: json['lastActivity'] != null 
+          ? DateTime.parse(json['lastActivity']) 
+          : DateTime.now(),
     );
   }
 

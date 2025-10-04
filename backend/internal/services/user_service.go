@@ -89,12 +89,15 @@ func (s *userService) AddAddress(userID primitive.ObjectID, req *models.AddAddre
 	// Create address
 	address := models.Address{
 		ID:        primitive.NewObjectID(),
+		UserID:    userID,
 		Street:    req.Street,
 		City:      req.City,
 		State:     req.State,
 		ZipCode:   req.ZipCode,
 		Country:   req.Country,
 		IsDefault: req.IsDefault,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	// If this is set as default, unset other defaults first
@@ -125,12 +128,14 @@ func (s *userService) UpdateAddress(userID primitive.ObjectID, addressID string,
 	// Create updated address
 	address := models.Address{
         ID:        addrID,
+        UserID:    userID,
 		Street:    req.Street,
 		City:      req.City,
 		State:     req.State,
 		ZipCode:   req.ZipCode,
 		Country:   req.Country,
 		IsDefault: req.IsDefault,
+		UpdatedAt: time.Now(),
 	}
 
 	// If this is set as default, unset other defaults first

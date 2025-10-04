@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../utils/theme.dart';
 import '../../../providers/product_provider.dart';
 import '../../../models/product.dart';
@@ -27,7 +28,13 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.upload_file),
+            tooltip: 'Bulk Upload CSV',
+            onPressed: _showBulkUploadDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
+            tooltip: 'Add Product',
             onPressed: () {
               Navigator.push(
                 context,
@@ -312,21 +319,25 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               try {
                 Navigator.pop(context);
                 await ApiService.deleteProduct(productId: product.id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${product.name} deleted successfully'),
-                    backgroundColor: AppTheme.successGreen,
-                  ),
-                );
-                // Refresh the products list
-                setState(() {});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${product.name} deleted successfully'),
+                      backgroundColor: AppTheme.successGreen,
+                    ),
+                  );
+                  // Refresh the products list
+                  setState(() {});
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error deleting product: ${e.toString()}'),
-                    backgroundColor: AppTheme.errorRed,
-                  ),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting product: ${e.toString()}'),
+                      backgroundColor: AppTheme.errorRed,
+                    ),
+                  );
+                }
               }
             },
             style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
@@ -335,5 +346,241 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         ],
       ),
     );
+  }
+
+  void _showBulkUploadDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => BulkUploadDialog(
+        onUploadComplete: () {
+          // Refresh the products list after successful upload
+          setState(() {});
+        },
+      ),
+    );
+  }
+}
+
+class BulkUploadDialog extends StatefulWidget {
+  final VoidCallback onUploadComplete;
+
+  const BulkUploadDialog({
+    super.key,
+    required this.onUploadComplete,
+  });
+
+  @override
+  State<BulkUploadDialog> createState() => _BulkUploadDialogState();
+}
+
+class _BulkUploadDialogState extends State<BulkUploadDialog> {
+  String? _selectedFileName;
+  PlatformFile? _selectedFile;
+  bool _isUploading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Bulk Upload Products'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Upload a CSV file to add multiple products at once.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            
+            // CSV Format Information
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.blue.shade700, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'CSV Format Requirements',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Required columns: name, description, price, category, subcategory, metalType, stockQuantity, images\n'
+                    'Optional columns: originalPrice, stoneType, weight, size, tags, isAvailable, isFeatured\n'
+                    'Use semicolon (;) to separate multiple images and tags.\n\n'
+                    'Example CSV format:\n'
+                    'name,description,price,category,subcategory,metalType,stockQuantity,images\n'
+                    'Gold Ring,Beautiful gold ring,25000,Rings,Wedding,Gold,10,image1.jpg;image2.jpg',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // File Selection
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    _selectedFile != null ? Icons.check_circle : Icons.cloud_upload,
+                    size: 48,
+                    color: _selectedFile != null ? AppTheme.successGreen : Colors.grey,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _selectedFileName ?? 'No file selected',
+                    style: TextStyle(
+                      color: _selectedFile != null ? AppTheme.successGreen : Colors.grey,
+                      fontWeight: _selectedFile != null ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: _isUploading ? null : _selectFile,
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Select CSV File'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGold,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_isUploading) ...[
+              const SizedBox(height: 16),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              const Text('Uploading products...'),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isUploading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: (_selectedFile != null && !_isUploading) ? _uploadFile : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryGold,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Upload'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _selectedFile = result.files.first;
+          _selectedFileName = result.files.first.name;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error selecting file: ${e.toString()}'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadFile() async {
+    if (_selectedFile == null) return;
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      final response = await ApiService.bulkUploadProducts(_selectedFile!);
+      
+      if (mounted) {
+        Navigator.pop(context);
+        
+        // Show success message with details
+        final totalProcessed = response['data']['totalProcessed'] ?? 0;
+        final successfullyCreated = response['data']['successfullyCreated'] ?? 0;
+        final failed = response['data']['failed'] ?? 0;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Upload Complete'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Total processed: $totalProcessed'),
+                Text('Successfully created: $successfullyCreated', 
+                     style: const TextStyle(color: AppTheme.successGreen)),
+                if (failed > 0)
+                  Text('Failed: $failed', 
+                       style: const TextStyle(color: AppTheme.errorRed)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onUploadComplete();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: ${e.toString()}'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    }
   }
 }

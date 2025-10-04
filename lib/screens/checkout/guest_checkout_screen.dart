@@ -97,7 +97,7 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
               children: [
                 if (_currentStep < 2)
                   ElevatedButton(
-                    onPressed: details.onStepContinue,
+                    onPressed: () => _onStepContinue(_currentStep),
                     child: const Text('Continue'),
                   ),
                 if (_currentStep == 2)
@@ -121,7 +121,7 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
                 const SizedBox(width: 8),
                 if (_currentStep > 0)
                   OutlinedButton(
-                    onPressed: details.onStepCancel,
+                    onPressed: () => _onStepCancel(_currentStep),
                     child: const Text('Back'),
                   ),
               ],
@@ -159,6 +159,59 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
       return 2;
     }
     return _currentStep;
+  }
+
+  void _onStepContinue(int currentStep) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (currentStep == 0) {
+      // Validate account options step
+      if (_checkoutOption == 'guest') {
+        if (_guestFormKey.currentState?.validate() ?? false) {
+          setState(() {
+            _currentStep = currentStep + 1;
+          });
+        }
+      } else if (_checkoutOption == 'login') {
+        if (_loginFormKey.currentState?.validate() ?? false) {
+          // Perform login logic here if needed
+          setState(() {
+            _currentStep = currentStep + 1;
+          });
+        }
+      } else if (_checkoutOption == 'register') {
+        if (_registerFormKey.currentState?.validate() ?? false) {
+          // Perform registration logic here if needed
+          setState(() {
+            _currentStep = currentStep + 1;
+          });
+        }
+      } else if (authProvider.isAuthenticated) {
+        setState(() {
+          _currentStep = currentStep + 1;
+        });
+      }
+    } else if (currentStep == 1) {
+      // Validate shipping & payment step
+      if (_addressFormKey.currentState?.validate() ?? false) {
+        setState(() {
+          _currentStep = currentStep + 1;
+        });
+      }
+    } else {
+      // For other steps, proceed normally
+      setState(() {
+        _currentStep = currentStep + 1;
+      });
+    }
+  }
+
+  void _onStepCancel(int currentStep) {
+    if (currentStep > 0) {
+      setState(() {
+        _currentStep = currentStep - 1;
+      });
+    }
   }
 
   Widget _buildAccountOptionsStep() {

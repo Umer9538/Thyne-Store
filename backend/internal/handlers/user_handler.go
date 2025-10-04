@@ -350,6 +350,65 @@ func (h *UserHandler) DeleteAddress(c *gin.Context) {
 	})
 }
 
+// SetDefaultAddress sets an address as default
+// @Summary Set default address
+// @Description Set an address as the default address for the user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Address ID"
+// @Success 200 {object} map[string]interface{} "Default address set successfully"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Address not found"
+// @Router /users/addresses/{id}/default [post]
+func (h *UserHandler) SetDefaultAddress(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "User not authenticated",
+			"code":    "UNAUTHORIZED",
+		})
+		return
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid user ID",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	addressID := c.Param("id")
+	if addressID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Address ID is required",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	err = h.userService.SetDefaultAddress(objectID, addressID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+			"code":    "SET_DEFAULT_ADDRESS_FAILED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Default address set successfully",
+	})
+}
+
 // ChangePassword changes the user's password
 // @Summary Change password
 // @Description Change the authenticated user's password

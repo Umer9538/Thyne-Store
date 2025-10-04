@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"gopkg.in/validator.v2"
+	"github.com/go-playground/validator/v10"
 )
 
 // OrderStatus represents the status of an order
@@ -124,22 +124,26 @@ type OrderFilter struct {
 
 // Validate validates the order struct
 func (o *Order) Validate() error {
-	return validator.Validate(o)
+	validate := validator.New()
+	return validate.Struct(o)
 }
 
 // Validate validates the order item struct
 func (oi *OrderItem) Validate() error {
-	return validator.Validate(oi)
+	validate := validator.New()
+	return validate.Struct(oi)
 }
 
 // Validate validates the create order request
 func (r *CreateOrderRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the update order status request
 func (r *UpdateOrderStatusRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // IsCancellable checks if the order can be cancelled

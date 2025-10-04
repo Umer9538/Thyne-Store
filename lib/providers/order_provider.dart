@@ -101,6 +101,87 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  Order? getOrderByOrderNumber(String orderNumber) {
+    try {
+      return _orders.firstWhere((order) => order.orderNumber != null && order.orderNumber == orderNumber);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Order?> searchOrderByNumber(String orderNumber) async {
+    _setLoading(true);
+
+    try {
+      // Always search via API first to get the most up-to-date data from MongoDB
+      debugPrint('Searching for order number: $orderNumber');
+      final response = await ApiService.searchOrderByNumber(orderNumber: orderNumber);
+      debugPrint('API response: $response');
+      
+      if (response['success'] == true && response['data'] != null) {
+        final orderJson = response['data'];
+        debugPrint('Order JSON: $orderJson');
+        
+        try {
+          final order = Order.fromJson(orderJson);
+          debugPrint('Successfully parsed order: ${order.id}');
+          
+          // Add to local cache if not already present
+          if (!_orders.any((o) => o.id == order.id)) {
+            _orders.insert(0, order);
+            notifyListeners();
+          }
+          
+          return order;
+        } catch (parseError) {
+          debugPrint('Error parsing order JSON: $parseError');
+          debugPrint('Problematic JSON: $orderJson');
+          throw parseError;
+        }
+      } else {
+        debugPrint('API search failed or returned no data: ${response['error']}');
+        // If API fails, check local cache as fallback
+        final cachedOrder = getOrderByOrderNumber(orderNumber);
+        return cachedOrder;
+      }
+    } catch (e) {
+      debugPrint('Error searching order by number: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
+      
+      // If API fails, try local cache as fallback
+      try {
+        final cachedOrder = getOrderByOrderNumber(orderNumber);
+        debugPrint('Found in local cache: ${cachedOrder?.id}');
+        return cachedOrder;
+      } catch (localError) {
+        debugPrint('Local search also failed: $localError');
+        return null;
+      }
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  List<Order> searchOrdersLocally(String query) {
+    if (query.isEmpty) return _orders;
+    
+    final lowerQuery = query.toLowerCase();
+    return _orders.where((order) {
+      // Check order number (with null safety)
+      final orderNumberMatch = order.orderNumber != null && 
+          order.orderNumber!.toLowerCase().contains(lowerQuery);
+      
+      // Check order ID
+      final orderIdMatch = order.id.toLowerCase().contains(lowerQuery);
+      
+      // Check product names
+      final productNameMatch = order.items.any((item) => 
+          item.product.name.toLowerCase().contains(lowerQuery));
+      
+      return orderNumberMatch || orderIdMatch || productNameMatch;
+    }).toList();
+  }
+
   Future<void> cancelOrder(String orderId, {String? reason}) async {
     _setLoading(true);
 
@@ -114,6 +195,7 @@ class OrderProvider extends ChangeNotifier {
           final oldOrder = _orders[index];
           final cancelledOrder = Order(
             id: oldOrder.id,
+            orderNumber: oldOrder.orderNumber,
             userId: oldOrder.userId,
             items: oldOrder.items,
             shippingAddress: oldOrder.shippingAddress,
@@ -155,6 +237,7 @@ class OrderProvider extends ChangeNotifier {
           final oldOrder = _orders[index];
           final returnedOrder = Order(
             id: oldOrder.id,
+            orderNumber: oldOrder.orderNumber,
             userId: oldOrder.userId,
             items: oldOrder.items,
             shippingAddress: oldOrder.shippingAddress,
@@ -196,6 +279,7 @@ class OrderProvider extends ChangeNotifier {
           final oldOrder = _orders[index];
           final refundedOrder = Order(
             id: oldOrder.id,
+            orderNumber: oldOrder.orderNumber,
             userId: oldOrder.userId,
             items: oldOrder.items,
             shippingAddress: oldOrder.shippingAddress,

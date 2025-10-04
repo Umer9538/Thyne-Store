@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"gopkg.in/validator.v2"
+	"github.com/go-playground/validator/v10"
 )
 
 // Cart represents a shopping cart
@@ -94,37 +94,44 @@ type CartSummary struct {
 
 // Validate validates the cart item struct
 func (ci *CartItem) Validate() error {
-	return validator.Validate(ci)
+	validate := validator.New()
+	return validate.Struct(ci)
 }
 
 // Validate validates the add to cart request
 func (r *AddToCartRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the update cart item request
 func (r *UpdateCartItemRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the remove from cart request
 func (r *RemoveFromCartRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the apply coupon request
 func (r *ApplyCouponRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the coupon struct
 func (c *Coupon) Validate() error {
-	return validator.Validate(c)
+	validate := validator.New()
+	return validate.Struct(c)
 }
 
 // Validate validates the create coupon request
 func (r *CreateCouponRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // IsValid checks if the coupon is valid for use

@@ -6,6 +6,7 @@ import '../auth/login_screen.dart';
 import '../settings/notification_settings_screen.dart';
 import '../settings/privacy_policy_screen.dart';
 import '../settings/terms_conditions_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -128,7 +129,12 @@ class ProfileScreen extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.edit),
                     onPressed: () {
-                      // Edit profile
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EditProfileScreen(),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -192,7 +198,7 @@ class ProfileScreen extends StatelessWidget {
                   'Addresses',
                   Icons.location_on_outlined,
                   () {
-                    // Navigate to addresses
+                    Navigator.pushNamed(context, '/addresses');
                   },
                 ),
                 _buildMenuItem(

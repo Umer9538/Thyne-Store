@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/wishlist_provider.dart';
 import '../utils/theme.dart';
 
 class ProductCard extends StatelessWidget {
@@ -22,7 +23,8 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
-    final isInWishlist = productProvider.isInWishlist(product.id);
+    final wishlistProvider = Provider.of<WishlistProvider>(context);
+    final isInWishlist = wishlistProvider.isInWishlist(product.id);
 
     return GestureDetector(
       onTap: onTap,
@@ -97,7 +99,7 @@ class ProductCard extends StatelessWidget {
                   right: 8,
                   child: InkWell(
                     onTap: () {
-                      productProvider.toggleWishlist(product);
+                      wishlistProvider.toggleWishlist(product.id);
                     },
                     child: Container(
                       padding: const EdgeInsets.all(6),

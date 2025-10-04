@@ -3,12 +3,10 @@ import '../models/product.dart';
 import '../utils/mock_data.dart';
 import '../utils/search_utils.dart';
 import '../services/api_service.dart';
-import '../services/storage_service.dart';
 
 class ProductProvider extends ChangeNotifier {
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
-  List<Product> _wishlist = [];
   bool _isLoading = false;
   String _selectedCategory = 'All';
   String? _selectedGender;
@@ -17,7 +15,6 @@ class ProductProvider extends ChangeNotifier {
 
   List<Product> get products => _filteredProducts.isEmpty ? _products : _filteredProducts;
   List<Product> get featuredProducts => _products.where((p) => p.isFeatured).toList();
-  List<Product> get wishlist => _wishlist;
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String? get selectedGender => _selectedGender;
@@ -31,59 +28,20 @@ class ProductProvider extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      // First try to load from backend API
-      try {
-        final response = await ApiService.getProducts();
-        if (response['success'] == true && response['data'] != null) {
-          final productsData = response['data']['products'] as List?;
-          if (productsData != null) {
-            _products = productsData.map<Product>((json) => Product.fromJson(json)).toList();
-            
-            // Cache products in SQLite for offline use
-            await _cacheProductsLocally(_products);
-            
-            _filteredProducts = _products;
-            notifyListeners();
-            return;
-          }
+      final response = await ApiService.getProducts();
+      if (response['success'] == true && response['data'] != null) {
+        final productsData = response['data']['products'] as List?;
+        if (productsData != null) {
+          _products = productsData.map<Product>((json) => Product.fromJson(json)).toList();
+          _filteredProducts = _products;
+          notifyListeners();
+          return;
         }
-      } catch (apiError) {
-        debugPrint('API error, falling back to local data: $apiError');
       }
-
-      // Fallback to local storage
-      final List<Map<String, dynamic>> productMaps = await StorageService.getProducts();
-
-      if (productMaps.isNotEmpty) {
-        _products = productMaps.map<Product>((map) {
-          return Product(
-            id: map['id'].toString(),
-            name: map['name'] as String,
-            description: map['description'] as String,
-            price: (map['price'] as num).toDouble(),
-            originalPrice: map['price'] != null ? (map['price'] as num).toDouble() * 1.2 : null,
-            category: map['category'] as String,
-            subcategory: map['subcategory'] as String? ?? '',
-            images: (map['images'] as String).split(','),
-            metalType: map['metalType'] as String? ?? '',
-            stoneType: map['stoneType'] as String? ?? '',
-            weight: map['weight'] != null ? (map['weight'] as num).toDouble() : null,
-            tags: map['tags'] != null ? (map['tags'] as String).split(',') : [],
-            rating: (map['rating'] as num).toDouble(),
-            reviewCount: map['ratingCount'] as int,
-            stockQuantity: map['stock'] as int,
-            videoUrl: map['videoUrl'] as String?,
-            isFeatured: (map['stock'] as int) > 3,
-            isAvailable: (map['stock'] as int) > 0,
-            createdAt: DateTime.parse(map['createdAt'] as String),
-          );
-        }).toList();
-      } else {
-        // Last resort: use mock data and save to database
-        _products = MockData.products;
-        await _cacheProductsLocally(_products);
-      }
-
+      
+      // If API fails, use mock data as fallback
+      debugPrint('API failed, using mock data');
+      _products = MockData.products;
       _filteredProducts = _products;
       notifyListeners();
     } catch (e) {
@@ -97,13 +55,6 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _cacheProductsLocally(List<Product> products) async {
-    try {
-      await StorageService.saveProducts(products);
-    } catch (e) {
-      debugPrint('Error caching products locally: $e');
-    }
-  }
 
   void filterByCategory(String category) {
     _selectedCategory = category;
@@ -456,18 +407,6 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  void toggleWishlist(Product product) {
-    if (_wishlist.any((p) => p.id == product.id)) {
-      _wishlist.removeWhere((p) => p.id == product.id);
-    } else {
-      _wishlist.add(product);
-    }
-    notifyListeners();
-  }
-
-  bool isInWishlist(String productId) {
-    return _wishlist.any((p) => p.id == productId);
-  }
 
 
   List<Product> getRelatedProducts(Product product) {

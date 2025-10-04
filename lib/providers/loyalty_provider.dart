@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../models/loyalty.dart';
-import '../database/database_helper.dart';
 import '../services/notification_service.dart';
 import '../services/api_service.dart';
 
@@ -31,43 +30,20 @@ class LoyaltyProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Try to get loyalty program from backend API first
-      try {
-        final response = await ApiService.getLoyaltyProgram();
-        if (response['success'] == true && response['data'] != null) {
-          _loyaltyProgram = LoyaltyProgram.fromJson(response['data']);
-          
-          // Trigger daily login check
-          await ApiService.checkDailyLogin();
-          
-          // Refresh data after daily login check
-          final updatedResponse = await ApiService.getLoyaltyProgram();
-          if (updatedResponse['success'] == true && updatedResponse['data'] != null) {
-            _loyaltyProgram = LoyaltyProgram.fromJson(updatedResponse['data']);
-          }
-        }
-      } catch (apiError) {
-        debugPrint('API loyalty program error, falling back to local: $apiError');
+      final response = await ApiService.getLoyaltyProgram();
+      if (response['success'] == true && response['data'] != null) {
+        _loyaltyProgram = LoyaltyProgram.fromJson(response['data']);
         
-        // Fallback to local database
-        final db = await DatabaseHelper.instance.database;
-
-        // Check if loyalty program exists
-        final result = await db.query(
-          'loyalty_programs',
-          where: 'userId = ?',
-          whereArgs: [userId],
-        );
-
-        if (result.isNotEmpty) {
-          _loyaltyProgram = LoyaltyProgram.fromJson(result.first);
-        } else {
-          // Create new loyalty program
-          _loyaltyProgram = await _createNewLoyaltyProgram(userId);
+        // Trigger daily login check
+        await ApiService.checkDailyLogin();
+        
+        // Refresh data after daily login check
+        final updatedResponse = await ApiService.getLoyaltyProgram();
+        if (updatedResponse['success'] == true && updatedResponse['data'] != null) {
+          _loyaltyProgram = LoyaltyProgram.fromJson(updatedResponse['data']);
         }
-
-        // Check and update daily login
-        await _checkDailyLogin();
+      } else {
+        debugPrint('Failed to load loyalty program from API');
       }
     } catch (e) {
       debugPrint('Error loading loyalty program: $e');
@@ -77,37 +53,6 @@ class LoyaltyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<LoyaltyProgram> _createNewLoyaltyProgram(String userId) async {
-    final program = LoyaltyProgram(
-      userId: userId,
-      totalPoints: 100, // Welcome bonus
-      currentPoints: 100,
-      tier: LoyaltyTier.bronze,
-      loginStreak: 0,
-      lastLoginDate: DateTime.now(),
-      totalSpent: 0,
-      totalOrders: 0,
-      transactions: [
-        PointTransaction(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          type: TransactionType.bonus,
-          points: 100,
-          description: 'Welcome bonus!',
-          createdAt: DateTime.now(),
-        ),
-      ],
-      joinedAt: DateTime.now(),
-    );
-
-    // Save to database
-    final db = await DatabaseHelper.instance.database;
-    await db.insert('loyalty_programs', program.toJson());
-
-    // Send welcome notification
-    _notificationService?.sendLoyaltyPointsNotification(100, 'Bronze');
-
-    return program;
-  }
 
   Future<void> _checkDailyLogin() async {
     if (_loyaltyProgram == null) return;
@@ -153,7 +98,8 @@ class LoyaltyProvider extends ChangeNotifier {
         joinedAt: _loyaltyProgram!.joinedAt,
       );
 
-      await _updateDatabase();
+      // Update via API
+      notifyListeners();
     }
   }
 
@@ -192,7 +138,8 @@ class LoyaltyProvider extends ChangeNotifier {
     );
 
     await _checkTierUpgrade();
-    await _updateDatabase();
+    // Update via API
+    notifyListeners();
   }
 
   Future<void> earnPointsFromReview(String productId) async {
@@ -277,7 +224,7 @@ class LoyaltyProvider extends ChangeNotifier {
       joinedAt: _loyaltyProgram!.joinedAt,
     );
 
-    await _updateDatabase();
+    // Update via API
     notifyListeners();
   }
 
@@ -318,21 +265,6 @@ class LoyaltyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateDatabase() async {
-    if (_loyaltyProgram == null) return;
-
-    try {
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'loyalty_programs',
-        _loyaltyProgram!.toJson(),
-        where: 'userId = ?',
-        whereArgs: [_loyaltyProgram!.userId],
-      );
-    } catch (e) {
-      debugPrint('Error updating loyalty program: $e');
-    }
-  }
 
   Future<List<Voucher>> getAvailableVouchers() async {
     try {

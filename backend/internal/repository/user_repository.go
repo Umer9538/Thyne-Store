@@ -147,12 +147,27 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id primitive.ObjectI
 
 func (r *userRepository) AddAddress(ctx context.Context, userID primitive.ObjectID, address models.Address) error {
 	filter := bson.M{"_id": userID}
-	update := bson.M{
-		"$push": bson.M{"addresses": address},
-		"$set":  bson.M{"updatedAt": time.Now()},
+	
+	// Use aggregation pipeline to handle null addresses field
+	pipeline := []bson.M{
+		{
+			"$set": bson.M{
+				"addresses": bson.M{
+					"$ifNull": []interface{}{"$addresses", []models.Address{}},
+				},
+			},
+		},
+		{
+			"$set": bson.M{
+				"addresses": bson.M{
+					"$concatArrays": []interface{}{"$addresses", []models.Address{address}},
+				},
+				"updatedAt": time.Now(),
+			},
+		},
 	}
 
-	_, err := r.collection.UpdateOne(ctx, filter, update)
+	_, err := r.collection.UpdateOne(ctx, filter, pipeline)
 	return err
 }
 

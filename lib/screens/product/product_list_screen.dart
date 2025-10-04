@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
 import '../../utils/mock_data.dart';
 import '../../widgets/product_card.dart';
@@ -336,14 +337,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
               ),
               IconButton(
                 icon: Icon(
-                  Provider.of<ProductProvider>(context).isInWishlist(product.id)
+                  Provider.of<WishlistProvider>(context).isInWishlist(product.id)
                       ? Icons.favorite
                       : Icons.favorite_outline,
                   color: AppTheme.errorRed,
                 ),
                 onPressed: () {
-                  Provider.of<ProductProvider>(context, listen: false)
-                      .toggleWishlist(product);
+                  Provider.of<WishlistProvider>(context, listen: false)
+                      .toggleWishlist(product.id);
                 },
               ),
             ],

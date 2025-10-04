@@ -1,0 +1,6 @@
+name,description,price,originalPrice,images,category,subcategory,metalType,stoneType,weight,size,stockQuantity,tags,isAvailable,isFeatured
+Golden Elegance Ring,Beautiful 18k gold ring with intricate design perfect for special occasions,25000,30000,https://example.com/ring1.jpg;https://example.com/ring2.jpg,Rings,Wedding,Gold,Diamond,5.5,7,10,wedding;gold;elegant,true,true
+Silver Charm Necklace,Elegant silver necklace with delicate charm pendant,8500,,https://example.com/necklace1.jpg,Necklaces,Casual,Silver,,12.3,,15,silver;casual;charm,true,false
+Diamond Stud Earrings,Classic diamond stud earrings in white gold setting,45000,50000,https://example.com/earrings1.jpg;https://example.com/earrings2.jpg,Earrings,Formal,White Gold,Diamond,3.2,,8,diamond;formal;classic,true,true
+Rose Gold Bracelet,Delicate rose gold bracelet with adjustable chain,12000,,https://example.com/bracelet1.jpg,Bracelets,Casual,Rose Gold,,8.7,Medium,20,rose gold;casual;adjustable,true,false
+Emerald Pendant Necklace,Stunning emerald pendant on gold chain,35000,40000,https://example.com/pendant1.jpg;https://example.com/pendant2.jpg,Necklaces,Formal,Gold,Emerald,15.8,,5,emerald;formal;pendant,true,true

@@ -5,6 +5,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/video_player_widget.dart';
@@ -81,7 +82,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
-    final isInWishlist = productProvider.isInWishlist(widget.product.id);
+    final wishlistProvider = Provider.of<WishlistProvider>(context);
+    final isInWishlist = wishlistProvider.isInWishlist(widget.product.id);
     final relatedProducts = productProvider.getRelatedProducts(widget.product);
 
     return Scaffold(
@@ -166,7 +168,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     color: isInWishlist ? AppTheme.errorRed : AppTheme.textPrimary,
                   ),
                   onPressed: () {
-                    productProvider.toggleWishlist(widget.product);
+                    wishlistProvider.toggleWishlist(widget.product.id);
                   },
                 ),
               ),

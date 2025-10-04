@@ -18,6 +18,7 @@ type OrderService interface {
     // Admin: list all orders
     GetAllOrders(page, limit int, status *models.OrderStatus) ([]models.Order, int64, error)
 	GetOrder(orderID string) (*models.Order, error)
+	GetOrderByNumber(orderNumber string) (*models.Order, error)
 	CancelOrder(orderID string, reason string) error
 	TrackOrder(orderID string) (*models.Order, error)
 	ReturnOrder(orderID string, reason string) error
@@ -146,6 +147,12 @@ func (s *orderService) GetOrder(orderID string) (*models.Order, error) {
 	}
 
 	return s.orderRepo.GetByID(ctx, objID)
+}
+
+func (s *orderService) GetOrderByNumber(orderNumber string) (*models.Order, error) {
+	ctx := context.Background()
+	
+	return s.orderRepo.GetByOrderNumber(ctx, orderNumber)
 }
 
 func (s *orderService) CancelOrder(orderID string, reason string) error {

@@ -16,7 +16,6 @@ require (
 	go.mongodb.org/mongo-driver v1.12.1
 	golang.org/x/crypto v0.36.0
 	google.golang.org/api v0.122.0
-	gopkg.in/validator.v2 v2.0.1
 )
 
 require (

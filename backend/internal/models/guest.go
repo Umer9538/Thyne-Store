@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"gopkg.in/validator.v2"
+	"github.com/go-playground/validator/v10"
 )
 
 // GuestSession represents a guest user session
@@ -52,17 +52,20 @@ type GuestSessionResponse struct {
 
 // Validate validates the guest session struct
 func (gs *GuestSession) Validate() error {
-	return validator.Validate(gs)
+	validate := validator.New()
+	return validate.Struct(gs)
 }
 
 // Validate validates the create guest session request
 func (r *CreateGuestSessionRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the update guest session request
 func (r *UpdateGuestSessionRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // IsExpired checks if the guest session is expired

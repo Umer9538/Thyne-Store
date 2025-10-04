@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_service.dart';
 
 class NotificationService {
@@ -12,6 +12,7 @@ class NotificationService {
   NotificationService._();
 
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   // Notification channels
   static const String orderChannel = 'order_notifications';
@@ -293,14 +294,13 @@ class NotificationService {
     bool flashSales = true,
   }) async {
     try {
-      // Save preferences locally
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('notifications_order_updates', orderUpdates);
-      await prefs.setBool('notifications_promotions', promotions);
-      await prefs.setBool('notifications_reminders', reminders);
-      await prefs.setBool('notifications_loyalty_rewards', loyaltyRewards);
-      await prefs.setBool('notifications_back_in_stock', backInStock);
-      await prefs.setBool('notifications_flash_sales', flashSales);
+      // Save preferences securely
+      await _storage.write(key: 'notifications_order_updates', value: orderUpdates.toString());
+      await _storage.write(key: 'notifications_promotions', value: promotions.toString());
+      await _storage.write(key: 'notifications_reminders', value: reminders.toString());
+      await _storage.write(key: 'notifications_loyalty_rewards', value: loyaltyRewards.toString());
+      await _storage.write(key: 'notifications_back_in_stock', value: backInStock.toString());
+      await _storage.write(key: 'notifications_flash_sales', value: flashSales.toString());
 
       // Sync with backend
       await _syncPreferencesWithBackend({
@@ -319,14 +319,13 @@ class NotificationService {
   // Get notification preferences
   Future<Map<String, bool>> getNotificationPreferences() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       return {
-        'orderUpdates': prefs.getBool('notifications_order_updates') ?? true,
-        'promotions': prefs.getBool('notifications_promotions') ?? true,
-        'reminders': prefs.getBool('notifications_reminders') ?? true,
-        'loyaltyRewards': prefs.getBool('notifications_loyalty_rewards') ?? true,
-        'backInStock': prefs.getBool('notifications_back_in_stock') ?? true,
-        'flashSales': prefs.getBool('notifications_flash_sales') ?? true,
+        'orderUpdates': (await _storage.read(key: 'notifications_order_updates')) == 'true',
+        'promotions': (await _storage.read(key: 'notifications_promotions')) == 'true',
+        'reminders': (await _storage.read(key: 'notifications_reminders')) == 'true',
+        'loyaltyRewards': (await _storage.read(key: 'notifications_loyalty_rewards')) == 'true',
+        'backInStock': (await _storage.read(key: 'notifications_back_in_stock')) == 'true',
+        'flashSales': (await _storage.read(key: 'notifications_flash_sales')) == 'true',
       };
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');

@@ -49,8 +49,17 @@ class WishlistProvider extends ChangeNotifier {
       final response = await ApiService.addToWishlist(productId: productId);
       
       if (response['success'] == true) {
-        // Reload wishlist to get updated data
-        await loadWishlist();
+        // Add product to local list immediately for better UX
+        if (response['data'] != null && response['data']['product'] != null) {
+          final product = Product.fromJson(response['data']['product']);
+          if (!_wishlist.any((p) => p.id == product.id)) {
+            _wishlist.add(product);
+            notifyListeners();
+          }
+        } else {
+          // Fallback: reload wishlist to get updated data
+          await loadWishlist();
+        }
         return true;
       } else {
         throw Exception(response['error'] ?? 'Failed to add to wishlist');

@@ -7,6 +7,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/guest_session_provider.dart';
+import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
 import '../../services/api_service.dart';
 import '../../widgets/product_card.dart';
@@ -34,6 +35,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     _startAutoSlide();
     _loadStorefront();
+    // Ensure products are loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      if (productProvider.products.isEmpty) {
+        productProvider.loadProducts();
+      }
+    });
   }
 
   @override
@@ -60,23 +68,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadStorefront() async {
     try {
       setState(() { _loadingStorefront = true; });
-      final resp = await ApiService.getHomePageConfig();
-      if (resp['success'] == true && resp['data'] != null) {
-        final data = resp['data'] as Map<String, dynamic>;
-        final heroBanners = (data['heroBanners'] as List? ?? []);
-        _banners = heroBanners.map<Map<String, String>>((b) => {
-          'image': (b['imageUrl'] ?? '').toString(),
-          'title': (b['title'] ?? ' ').toString(),
-          'subtitle': (b['subtitle'] ?? ' ').toString(),
-        }).toList();
+      
+      // Try to get homepage config, but fallback gracefully if not available
+      try {
+        final resp = await ApiService.getHomePageConfig();
+        if (resp['success'] == true && resp['data'] != null) {
+          final data = resp['data'] as Map<String, dynamic>;
+          final heroBanners = (data['heroBanners'] as List? ?? []);
+          _banners = heroBanners.map<Map<String, String>>((b) => {
+            'image': (b['imageUrl'] ?? '').toString(),
+            'title': (b['title'] ?? ' ').toString(),
+            'subtitle': (b['subtitle'] ?? ' ').toString(),
+          }).toList();
+        }
+      } catch (e) {
+        // Use default banners if homepage config fails
+        _banners = [
+          {
+            'image': 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338',
+            'title': 'Exquisite Jewelry Collection',
+            'subtitle': 'Discover our handcrafted pieces',
+          },
+          {
+            'image': 'https://images.unsplash.com/photo-1605100804763-247f67b3557e',
+            'title': 'Diamond Collection',
+            'subtitle': 'Brilliance that lasts forever',
+          },
+        ];
       }
-      final catsResp = await ApiService.getVisibleCategories();
-      if (catsResp['success'] == true && catsResp['data'] != null) {
-        final cats = (catsResp['data'] as List<dynamic>);
-        _visibleCategories = cats.map<String>((c) => (c['categoryId'] ?? '').toString()).toList();
+      
+      // Get categories from the working endpoint
+      try {
+        final catsResp = await ApiService.getCategories();
+        if (catsResp['success'] == true && catsResp['data'] != null) {
+          final cats = (catsResp['data'] as List<dynamic>);
+          _visibleCategories = cats.map<String>((c) => c.toString()).toList();
+        }
+      } catch (e) {
+        // Fallback to default categories
+        _visibleCategories = ['Rings', 'Necklaces', 'Earrings', 'Bracelets'];
       }
     } catch (_) {
-      // Fallback to static if needed; keep empty to avoid crash
+      // Final fallback
+      _banners = [
+        {
+          'image': 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338',
+          'title': 'Exquisite Jewelry Collection',
+          'subtitle': 'Discover our handcrafted pieces',
+        },
+      ];
+      _visibleCategories = ['Rings', 'Necklaces', 'Earrings', 'Bracelets'];
     } finally {
       if (mounted) setState(() { _loadingStorefront = false; });
     }
@@ -88,6 +129,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final cartProvider = Provider.of<CartProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final guestSessionProvider = Provider.of<GuestSessionProvider>(context);
+    final wishlistProvider = Provider.of<WishlistProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -126,17 +168,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           IconButton(
             icon: badges.Badge(
               badgeContent: Text(
-                productProvider.wishlist.length.toString(),
+                wishlistProvider.wishlistCount.toString(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
                 ),
               ),
-              showBadge: productProvider.wishlist.isNotEmpty,
+              showBadge: wishlistProvider.wishlistCount > 0,
               child: const Icon(Icons.favorite_outline),
             ),
             onPressed: () {
-              // Navigate to wishlist
+              Navigator.pushNamed(context, '/wishlist');
             },
           ),
           IconButton(
@@ -349,7 +391,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               itemCount: _visibleCategories.isNotEmpty ? _visibleCategories.length : 0,
               itemBuilder: (context, index) {
                 final category = _visibleCategories[index];
-                final image = '';
+                // Map categories to appropriate images
+                final categoryImages = {
+                  'Rings': 'https://images.unsplash.com/photo-1605100804763-247f67b3557e',
+                  'Necklaces': 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f',
+                  'Earrings': 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908',
+                  'Bracelets': 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338',
+                };
+                final image = categoryImages[category] ?? 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338';
 
                 return GestureDetector(
                   onTap: () {

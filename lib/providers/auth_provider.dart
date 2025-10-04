@@ -30,62 +30,33 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
 
     try {
-      // First try backend API
-      try {
-        final response = await ApiService.login(email: email, password: password);
-        if (response['success'] == true && response['data'] != null) {
-          final userData = response['data']['user'];
-          _user = User.fromJson(userData);
-          
-          // Store tokens
-          await _storage.write(key: 'auth_token', value: response['data']['accessToken']);
-          await _storage.write(key: 'refresh_token', value: response['data']['refreshToken']);
-          await _storage.write(key: 'user_id', value: _user!.id);
-          
-          // Save user session
-          await StorageService.saveCurrentUser(userData);
-          
-          // Trigger loyalty program loading for daily login bonus
-          _onLoginSuccess?.call(_user!.id);
-          
-          notifyListeners();
-          return;
-        }
-      } catch (apiError) {
-        debugPrint('API login error, trying local storage: $apiError');
-      }
-
-      // Fallback to local storage
-      final userData = await StorageService.getUserByCredentials(email, password);
-
-      if (userData != null) {
-        _user = User(
-          id: userData['id'].toString(),
-          name: userData['name'],
-          email: userData['email'],
-          phone: userData['phone'],
-          profileImage: userData['profileImage'],
-          createdAt: DateTime.parse(userData['createdAt']),
-          isAdmin: userData['isAdmin'] == 1,
-        );
-
-        // Store a mock token for session management
-        await _storage.write(key: 'auth_token', value: 'local_token_${userData['id']}');
-        await _storage.write(key: 'user_id', value: userData['id'].toString());
+      final response = await ApiService.login(email: email, password: password);
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data']['user'];
+        _user = User.fromJson(userData);
+        
+        // Store tokens
+        await _storage.write(key: 'auth_token', value: response['data']['accessToken']);
+        await _storage.write(key: 'refresh_token', value: response['data']['refreshToken']);
+        await _storage.write(key: 'user_id', value: _user!.id);
         
         // Save user session
         await StorageService.saveCurrentUser(userData);
-
+        
         // Trigger loyalty program loading for daily login bonus
         _onLoginSuccess?.call(_user!.id);
-
+        
         notifyListeners();
       } else {
-        _error = 'Invalid email or password';
+        _error = response['error'] ?? 'Invalid email or password';
         notifyListeners();
       }
     } catch (e) {
-      _error = 'Login failed. Please try again.';
+      if (e is ApiException) {
+        _error = e.message;
+      } else {
+        _error = 'Login failed. Please try again.';
+      }
       debugPrint('Login error: $e');
       notifyListeners();
     } finally {
@@ -103,76 +74,36 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
 
     try {
-      // First try backend API
-      try {
-        final response = await ApiService.register(
-          name: name,
-          email: email,
-          phone: phone,
-          password: password,
-        );
+      final response = await ApiService.register(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+      );
+      
+      if (response['success'] == true && response['data'] != null) {
+        final userData = response['data']['user'];
+        _user = User.fromJson(userData);
         
-        if (response['success'] == true && response['data'] != null) {
-          final userData = response['data']['user'];
-          _user = User.fromJson(userData);
-          
-          // Store tokens
-          await _storage.write(key: 'auth_token', value: response['data']['accessToken']);
-          await _storage.write(key: 'refresh_token', value: response['data']['refreshToken']);
-          await _storage.write(key: 'user_id', value: _user!.id);
-          
-          // Save user session
-          await StorageService.saveCurrentUser(userData);
-          
-          notifyListeners();
-          return;
-        }
-      } catch (apiError) {
-        debugPrint('API registration error, trying local storage: $apiError');
-      }
-
-      // Fallback to local storage
-      try {
-        final userId = await StorageService.createUser(
-          name: name,
-          email: email,
-          phone: phone,
-          password: password,
-        );
-
-        _user = User(
-          id: userId.toString(),
-          name: name,
-          email: email,
-          phone: phone,
-          createdAt: DateTime.now(),
-          isAdmin: false,
-        );
-
-        // Store a mock token for session management
-        await _storage.write(key: 'auth_token', value: 'local_token_$userId');
-        await _storage.write(key: 'user_id', value: userId.toString());
+        // Store tokens
+        await _storage.write(key: 'auth_token', value: response['data']['accessToken']);
+        await _storage.write(key: 'refresh_token', value: response['data']['refreshToken']);
+        await _storage.write(key: 'user_id', value: _user!.id);
         
         // Save user session
-        final userData = {
-          'id': userId,
-          'name': name,
-          'email': email,
-          'phone': phone,
-          'createdAt': DateTime.now().toIso8601String(),
-          'isAdmin': 0,
-        };
         await StorageService.saveCurrentUser(userData);
-
+        
         notifyListeners();
-      } catch (storageError) {
-        _error = storageError.toString().contains('Email already exists') 
-            ? 'Email already registered'
-            : 'Registration failed. Please try again.';
+      } else {
+        _error = response['error'] ?? 'Registration failed. Please try again.';
         notifyListeners();
       }
     } catch (e) {
-      _error = 'Registration failed. Please try again.';
+      if (e is ApiException) {
+        _error = e.message;
+      } else {
+        _error = 'Registration failed. Please try again.';
+      }
       debugPrint('Registration error: $e');
       notifyListeners();
     } finally {
@@ -350,31 +281,8 @@ class AuthProvider extends ChangeNotifier {
           return;
         }
 
-        // Fallback to storage lookup
-        try {
-          final userData = await StorageService.getUserById(int.parse(userId));
-          if (userData != null) {
-            _user = User(
-              id: userData['id'].toString(),
-              name: userData['name'] as String,
-              email: userData['email'] as String,
-              phone: userData['phone'] as String,
-              profileImage: userData['profileImage'] as String?,
-              createdAt: DateTime.parse(userData['createdAt'] as String),
-              isAdmin: userData['isAdmin'] == 1,
-            );
-            
-            // Save to session for next time
-            await StorageService.saveCurrentUser(userData);
-            notifyListeners();
-          } else {
-            // User not found, clear session
-            await _clearSession();
-          }
-        } catch (e) {
-          debugPrint('Error getting user from storage: $e');
-          await _clearSession();
-        }
+        // If API fails, clear session
+        await _clearSession();
       }
     } catch (e) {
       // Error reading user, clear session

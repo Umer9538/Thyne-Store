@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../models/guest_user.dart';
 import '../models/user.dart';
@@ -12,6 +12,7 @@ class GuestSessionProvider extends ChangeNotifier {
   bool get isGuestMode => _isGuestMode;
   bool get isActive => _guestUser != null;
 
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _guestSessionKey = 'guest_session';
   static const String _guestModeKey = 'guest_mode';
 
@@ -67,9 +68,8 @@ class GuestSessionProvider extends ChangeNotifier {
     _guestUser = null;
     _isGuestMode = false;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_guestSessionKey);
-    await prefs.remove(_guestModeKey);
+    await _storage.delete(key: _guestSessionKey);
+    await _storage.delete(key: _guestModeKey);
 
     notifyListeners();
   }
@@ -98,21 +98,20 @@ class GuestSessionProvider extends ChangeNotifier {
     return 'Guest User';
   }
 
-  /// Save guest session to SharedPreferences
+  /// Save guest session to secure storage
   Future<void> _saveGuestSession() async {
     if (_guestUser == null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_guestSessionKey, jsonEncode(_guestUser!.toJson()));
-    await prefs.setBool(_guestModeKey, _isGuestMode);
+    await _storage.write(key: _guestSessionKey, value: jsonEncode(_guestUser!.toJson()));
+    await _storage.write(key: _guestModeKey, value: _isGuestMode.toString());
   }
 
-  /// Load guest session from SharedPreferences
+  /// Load guest session from secure storage
   Future<void> _loadGuestSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final guestData = prefs.getString(_guestSessionKey);
-      final guestMode = prefs.getBool(_guestModeKey) ?? false;
+      final guestData = await _storage.read(key: _guestSessionKey);
+      final guestModeStr = await _storage.read(key: _guestModeKey);
+      final guestMode = guestModeStr == 'true';
 
       if (guestData != null) {
         final guestJson = jsonDecode(guestData);
@@ -125,8 +124,8 @@ class GuestSessionProvider extends ChangeNotifier {
           notifyListeners();
         } else {
           // Clear expired session
-          await prefs.remove(_guestSessionKey);
-          await prefs.remove(_guestModeKey);
+          await _storage.delete(key: _guestSessionKey);
+          await _storage.delete(key: _guestModeKey);
         }
       }
     } catch (e) {

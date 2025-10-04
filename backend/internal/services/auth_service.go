@@ -62,11 +62,12 @@ func (s *authService) Register(req *models.CreateUserRequest) (*models.LoginResp
 
 	// Create user
 	user := &models.User{
-		ID:       primitive.NewObjectID(),
-		Name:     req.Name,
-		Email:    req.Email,
-		Phone:    req.Phone,
-		Password: hashedPassword,
+		ID:        primitive.NewObjectID(),
+		Name:      req.Name,
+		Email:     req.Email,
+		Phone:     req.Phone,
+		Password:  hashedPassword,
+		Addresses: []models.Address{}, // Initialize as empty slice instead of nil
 	}
 
     if err := s.userRepo.Create(context.Background(), user); err != nil {

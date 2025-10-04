@@ -34,6 +34,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
+  void _onStepContinue(int currentStep) {
+    if (currentStep == 0) {
+      // Validate address step
+      if (_selectedAddress == null) {
+        // If no saved address is selected, validate the new address form
+        if (_addressFormKey.currentState?.validate() ?? false) {
+          setState(() {
+            _currentStep = currentStep + 1;
+          });
+        }
+      } else {
+        // If a saved address is selected, proceed to next step
+        setState(() {
+          _currentStep = currentStep + 1;
+        });
+      }
+    } else {
+      // For other steps, proceed normally
+      setState(() {
+        _currentStep = currentStep + 1;
+      });
+    }
+  }
+
+  void _onStepCancel(int currentStep) {
+    if (currentStep > 0) {
+      setState(() {
+        _currentStep = currentStep - 1;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
@@ -59,11 +91,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             });
           },
           controlsBuilder: (context, details) {
-            return Row(
+return Row(
               children: [
                 if (details.stepIndex < 2)
                   ElevatedButton(
-                    onPressed: details.onStepContinue,
+                    onPressed: () => _onStepContinue(details.stepIndex),
                     child: const Text('Continue'),
                   ),
                 if (details.stepIndex == 2)
@@ -87,7 +119,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(width: 8),
                 if (details.stepIndex > 0)
                   OutlinedButton(
-                    onPressed: details.onStepCancel,
+                    onPressed: () => _onStepCancel(details.stepIndex),
                     child: const Text('Back'),
                   ),
               ],
@@ -488,6 +520,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             zipCode: _zipController.text,
             country: 'India',
           );
+
+      // Ensure user is authenticated before placing order
+      if (!authProvider.isAuthenticated || authProvider.user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in to place an order'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
       await orderProvider.placeOrder(
         userId: authProvider.user!.id,

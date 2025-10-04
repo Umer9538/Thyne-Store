@@ -7,7 +7,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   flutter_secure_storage_windows
   printing
-  sqlite3_flutter_libs
   url_launcher_windows
 )
 

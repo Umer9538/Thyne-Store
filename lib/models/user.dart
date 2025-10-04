@@ -21,12 +21,14 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
-      name: json['name'],
-      email: json['email'],
-      phone: json['phone'],
-      profileImage: json['profileImage'],
-      createdAt: DateTime.parse(json['createdAt']),
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      profileImage: json['profileImage']?.toString(),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
       addresses: (json['addresses'] as List?)
               ?.map((a) => Address.fromJson(a))
               .toList() ??
@@ -70,12 +72,12 @@ class Address {
 
   factory Address.fromJson(Map<String, dynamic> json) {
     return Address(
-      id: json['id'],
-      street: json['street'],
-      city: json['city'],
-      state: json['state'],
-      zipCode: json['zipCode'],
-      country: json['country'],
+      id: json['id']?.toString() ?? '',
+      street: json['street']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      state: json['state']?.toString() ?? '',
+      zipCode: json['zipCode']?.toString() ?? '',
+      country: json['country']?.toString() ?? 'India',
       isDefault: json['isDefault'] ?? false,
     );
   }

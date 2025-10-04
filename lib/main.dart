@@ -9,6 +9,7 @@ import 'providers/cart_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/guest_session_provider.dart';
 import 'providers/wishlist_provider.dart';
+import 'providers/address_provider.dart';
 import 'utils/theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'widgets/main_navigation.dart';
@@ -28,10 +29,11 @@ import 'screens/admin/storefront/storefront_management_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/orders/order_history_screen.dart';
 import 'screens/orders/track_order_screen.dart';
+import 'screens/orders/my_orders_screen.dart';
+import 'screens/profile/addresses_screen.dart';
 import 'providers/loyalty_provider.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
-import 'database/database_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,11 +41,6 @@ void main() async {
   try {
     // Initialize storage service first
     await StorageService.initialize();
-    
-    // Initialize database for non-web platforms
-    if (!kIsWeb) {
-      await DatabaseHelper.initializeDatabaseFactory();
-    }
 
     // Initialize Firebase and notifications (only for mobile platforms)
     if (!kIsWeb) {
@@ -83,6 +80,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GuestSessionProvider()),
         ChangeNotifierProvider(create: (_) => LoyaltyProvider()),
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
+        ChangeNotifierProvider(create: (_) => AddressProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -90,10 +88,17 @@ class MyApp extends StatelessWidget {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             final authProvider = Provider.of<AuthProvider>(context, listen: false);
             final loyaltyProvider = Provider.of<LoyaltyProvider>(context, listen: false);
+            final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
             
             authProvider.setOnLoginSuccess((userId) {
               loyaltyProvider.loadLoyaltyProgram(userId);
+              wishlistProvider.loadWishlist();
             });
+            
+            // Load wishlist if user is already authenticated
+            if (authProvider.isAuthenticated) {
+              wishlistProvider.loadWishlist();
+            }
           });
           
           return MaterialApp(
@@ -118,8 +123,10 @@ class MyApp extends StatelessWidget {
               '/loyalty': (context) => const LoyaltyScreen(),
               '/admin/storefront': (context) => const StorefrontManagementScreen(),
               '/wishlist': (context) => const WishlistScreen(),
+              '/orders': (context) => const MyOrdersScreen(),
               '/order-history': (context) => const OrderHistoryScreen(),
               '/track-order': (context) => const TrackOrderScreen(),
+              '/addresses': (context) => const AddressesScreen(),
             },
           );
         },
@@ -142,10 +149,16 @@ class _AppWrapperState extends State<AppWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final guestSessionProvider = context.read<GuestSessionProvider>();
       final authProvider = context.read<AuthProvider>();
+      final wishlistProvider = context.read<WishlistProvider>();
 
       // Initialize guest session if user is not authenticated
       if (!authProvider.isAuthenticated && !guestSessionProvider.isActive) {
         guestSessionProvider.startGuestSession();
+      }
+      
+      // Load wishlist if user is authenticated
+      if (authProvider.isAuthenticated) {
+        wishlistProvider.loadWishlist();
       }
     });
   }

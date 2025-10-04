@@ -54,8 +54,8 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
             TextField(
               controller: _orderIdController,
               decoration: InputDecoration(
-                labelText: 'Order ID',
-                hintText: 'Enter your order ID',
+                labelText: 'Order Number',
+                hintText: 'Enter your order number or ID',
                 prefixIcon: const Icon(Icons.receipt_long),
                 border: const OutlineInputBorder(),
                 errorText: _error,
@@ -155,7 +155,7 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Order #${order.id}',
+                      'Order #${order.orderNumber ?? order.id}',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -204,11 +204,11 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
   }
 
   void _trackOrder() async {
-    final orderId = _orderIdController.text.trim();
+    final orderQuery = _orderIdController.text.trim();
     
-    if (orderId.isEmpty) {
+    if (orderQuery.isEmpty) {
       setState(() {
-        _error = 'Please enter an order ID';
+        _error = 'Please enter an order number or ID';
       });
       return;
     }
@@ -220,20 +220,31 @@ class _TrackOrderScreenState extends State<TrackOrderScreen> {
 
     try {
       final orderProvider = context.read<OrderProvider>();
-      final order = orderProvider.getOrderById(orderId);
+      Order? order;
       
-      if (order != null) {
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OrderTrackingScreen(order: order),
-            ),
-          );
-        }
+      // First try to find by order number
+      order = orderProvider.getOrderByOrderNumber(orderQuery);
+      
+      // If not found, try by order ID
+      if (order == null) {
+        order = orderProvider.getOrderById(orderQuery);
+      }
+      
+      // If still not found, try API search
+      if (order == null) {
+        order = await orderProvider.searchOrderByNumber(orderQuery);
+      }
+      
+      if (order != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderTrackingScreen(order: order!),
+          ),
+        );
       } else {
         setState(() {
-          _error = 'Order not found. Please check your order ID.';
+          _error = 'Order not found. Please check your order number or ID.';
         });
       }
     } catch (e) {

@@ -23,6 +23,7 @@ type ProductService interface {
 	GetProductStatistics(ctx context.Context) (*models.ProductStatistics, error)
 	GetRecentProducts(ctx context.Context, limit int) ([]models.Product, error)
 	ExportProducts(ctx context.Context, format string, filters map[string]interface{}) (string, error)
+	BulkCreateProducts(ctx context.Context, products []models.CreateProductRequest) ([]models.Product, []models.BulkCreateError, error)
 }
 
 type productService struct {
@@ -229,14 +230,7 @@ func (s *productService) UpdateProductStock(ctx context.Context, id string, quan
 }
 
 func (s *productService) GetProductStatistics(ctx context.Context) (*models.ProductStatistics, error) {
-	// This would be implemented based on your admin repository
-	// For now, return basic stats
-	return &models.ProductStatistics{
-		TotalProducts:      100, // Placeholder
-		ProductsInStock:    85,  // Placeholder
-		ProductsOutOfStock: 15,  // Placeholder
-		FeaturedProducts:   20,  // Placeholder
-	}, nil
+	return s.productRepo.GetProductStatistics(ctx)
 }
 
 func (s *productService) GetRecentProducts(ctx context.Context, limit int) ([]models.Product, error) {
@@ -251,4 +245,60 @@ func (s *productService) GetRecentProducts(ctx context.Context, limit int) ([]mo
 func (s *productService) ExportProducts(ctx context.Context, format string, filters map[string]interface{}) (string, error) {
 	// Placeholder implementation - would generate and return file URL
 	return "/exports/products_" + format + "_" + time.Now().Format("20060102150405") + "." + format, nil
+}
+
+func (s *productService) BulkCreateProducts(ctx context.Context, products []models.CreateProductRequest) ([]models.Product, []models.BulkCreateError, error) {
+	var createdProducts []models.Product
+	var failedProducts []models.BulkCreateError
+
+	for i, productReq := range products {
+		// Validate the product request
+		if err := productReq.Validate(); err != nil {
+			failedProducts = append(failedProducts, models.BulkCreateError{
+				Index:   i,
+				Product: productReq,
+				Error:   "Validation failed: " + err.Error(),
+			})
+			continue
+		}
+
+		// Create the product
+		product := &models.Product{
+			ID:            primitive.NewObjectID(),
+			Name:          productReq.Name,
+			Description:   productReq.Description,
+			Price:         productReq.Price,
+			OriginalPrice: productReq.OriginalPrice,
+			Images:        productReq.Images,
+			Category:      productReq.Category,
+			Subcategory:   productReq.Subcategory,
+			MetalType:     productReq.MetalType,
+			StoneType:     productReq.StoneType,
+			Weight:        productReq.Weight,
+			Size:          productReq.Size,
+			StockQuantity: productReq.StockQuantity,
+			Tags:          productReq.Tags,
+			IsAvailable:   productReq.IsAvailable,
+			IsFeatured:    productReq.IsFeatured,
+			Rating:        0.0,
+			ReviewCount:   0,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		// Attempt to create the product in the database
+		err := s.productRepo.Create(ctx, product)
+		if err != nil {
+			failedProducts = append(failedProducts, models.BulkCreateError{
+				Index:   i,
+				Product: productReq,
+				Error:   "Database error: " + err.Error(),
+			})
+			continue
+		}
+
+		createdProducts = append(createdProducts, *product)
+	}
+
+	return createdProducts, failedProducts, nil
 }

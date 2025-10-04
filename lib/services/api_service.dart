@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:file_picker/file_picker.dart';
 import '../config/api_config.dart';
 
 class ApiService {
@@ -205,11 +206,13 @@ class ApiService {
     if (phone != null) body['phone'] = phone;
     if (profileImage != null) body['profileImage'] = profileImage;
 
-    final response = await http.put(
-      Uri.parse('$baseUrl/users/profile'),
-      headers: await _getHeaders(requireAuth: true),
-      body: json.encode(body),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/users/profile'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(body),
+      );
+    });
 
     return _handleResponse(response);
   }
@@ -285,6 +288,17 @@ class ApiService {
   }) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/users/addresses/$addressId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> setDefaultAddress({
+    required String addressId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/addresses/$addressId/default'),
       headers: await _getHeaders(requireAuth: true),
     );
 
@@ -720,6 +734,19 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  static Future<Map<String, dynamic>> searchOrderByNumber({
+    required String orderNumber,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/orders/search?orderNumber=${Uri.encodeQueryComponent(orderNumber)}'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+
+    return _handleResponse(response);
+  }
+
   static Future<Map<String, dynamic>> returnOrder({
     required String orderId,
     required String reason,
@@ -934,6 +961,35 @@ class ApiService {
         'reason': reason ?? 'Stock update',
       }),
     );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> bulkUploadProducts(PlatformFile file) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/admin/products/bulk-upload'),
+    );
+
+    // Add headers
+    final headers = await _getHeaders(requireAuth: true);
+    request.headers.addAll(headers);
+
+    // Add file
+    if (file.bytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          file.bytes!,
+          filename: file.name,
+        ),
+      );
+    } else {
+      throw Exception('File bytes are null');
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     return _handleResponse(response);
   }

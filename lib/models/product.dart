@@ -61,26 +61,28 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'],
-      price: json['price'].toDouble(),
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      price: (json['price'] ?? 0).toDouble(),
       originalPrice: json['originalPrice']?.toDouble(),
-      images: List<String>.from(json['images']),
-      videoUrl: json['videoUrl'],
-      category: json['category'],
-      subcategory: json['subcategory'],
-      metalType: json['metalType'],
-      stoneType: json['stoneType'],
+      images: List<String>.from(json['images'] ?? []),
+      videoUrl: json['videoUrl']?.toString(),
+      category: json['category']?.toString() ?? '',
+      subcategory: json['subcategory']?.toString() ?? '',
+      metalType: json['metalType']?.toString() ?? '',
+      stoneType: json['stoneType']?.toString(),
       weight: json['weight']?.toDouble(),
-      size: json['size'],
-      stockQuantity: json['stockQuantity'],
+      size: json['size']?.toString(),
+      stockQuantity: json['stockQuantity'] ?? 0,
       rating: json['rating']?.toDouble() ?? 0.0,
       reviewCount: json['reviewCount'] ?? 0,
       tags: List<String>.from(json['tags'] ?? []),
       isAvailable: json['isAvailable'] ?? true,
       isFeatured: json['isFeatured'] ?? false,
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
     );
   }
 

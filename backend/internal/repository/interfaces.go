@@ -36,6 +36,7 @@ type ProductRepository interface {
 	GetFeatured(ctx context.Context) ([]models.Product, error)
 	GetCategories(ctx context.Context) ([]string, error)
 	Search(ctx context.Context, query string) ([]models.Product, error)
+	GetProductStatistics(ctx context.Context) (*models.ProductStatistics, error)
 }
 
 // OrderRepository defines basic order data access methods

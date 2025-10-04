@@ -246,6 +246,76 @@ func (h *OrderHandler) TrackOrder(c *gin.Context) {
 	})
 }
 
+// SearchOrders searches orders by order number
+// @Summary Search orders
+// @Description Search orders by order number
+// @Tags Orders
+// @Accept json
+// @Produce json
+// @Param X-Guest-Session-ID header string false "Guest session ID for guest users"
+// @Param orderNumber query string true "Order number to search for"
+// @Success 200 {object} map[string]interface{} "Order found successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 404 {object} map[string]interface{} "Order not found"
+// @Router /orders/search [get]
+func (h *OrderHandler) SearchOrders(c *gin.Context) {
+	userID, _ := middleware.GetUserIDFromContext(c)
+	guestSessionID := c.GetHeader("X-Guest-Session-ID")
+	
+	orderNumber := c.Query("orderNumber")
+	if orderNumber == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Order number is required",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	order, err := h.orderService.GetOrderByNumber(orderNumber)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "Order not found",
+			"code":    "NOT_FOUND",
+		})
+		return
+	}
+
+	// Check if the order belongs to the current user or guest session
+	if userID != "" {
+		if order.UserID.IsZero() || order.UserID.Hex() != userID {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success": false,
+				"error":   "Order not found",
+				"code":    "NOT_FOUND",
+			})
+			return
+		}
+	} else if guestSessionID != "" {
+		if order.GuestSessionID != guestSessionID {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success": false,
+				"error":   "Order not found",
+				"code":    "NOT_FOUND",
+			})
+			return
+		}
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Authentication required",
+			"code":    "UNAUTHORIZED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    order,
+	})
+}
+
 // CreatePaymentOrder creates a Razorpay payment order
 // @Summary Create payment order
 // @Description Create a payment order for Razorpay

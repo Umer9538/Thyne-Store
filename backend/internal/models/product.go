@@ -190,6 +190,13 @@ func (c *Category) Validate() error {
     return v10.New().Struct(c)
 }
 
+// BulkCreateError represents an error that occurred during bulk product creation
+type BulkCreateError struct {
+	Index   int    `json:"index"`
+	Product CreateProductRequest `json:"product"`
+	Error   string `json:"error"`
+}
+
 // CalculateDiscount calculates the discount percentage
 func (p *Product) CalculateDiscount() float64 {
 	if p.OriginalPrice != nil && *p.OriginalPrice > p.Price {

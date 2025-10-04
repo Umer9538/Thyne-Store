@@ -3,6 +3,7 @@ import 'user.dart';
 
 class Order {
   final String id;
+  final String? orderNumber;
   final String userId;
   final List<CartItem> items;
   final Address shippingAddress;
@@ -26,6 +27,7 @@ class Order {
 
   Order({
     required this.id,
+    this.orderNumber,
     required this.userId,
     required this.items,
     required this.shippingAddress,
@@ -49,9 +51,22 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
+    // Handle MongoDB ObjectId format
+    String orderId;
+    if (json['_id'] != null) {
+      if (json['_id'] is Map && json['_id']['\$oid'] != null) {
+        orderId = json['_id']['\$oid'];
+      } else {
+        orderId = json['_id'].toString();
+      }
+    } else {
+      orderId = json['id']?.toString() ?? '';
+    }
+
     return Order(
-      id: json['id'] ?? json['_id'],
-      userId: json['userId'] ?? '',
+      id: orderId,
+      orderNumber: json['orderNumber']?.toString(),
+      userId: json['userId']?.toString() ?? '',
       items: (json['items'] as List)
           .map((item) => CartItem.fromJson(item))
           .toList(),
@@ -63,25 +78,44 @@ class Order {
       shipping: (json['shipping'] ?? 0).toDouble(),
       discount: (json['discount'] ?? 0).toDouble(),
       total: (json['total'] ?? 0).toDouble(),
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: _parseDateTime(json['createdAt']),
       deliveredAt: json['deliveredAt'] != null
-          ? DateTime.parse(json['deliveredAt'])
+          ? _parseDateTime(json['deliveredAt'])
           : null,
       trackingNumber: json['trackingNumber'],
       processedAt: json['processedAt'] != null
-          ? DateTime.parse(json['processedAt'])
+          ? _parseDateTime(json['processedAt'])
           : null,
       shippedAt: json['shippedAt'] != null
-          ? DateTime.parse(json['shippedAt'])
+          ? _parseDateTime(json['shippedAt'])
           : null,
       cancellationReason: json['cancellationReason'],
       returnReason: json['returnReason'],
       refundStatus: json['refundStatus'],
       refundAmount: json['refundAmount']?.toDouble(),
       refundedAt: json['refundedAt'] != null
-          ? DateTime.parse(json['refundedAt'])
+          ? _parseDateTime(json['refundedAt'])
           : null,
     );
+  }
+
+  static DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) {
+      return DateTime.now();
+    }
+    
+    // Handle MongoDB date format: {"$date": "2025-09-23T15:00:18.013Z"}
+    if (dateValue is Map && dateValue['\$date'] != null) {
+      return DateTime.parse(dateValue['\$date']);
+    }
+    
+    // Handle regular string format
+    if (dateValue is String) {
+      return DateTime.parse(dateValue);
+    }
+    
+    // Fallback
+    return DateTime.now();
   }
 
   static OrderStatus _parseOrderStatus(String? status) {

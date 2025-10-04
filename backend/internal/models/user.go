@@ -4,16 +4,16 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"gopkg.in/validator.v2"
+	"github.com/go-playground/validator/v10"
 )
 
 // User represents a registered user in the system
 type User struct {
 	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-    Name         string             `json:"name" bson:"name" validate:"min=2,max=100"`
-    Email        string             `json:"email" bson:"email" validate:"min=5,max=100"`
-    Phone        string             `json:"phone" bson:"phone" validate:"min=10,max=15"`
-    Password     string             `json:"-" bson:"password" validate:"min=6"`
+    Name         string             `json:"name" bson:"name" validate:"required,min=2,max=100"`
+    Email        string             `json:"email" bson:"email" validate:"required,email,min=5,max=100"`
+    Phone        string             `json:"phone" bson:"phone" validate:"required,min=10,max=15"`
+    Password     string             `json:"-" bson:"password" validate:"required,min=6"`
     ProfileImage string             `json:"profileImage,omitempty" bson:"profileImage"`
     Addresses    []Address          `json:"addresses" bson:"addresses"`
     IsActive     bool               `json:"isActive" bson:"isActive"`
@@ -39,10 +39,10 @@ type Address struct {
 
 // CreateUserRequest represents the request to create a new user
 type CreateUserRequest struct {
-    Name     string `json:"name" validate:"min=2,max=100"`
-    Email    string `json:"email" validate:"min=5,max=100"`
-    Phone    string `json:"phone" validate:"min=10,max=15"`
-    Password string `json:"password" validate:"min=6"`
+    Name     string `json:"name" validate:"required,min=2,max=100"`
+    Email    string `json:"email" validate:"required,email,min=5,max=100"`
+    Phone    string `json:"phone" validate:"required,min=10,max=15"`
+    Password string `json:"password" validate:"required,min=6"`
 }
 
 // LoginRequest represents the login request
@@ -61,8 +61,8 @@ type LoginResponse struct {
 
 // UpdateProfileRequest represents the request to update user profile
 type UpdateProfileRequest struct {
-	Name         string    `json:"name,omitempty" validate:"omitempty,min=2,max=100"`
-	Phone        string    `json:"phone,omitempty" validate:"omitempty,min=10,max=15"`
+	Name         string    `json:"name,omitempty" validate:"min=2,max=100"`
+	Phone        string    `json:"phone,omitempty" validate:"min=10,max=15"`
 	ProfileImage string    `json:"profileImage,omitempty"`
 	Addresses    []Address `json:"addresses,omitempty"`
 }
@@ -79,7 +79,7 @@ type AddAddressRequest struct {
 
 // ForgotPasswordRequest represents the forgot password request
 type ForgotPasswordRequest struct {
-    Email string `json:"email" validate:"min=5,max=100"`
+    Email string `json:"email" validate:"required,email,min=5,max=100"`
 }
 
 // ResetPasswordRequest represents the reset password request
@@ -96,42 +96,50 @@ type ChangePasswordRequest struct {
 
 // Validate validates the user struct
 func (u *User) Validate() error {
-	return validator.Validate(u)
+	validate := validator.New()
+	return validate.Struct(u)
 }
 
 // Validate validates the create user request
 func (r *CreateUserRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the login request
 func (r *LoginRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the update profile request
 func (r *UpdateProfileRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the add address request
 func (r *AddAddressRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the forgot password request
 func (r *ForgotPasswordRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the reset password request
 func (r *ResetPasswordRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // Validate validates the change password request
 func (r *ChangePasswordRequest) Validate() error {
-	return validator.Validate(r)
+	validate := validator.New()
+	return validate.Struct(r)
 }
 
 // GetDefaultAddress returns the default address or the first address
