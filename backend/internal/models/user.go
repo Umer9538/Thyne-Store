@@ -27,11 +27,11 @@ type User struct {
 type Address struct {
 	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	UserID    primitive.ObjectID `json:"userId" bson:"userId"`
-	Street    string             `json:"street" bson:"street" validate:"required,min=5,max=200"`
-	City      string             `json:"city" bson:"city" validate:"required,min=2,max=100"`
-	State     string             `json:"state" bson:"state" validate:"required,min=2,max=100"`
-	ZipCode   string             `json:"zipCode" bson:"zipCode" validate:"required,min=3,max=10"`
-	Country   string             `json:"country" bson:"country" validate:"required,min=2,max=100"`
+	Street    string             `json:"street" bson:"street" validate:"required,min=1,max=200"`
+	City      string             `json:"city" bson:"city" validate:"required,min=1,max=100"`
+	State     string             `json:"state" bson:"state" validate:"required,min=1,max=100"`
+	ZipCode   string             `json:"zipCode" bson:"zipCode" validate:"required,min=1,max=10"`
+	Country   string             `json:"country" bson:"country" validate:"required,min=1,max=100"`
 	IsDefault bool               `json:"isDefault" bson:"isDefault"`
 	CreatedAt time.Time          `json:"createdAt" bson:"createdAt"`
 	UpdatedAt time.Time          `json:"updatedAt" bson:"updatedAt"`

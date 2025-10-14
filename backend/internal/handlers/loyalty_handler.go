@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"thyne-jewels-backend/internal/models"
@@ -51,9 +52,9 @@ func (h *LoyaltyHandler) GetLoyaltyProgram(c *gin.Context) {
 	})
 }
 
-// GetPointsHistory gets user's points transaction history
-// @Summary Get points history
-// @Description Get user's loyalty points transaction history
+// GetCreditHistory gets user's credit transaction history
+// @Summary Get credit history
+// @Description Get user's loyalty credit transaction history
 // @Tags loyalty
 // @Security BearerAuth
 // @Produce json
@@ -62,8 +63,8 @@ func (h *LoyaltyHandler) GetLoyaltyProgram(c *gin.Context) {
 // @Success 200 {array} models.PointTransaction
 // @Failure 401 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/points/history [get]
-func (h *LoyaltyHandler) GetPointsHistory(c *gin.Context) {
+// @Router /loyalty/credits/history [get]
+func (h *LoyaltyHandler) GetCreditHistory(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "User not authenticated"})
@@ -73,7 +74,7 @@ func (h *LoyaltyHandler) GetPointsHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	transactions, err := h.loyaltyService.GetPointsHistory(c.Request.Context(), userID.(primitive.ObjectID), limit, offset)
+	transactions, err := h.loyaltyService.GetCreditHistory(c.Request.Context(), userID.(primitive.ObjectID), limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 		return
@@ -85,143 +86,63 @@ func (h *LoyaltyHandler) GetPointsHistory(c *gin.Context) {
 	})
 }
 
-// GetAvailableVouchers gets all available vouchers for redemption
-// @Summary Get available vouchers
-// @Description Get all vouchers available for points redemption
+// GetRedemptionOptions gets all available redemption options
+// @Summary Get redemption options
+// @Description Get all available credit redemption options
 // @Tags loyalty
 // @Produce json
-// @Success 200 {array} models.Voucher
-// @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/vouchers/available [get]
-func (h *LoyaltyHandler) GetAvailableVouchers(c *gin.Context) {
-	vouchers, err := h.loyaltyService.GetAvailableVouchers(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
-		return
-	}
+// @Success 200 {array} models.RedemptionOption
+// @Router /loyalty/redemption-options [get]
+func (h *LoyaltyHandler) GetRedemptionOptions(c *gin.Context) {
+	options := h.loyaltyService.GetRedemptionOptions(c.Request.Context())
 
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"data":    vouchers,
+		"data":    options,
 	})
 }
 
-// RedeemVoucherRequest represents a voucher redemption request
-type RedeemVoucherRequest struct {
-	VoucherID primitive.ObjectID `json:"voucherId" binding:"required"`
+// RedeemCreditsRequest represents a credit redemption request
+type RedeemCreditsRequest struct {
+	RedemptionID string `json:"redemptionId" binding:"required"`
 }
 
-// RedeemVoucher redeems a voucher for points
-// @Summary Redeem voucher
-// @Description Redeem a voucher using loyalty points
+// RedeemCredits redeems credits for a discount or voucher
+// @Summary Redeem credits
+// @Description Redeem loyalty credits for a discount or voucher
 // @Tags loyalty
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body RedeemVoucherRequest true "Voucher redemption request"
-// @Success 200 {object} models.UserVoucher
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/vouchers/redeem [post]
-func (h *LoyaltyHandler) RedeemVoucher(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "User not authenticated"})
-		return
-	}
-
-	var req RedeemVoucherRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
-		return
-	}
-
-	userVoucher, err := h.loyaltyService.RedeemVoucher(c.Request.Context(), userID.(primitive.ObjectID), req.VoucherID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data":    userVoucher,
-		"message": "Voucher redeemed successfully",
-	})
-}
-
-// GetUserVouchers gets user's vouchers
-// @Summary Get user vouchers
-// @Description Get vouchers owned by the user
-// @Tags loyalty
-// @Security BearerAuth
-// @Produce json
-// @Param unused_only query bool false "Get only unused vouchers" default(false)
-// @Success 200 {array} models.UserVoucher
-// @Failure 401 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/vouchers/my [get]
-func (h *LoyaltyHandler) GetUserVouchers(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "User not authenticated"})
-		return
-	}
-
-	onlyUnused, _ := strconv.ParseBool(c.DefaultQuery("unused_only", "false"))
-
-	vouchers, err := h.loyaltyService.GetUserVouchers(c.Request.Context(), userID.(primitive.ObjectID), onlyUnused)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data":    vouchers,
-	})
-}
-
-// UseVoucherRequest represents a voucher usage request
-type UseVoucherRequest struct {
-	VoucherCode string `json:"voucherCode" binding:"required"`
-}
-
-// UseVoucher marks a voucher as used
-// @Summary Use voucher
-// @Description Mark a user voucher as used during checkout
-// @Tags loyalty
-// @Security BearerAuth
-// @Accept json
-// @Produce json
-// @Param request body UseVoucherRequest true "Voucher usage request"
+// @Param request body RedeemCreditsRequest true "Credit redemption request"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/vouchers/use [post]
-func (h *LoyaltyHandler) UseVoucher(c *gin.Context) {
+// @Router /loyalty/redeem [post]
+func (h *LoyaltyHandler) RedeemCredits(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, map[string]interface{}{"error": "User not authenticated"})
 		return
 	}
 
-	var req UseVoucherRequest
+	var req RedeemCreditsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
 		return
 	}
 
-	err := h.loyaltyService.UseVoucher(c.Request.Context(), userID.(primitive.ObjectID), req.VoucherCode)
+	voucherCode, err := h.loyaltyService.RedeemCredits(c.Request.Context(), userID.(primitive.ObjectID), req.RedemptionID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Voucher used successfully",
+		"success":     true,
+		"voucherCode": voucherCode,
+		"message":     "Credits redeemed successfully",
 	})
 }
 
@@ -277,19 +198,18 @@ func (h *LoyaltyHandler) GetLoyaltyConfig(c *gin.Context) {
 
 // UpdateLoyaltyConfigRequest represents a loyalty config update request
 type UpdateLoyaltyConfigRequest struct {
-	BasePointsPerDollar float64 `json:"basePointsPerDollar" binding:"required,min=0"`
-	DailyLoginBonus     int     `json:"dailyLoginBonus" binding:"required,min=0"`
-	StreakBonusPoints   int     `json:"streakBonusPoints" binding:"required,min=0"`
-	StreakBonusDays     int     `json:"streakBonusDays" binding:"required,min=1"`
-	ReferralBonus       int     `json:"referralBonus" binding:"required,min=0"`
-	ReviewBonus         int     `json:"reviewBonus" binding:"required,min=0"`
-	WelcomeBonus        int     `json:"welcomeBonus" binding:"required,min=0"`
+	BaseCreditsPerDollar float64 `json:"baseCreditsPerDollar" binding:"required,min=0"`
+	DailyLoginBonus      int     `json:"dailyLoginBonus" binding:"required,min=0"`
+	StreakBonusCredits   int     `json:"streakBonusCredits" binding:"required,min=0"`
+	StreakBonusDays      int     `json:"streakBonusDays" binding:"required,min=1"`
+	WelcomeBonus         int     `json:"welcomeBonus" binding:"required,min=0"`
+	CreditsToMoneyRatio  float64 `json:"creditsToMoneyRatio" binding:"required,min=0"`
 }
 
 // UpdateLoyaltyConfig updates loyalty program configuration (Admin only)
 // @Summary Update loyalty configuration
 // @Description Update loyalty program configuration (Admin only)
-// @Tags loyalty
+// @Tags admin-loyalty
 // @Security BearerAuth
 // @Accept json
 // @Produce json
@@ -299,7 +219,7 @@ type UpdateLoyaltyConfigRequest struct {
 // @Failure 401 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/config [put]
+// @Router /admin/loyalty/config [put]
 func (h *LoyaltyHandler) UpdateLoyaltyConfig(c *gin.Context) {
 	// Check if user is admin
 	isAdmin, exists := c.Get("isAdmin")
@@ -315,13 +235,12 @@ func (h *LoyaltyHandler) UpdateLoyaltyConfig(c *gin.Context) {
 	}
 
 	config := &models.LoyaltyConfig{
-		BasePointsPerDollar: req.BasePointsPerDollar,
-		DailyLoginBonus:     req.DailyLoginBonus,
-		StreakBonusPoints:   req.StreakBonusPoints,
-		StreakBonusDays:     req.StreakBonusDays,
-		ReferralBonus:       req.ReferralBonus,
-		ReviewBonus:         req.ReviewBonus,
-		WelcomeBonus:        req.WelcomeBonus,
+		BaseCreditsPerDollar: req.BaseCreditsPerDollar,
+		DailyLoginBonus:      req.DailyLoginBonus,
+		StreakBonusCredits:   req.StreakBonusCredits,
+		StreakBonusDays:      req.StreakBonusDays,
+		WelcomeBonus:         req.WelcomeBonus,
+		CreditsToMoneyRatio:  req.CreditsToMoneyRatio,
 	}
 
 	err := h.loyaltyService.UpdateLoyaltyConfig(c.Request.Context(), config)
@@ -333,32 +252,33 @@ func (h *LoyaltyHandler) UpdateLoyaltyConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Loyalty configuration updated successfully",
+		"data":    config,
 	})
 }
 
-// AddPointsRequest represents an add points request (for admin use)
-type AddPointsRequest struct {
-	UserID      primitive.ObjectID      `json:"userId" binding:"required"`
-	Points      int                     `json:"points" binding:"required"`
-	Description string                  `json:"description" binding:"required"`
-	Type        models.TransactionType  `json:"type" binding:"required"`
+// AddCreditsRequest represents an add credits request (for admin use)
+type AddCreditsRequest struct {
+	UserID      primitive.ObjectID     `json:"userId" binding:"required"`
+	Credits     int                    `json:"credits" binding:"required"`
+	Description string                 `json:"description" binding:"required"`
+	Type        models.TransactionType `json:"type" binding:"required"`
 }
 
-// AddPoints adds points to a user's account (Admin only)
-// @Summary Add points to user
-// @Description Add loyalty points to a user's account (Admin only)
-// @Tags loyalty
+// AddCredits adds credits to a user's account (Admin only)
+// @Summary Add credits to user
+// @Description Add loyalty credits to a user's account (Admin only)
+// @Tags admin-loyalty
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body AddPointsRequest true "Add points request"
+// @Param request body AddCreditsRequest true "Add credits request"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]interface{}
 // @Failure 401 {object} map[string]interface{}
 // @Failure 403 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /loyalty/points/add [post]
-func (h *LoyaltyHandler) AddPoints(c *gin.Context) {
+// @Router /admin/loyalty/credits/add [post]
+func (h *LoyaltyHandler) AddCredits(c *gin.Context) {
 	// Check if user is admin
 	isAdmin, exists := c.Get("isAdmin")
 	if !exists || !isAdmin.(bool) {
@@ -366,13 +286,13 @@ func (h *LoyaltyHandler) AddPoints(c *gin.Context) {
 		return
 	}
 
-	var req AddPointsRequest
+	var req AddCreditsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
 		return
 	}
 
-	err := h.loyaltyService.AddPoints(c.Request.Context(), req.UserID, req.Points, req.Description, req.Type, nil)
+	err := h.loyaltyService.AddCredits(c.Request.Context(), req.UserID, req.Credits, req.Description, req.Type, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 		return
@@ -380,7 +300,7 @@ func (h *LoyaltyHandler) AddPoints(c *gin.Context) {
 
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Points added successfully",
+		"message": "Credits added successfully",
 	})
 }
 
@@ -402,5 +322,134 @@ func (h *LoyaltyHandler) GetTierInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    tiers,
+	})
+}
+
+// GetLoyaltyStatistics gets loyalty program statistics (Admin only)
+// @Summary Get loyalty statistics
+// @Description Get overall loyalty program statistics (Admin only)
+// @Tags admin-loyalty
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} models.LoyaltyStatistics
+// @Failure 401 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /admin/loyalty/statistics [get]
+func (h *LoyaltyHandler) GetLoyaltyStatistics(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, map[string]interface{}{"error": "Admin access required"})
+		return
+	}
+
+	stats, err := h.loyaltyService.GetLoyaltyStatistics(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    stats,
+	})
+}
+
+// GetTopLoyaltyMembers gets top loyalty members (Admin only)
+// @Summary Get top loyalty members
+// @Description Get top loyalty program members by total credits (Admin only)
+// @Tags admin-loyalty
+// @Security BearerAuth
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} models.TopLoyaltyMember
+// @Failure 401 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /admin/loyalty/top-members [get]
+func (h *LoyaltyHandler) GetTopLoyaltyMembers(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, map[string]interface{}{"error": "Admin access required"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	members, err := h.loyaltyService.GetTopLoyaltyMembers(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    members,
+	})
+}
+
+// ExportLoyaltyData exports loyalty data (Admin only)
+// @Summary Export loyalty data
+// @Description Export loyalty program data in specified format (Admin only)
+// @Tags admin-loyalty
+// @Security BearerAuth
+// @Produce json
+// @Param format query string true "Export format (csv, xlsx)"
+// @Param startDate query string false "Start date (YYYY-MM-DD)"
+// @Param endDate query string false "End date (YYYY-MM-DD)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 401 {object} map[string]interface{}
+// @Failure 403 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /admin/loyalty/export [get]
+func (h *LoyaltyHandler) ExportLoyaltyData(c *gin.Context) {
+	// Check if user is admin
+	isAdmin, exists := c.Get("isAdmin")
+	if !exists || !isAdmin.(bool) {
+		c.JSON(http.StatusForbidden, map[string]interface{}{"error": "Admin access required"})
+		return
+	}
+
+	format := c.Query("format")
+	if format == "" {
+		format = "csv"
+	}
+
+	var startDate, endDate time.Time
+	var err error
+
+	startDateStr := c.Query("startDate")
+	if startDateStr != "" {
+		startDate, err = time.Parse("2006-01-02", startDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Invalid start date format"})
+			return
+		}
+	}
+
+	endDateStr := c.Query("endDate")
+	if endDateStr != "" {
+		endDate, err = time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, map[string]interface{}{"error": "Invalid end date format"})
+			return
+		}
+	} else {
+		endDate = time.Now()
+	}
+
+	filename, err := h.loyaltyService.ExportLoyaltyData(c.Request.Context(), format, startDate, endDate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"success":  true,
+		"filename": filename,
+		"format":   format,
 	})
 }

@@ -50,30 +50,31 @@ func (s *LoyaltyService) GetLoyaltyProgram(ctx context.Context, userID primitive
 // CreateLoyaltyProgram creates a new loyalty program for user
 func (s *LoyaltyService) CreateLoyaltyProgram(ctx context.Context, userID primitive.ObjectID) (*models.LoyaltyProgram, error) {
 	program := &models.LoyaltyProgram{
-		UserID:        userID,
-		TotalPoints:   s.config.WelcomeBonus,
-		CurrentPoints: s.config.WelcomeBonus,
-		Tier:          models.TierBronze,
-		LoginStreak:   1,
-		LastLoginDate: &time.Time{},
-		TotalSpent:    0,
-		TotalOrders:   0,
-		Transactions: []models.PointTransaction{
-			{
-				ID:          primitive.NewObjectID(),
-				Type:        models.TransactionBonus,
-				Points:      s.config.WelcomeBonus,
-				Description: "Welcome bonus!",
-				CreatedAt:   time.Now(),
-			},
-		},
-		Vouchers:  []models.UserVoucher{},
-		JoinedAt:  time.Now(),
-		UpdatedAt: time.Now(),
+		UserID:           userID,
+		TotalCredits:     s.config.WelcomeBonus,
+		AvailableCredits: s.config.WelcomeBonus,
+		Tier:             models.TierBronze,
+		LoginStreak:      0,
+		LastLoginDate:    nil,
+		TotalSpent:       0,
+		TotalOrders:      0,
+		JoinedAt:         time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 
 	if err := s.loyaltyRepo.CreateProgram(ctx, program); err != nil {
 		return nil, fmt.Errorf("failed to create loyalty program: %w", err)
+	}
+
+	// Add welcome bonus transaction
+	transaction := &models.PointTransaction{
+		UserID:      userID,
+		Type:        models.TransactionWelcomeBonus,
+		Credits:     s.config.WelcomeBonus,
+		Description: "Welcome to the loyalty program!",
+	}
+	if err := s.loyaltyRepo.AddTransaction(ctx, transaction); err != nil {
+		return nil, fmt.Errorf("failed to add welcome bonus transaction: %w", err)
 	}
 
 	// TODO: Send welcome notification when notification service is available
@@ -105,8 +106,11 @@ func (s *LoyaltyService) CheckDailyLogin(ctx context.Context, userID primitive.O
 		}
 	}
 
-	bonusPoints := s.config.DailyLoginBonus
+	// Get tier info for multiplier
+	tierInfo := program.Tier.GetTierInfo()
+	bonusCredits := int(float64(s.config.DailyLoginBonus) * tierInfo.CreditsMultiplier)
 	newStreak := 1
+	description := "Daily login bonus"
 
 	if program.LastLoginDate != nil {
 		yesterday := today.AddDate(0, 0, -1)
@@ -120,10 +124,16 @@ func (s *LoyaltyService) CheckDailyLogin(ctx context.Context, userID primitive.O
 		if yesterday.Equal(lastLoginDay) {
 			// Consecutive day
 			newStreak = program.LoginStreak + 1
+			description = fmt.Sprintf("Daily login bonus (%d day streak)", newStreak)
 
 			// Check for streak bonus
 			if newStreak%s.config.StreakBonusDays == 0 {
-				bonusPoints += s.config.StreakBonusPoints
+				streakBonus := int(float64(s.config.StreakBonusCredits) * tierInfo.CreditsMultiplier)
+
+				// Add streak bonus as separate transaction
+				if err := s.AddCredits(ctx, userID, streakBonus, fmt.Sprintf("Streak milestone bonus! (%d days)", newStreak), models.TransactionStreakBonus, nil); err != nil {
+					return fmt.Errorf("failed to add streak bonus: %w", err)
+				}
 
 				// TODO: Send streak bonus notification when notification service is available
 			}
@@ -131,7 +141,7 @@ func (s *LoyaltyService) CheckDailyLogin(ctx context.Context, userID primitive.O
 	}
 
 	// Add daily login bonus
-	if err := s.AddPoints(ctx, userID, bonusPoints, fmt.Sprintf("Daily login bonus (%d day streak)", newStreak), models.TransactionBonus, nil); err != nil {
+	if err := s.AddCredits(ctx, userID, bonusCredits, description, models.TransactionLoginBonus, nil); err != nil {
 		return fmt.Errorf("failed to add daily login bonus: %w", err)
 	}
 
@@ -146,36 +156,30 @@ func (s *LoyaltyService) CheckDailyLogin(ctx context.Context, userID primitive.O
 	return nil
 }
 
-// AddPoints adds points to user's loyalty program
-func (s *LoyaltyService) AddPoints(ctx context.Context, userID primitive.ObjectID, points int, description string, transactionType models.TransactionType, orderID *primitive.ObjectID) error {
+// AddCredits adds credits to user's loyalty program
+func (s *LoyaltyService) AddCredits(ctx context.Context, userID primitive.ObjectID, credits int, description string, transactionType models.TransactionType, orderID *primitive.ObjectID) error {
 	program, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get loyalty program: %w", err)
 	}
 
 	// Create transaction
-	transaction := models.PointTransaction{
-		ID:          primitive.NewObjectID(),
+	transaction := &models.PointTransaction{
+		UserID:      userID,
 		Type:        transactionType,
-		Points:      points,
+		Credits:     credits,
 		Description: description,
 		OrderID:     orderID,
-		CreatedAt:   time.Now(),
 	}
 
-	// Update points
-	program.TotalPoints += points
-	program.CurrentPoints += points
-	program.Transactions = append(program.Transactions, transaction)
+	if err := s.loyaltyRepo.AddTransaction(ctx, transaction); err != nil {
+		return fmt.Errorf("failed to add transaction: %w", err)
+	}
+
+	// Update credits
+	program.TotalCredits += credits
+	program.AvailableCredits += credits
 	program.UpdatedAt = time.Now()
-
-	// Check for tier upgrade
-	newTier := s.CalculateTier(program.TotalPoints)
-	if newTier != program.Tier {
-		program.Tier = newTier
-
-		// TODO: Send tier upgrade notification when notification service is available
-	}
 
 	if err := s.loyaltyRepo.UpdateProgram(ctx, program); err != nil {
 		return fmt.Errorf("failed to update loyalty program: %w", err)
@@ -184,141 +188,115 @@ func (s *LoyaltyService) AddPoints(ctx context.Context, userID primitive.ObjectI
 	return nil
 }
 
-// AddPointsFromPurchase adds points based on purchase amount
-func (s *LoyaltyService) AddPointsFromPurchase(ctx context.Context, userID primitive.ObjectID, amount float64, orderID primitive.ObjectID) error {
+// AddCreditsFromPurchase adds credits based on purchase amount
+func (s *LoyaltyService) AddCreditsFromPurchase(ctx context.Context, userID primitive.ObjectID, amount float64, orderID primitive.ObjectID) error {
 	program, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get loyalty program: %w", err)
 	}
 
-	// Calculate points with tier multiplier
-	tierInfo := program.Tier.GetTierInfo()
-	points := int(amount * s.config.BasePointsPerDollar * tierInfo.Multiplier)
-
-	// Add purchase points
-	if err := s.AddPoints(ctx, userID, points, fmt.Sprintf("Purchase reward for order #%s", orderID.Hex()[:8]), models.TransactionEarned, &orderID); err != nil {
-		return fmt.Errorf("failed to add purchase points: %w", err)
-	}
-
-	// Update total spent and orders
+	// Update total spent and orders first
 	program.TotalSpent += amount
 	program.TotalOrders++
-	program.UpdatedAt = time.Now()
 
+	// Check for tier upgrade based on spending
+	oldTier := program.Tier
+	program.UpdateTierBasedOnSpending()
+
+	// Calculate credits with tier multiplier
+	tierInfo := program.Tier.GetTierInfo()
+	credits := int(amount * s.config.BaseCreditsPerDollar * tierInfo.CreditsMultiplier)
+
+	// Add purchase credits
+	if err := s.AddCredits(ctx, userID, credits, fmt.Sprintf("Purchase reward for order #%s", orderID.Hex()[:8]), models.TransactionEarned, &orderID); err != nil {
+		return fmt.Errorf("failed to add purchase credits: %w", err)
+	}
+
+	// Update program (spending and tier changes)
+	program.UpdatedAt = time.Now()
 	if err := s.loyaltyRepo.UpdateProgram(ctx, program); err != nil {
 		return fmt.Errorf("failed to update purchase stats: %w", err)
 	}
 
-	// TODO: Send points earned notification when notification service is available
+	// Send tier upgrade notification if tier changed
+	if program.Tier != oldTier {
+		// TODO: Send tier upgrade notification when notification service is available
+	}
+
+	// TODO: Send credits earned notification when notification service is available
 
 	return nil
 }
 
-// RedeemVoucher redeems a voucher for points
-func (s *LoyaltyService) RedeemVoucher(ctx context.Context, userID primitive.ObjectID, voucherID primitive.ObjectID) (*models.UserVoucher, error) {
-	// Note: Voucher operations should be handled by VoucherService
-	return nil, fmt.Errorf("voucher operations should be handled by VoucherService")
-}
-
-// GetAvailableVouchers gets all available vouchers for redemption
-func (s *LoyaltyService) GetAvailableVouchers(ctx context.Context) ([]models.Voucher, error) {
-	// Note: This should be handled by VoucherService
-	return []models.Voucher{}, nil
-}
-
-// UseVoucher marks a user voucher as used
-func (s *LoyaltyService) UseVoucher(ctx context.Context, userID primitive.ObjectID, voucherCode string) error {
+// RedeemCredits redeems credits for a discount or voucher
+func (s *LoyaltyService) RedeemCredits(ctx context.Context, userID primitive.ObjectID, redemptionID string) (string, error) {
 	program, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to get loyalty program: %w", err)
+		return "", fmt.Errorf("failed to get loyalty program: %w", err)
 	}
 
-	// Find the voucher
-	for i, voucher := range program.Vouchers {
-		if voucher.Code == voucherCode && !voucher.IsUsed {
-			// Check if voucher is still valid
-			if voucher.ExpiresAt != nil && time.Now().After(*voucher.ExpiresAt) {
-				return fmt.Errorf("voucher has expired")
-			}
-
-			// Mark as used
-			now := time.Now()
-			program.Vouchers[i].IsUsed = true
-			program.Vouchers[i].UsedAt = &now
-			program.UpdatedAt = time.Now()
-
-			return s.loyaltyRepo.UpdateProgram(ctx, program)
+	// Find the redemption option
+	options := models.GetRedemptionOptions()
+	var selectedOption *models.RedemptionOption
+	for _, opt := range options {
+		if opt.ID == redemptionID {
+			selectedOption = &opt
+			break
 		}
 	}
 
-	return fmt.Errorf("voucher not found or already used")
-}
-
-// CalculateTier calculates loyalty tier based on total points
-func (s *LoyaltyService) CalculateTier(totalPoints int) models.LoyaltyTier {
-	if totalPoints >= 5000 {
-		return models.TierPlatinum
-	} else if totalPoints >= 2000 {
-		return models.TierGold
-	} else if totalPoints >= 500 {
-		return models.TierSilver
+	if selectedOption == nil {
+		return "", fmt.Errorf("invalid redemption option")
 	}
-	return models.TierBronze
+
+	// Check if user has enough credits
+	if program.AvailableCredits < selectedOption.CreditsRequired {
+		return "", fmt.Errorf("insufficient credits: you have %d credits, need %d", program.AvailableCredits, selectedOption.CreditsRequired)
+	}
+
+	// Deduct credits
+	program.AvailableCredits -= selectedOption.CreditsRequired
+	program.UpdatedAt = time.Now()
+
+	// Create redemption transaction (negative credits)
+	transaction := &models.PointTransaction{
+		UserID:      userID,
+		Type:        models.TransactionRedeemed,
+		Credits:     -selectedOption.CreditsRequired,
+		Description: fmt.Sprintf("Redeemed: %s", selectedOption.Name),
+	}
+
+	if err := s.loyaltyRepo.AddTransaction(ctx, transaction); err != nil {
+		return "", fmt.Errorf("failed to add redemption transaction: %w", err)
+	}
+
+	// Update program
+	if err := s.loyaltyRepo.UpdateProgram(ctx, program); err != nil {
+		return "", fmt.Errorf("failed to update loyalty program: %w", err)
+	}
+
+	// Generate voucher code (simple implementation)
+	voucherCode := fmt.Sprintf("%s-%s-%d", selectedOption.Type, userID.Hex()[:8], time.Now().Unix())
+
+	// TODO: Create actual voucher in voucher service when available
+	// TODO: Send redemption notification when notification service is available
+
+	return voucherCode, nil
 }
 
-// GetPointsHistory gets user's points transaction history
-func (s *LoyaltyService) GetPointsHistory(ctx context.Context, userID primitive.ObjectID, limit int, offset int) ([]models.PointTransaction, error) {
-	program, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
+// GetRedemptionOptions gets all available redemption options
+func (s *LoyaltyService) GetRedemptionOptions(ctx context.Context) []models.RedemptionOption {
+	return models.GetRedemptionOptions()
+}
+
+// GetCreditHistory gets user's credit transaction history
+func (s *LoyaltyService) GetCreditHistory(ctx context.Context, userID primitive.ObjectID, limit int, offset int) ([]models.PointTransaction, error) {
+	transactions, err := s.loyaltyRepo.GetTransactionHistory(ctx, userID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get loyalty program: %w", err)
+		return nil, fmt.Errorf("failed to get transaction history: %w", err)
 	}
 
-	transactions := program.Transactions
-
-	// Sort by creation date (newest first)
-	start := offset
-	end := offset + limit
-
-	if start >= len(transactions) {
-		return []models.PointTransaction{}, nil
-	}
-
-	if end > len(transactions) {
-		end = len(transactions)
-	}
-
-	// Reverse slice to get newest first
-	reversed := make([]models.PointTransaction, len(transactions))
-	for i, j := 0, len(transactions)-1; i < len(transactions); i, j = i+1, j-1 {
-		reversed[i] = transactions[j]
-	}
-
-	return reversed[start:end], nil
-}
-
-// GetUserVouchers gets all vouchers owned by user
-func (s *LoyaltyService) GetUserVouchers(ctx context.Context, userID primitive.ObjectID, onlyUnused bool) ([]models.UserVoucher, error) {
-	program, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get loyalty program: %w", err)
-	}
-
-	if !onlyUnused {
-		return program.Vouchers, nil
-	}
-
-	// Filter only unused vouchers
-	var unusedVouchers []models.UserVoucher
-	for _, voucher := range program.Vouchers {
-		if !voucher.IsUsed {
-			// Check if still valid
-			if voucher.ExpiresAt == nil || time.Now().Before(*voucher.ExpiresAt) {
-				unusedVouchers = append(unusedVouchers, voucher)
-			}
-		}
-	}
-
-	return unusedVouchers, nil
+	return transactions, nil
 }
 
 // UpdateLoyaltyConfig updates loyalty program configuration
@@ -343,4 +321,34 @@ func (s *LoyaltyService) GetLoyaltyConfig(ctx context.Context) (*models.LoyaltyC
 
 	s.config = config
 	return config, nil
+}
+
+// GetLoyaltyStatistics gets loyalty program statistics (admin)
+func (s *LoyaltyService) GetLoyaltyStatistics(ctx context.Context) (*models.LoyaltyStatistics, error) {
+	stats, err := s.loyaltyRepo.GetLoyaltyStatistics(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get loyalty statistics: %w", err)
+	}
+
+	return stats, nil
+}
+
+// GetTopLoyaltyMembers gets top loyalty members by total credits (admin)
+func (s *LoyaltyService) GetTopLoyaltyMembers(ctx context.Context, limit int) ([]models.TopLoyaltyMember, error) {
+	members, err := s.loyaltyRepo.GetTopLoyaltyMembers(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top loyalty members: %w", err)
+	}
+
+	return members, nil
+}
+
+// ExportLoyaltyData exports loyalty data in specified format (admin)
+func (s *LoyaltyService) ExportLoyaltyData(ctx context.Context, format string, startDate, endDate time.Time) (string, error) {
+	filename, err := s.loyaltyRepo.ExportLoyaltyData(ctx, format, startDate, endDate)
+	if err != nil {
+		return "", fmt.Errorf("failed to export loyalty data: %w", err)
+	}
+
+	return filename, nil
 }

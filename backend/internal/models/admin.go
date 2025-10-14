@@ -50,17 +50,18 @@ type OrderStatistics struct {
 	TopPaymentMethods   []PaymentMethodStats     `json:"topPaymentMethods"`
 }
 
-// LoyaltyStatistics represents loyalty program statistics
-type LoyaltyStatistics struct {
-	TotalMembers        int64                    `json:"totalMembers"`
-	ActiveMembers       int64                    `json:"activeMembers"`
-	TotalPointsIssued   int64                    `json:"totalPointsIssued"`
-	TotalPointsRedeemed int64                    `json:"totalPointsRedeemed"`
-	MembersByTier       map[string]int64         `json:"membersByTier"`
-	AveragePointsBalance int                     `json:"averagePointsBalance"`
-	PointsIssuedToday   int64                    `json:"pointsIssuedToday"`
-	TopLoyaltyMembers   []TopLoyaltyMember       `json:"topLoyaltyMembers"`
-	EngagementRate      float64                  `json:"engagementRate"`
+// AdminLoyaltyStatistics represents loyalty program statistics for admin dashboard
+// Note: The main LoyaltyStatistics is defined in loyalty.go
+type AdminLoyaltyStatistics struct {
+	TotalMembers          int64                    `json:"totalMembers"`
+	ActiveMembers         int64                    `json:"activeMembers"`
+	TotalCreditsIssued    int64                    `json:"totalCreditsIssued"`
+	TotalCreditsRedeemed  int64                    `json:"totalCreditsRedeemed"`
+	TierDistribution      map[string]int64         `json:"tierDistribution"`
+	AverageCreditsPerUser float64                  `json:"averageCreditsPerUser"`
+	CreditsIssuedToday    int64                    `json:"creditsIssuedToday"`
+	TopLoyaltyMembers     []AdminTopLoyaltyMember  `json:"topLoyaltyMembers"`
+	EngagementRate        float64                  `json:"engagementRate"`
 }
 
 // NotificationStatistics represents notification statistics
@@ -129,16 +130,17 @@ type PaymentMethodStats struct {
 	TotalAmount float64 `json:"totalAmount"`
 }
 
-// TopLoyaltyMember represents top loyalty program member
-type TopLoyaltyMember struct {
-	UserID         primitive.ObjectID `json:"userId"`
-	Name           string             `json:"name"`
-	Email          string             `json:"email"`
-	TotalPoints    int                `json:"totalPoints"`
-	CurrentPoints  int                `json:"currentPoints"`
-	Tier           string             `json:"tier"`
-	TotalSpent     float64            `json:"totalSpent"`
-	JoinedAt       time.Time          `json:"joinedAt"`
+// AdminTopLoyaltyMember represents top loyalty program member for admin dashboard
+// Note: A simpler TopLoyaltyMember is defined in loyalty.go
+type AdminTopLoyaltyMember struct {
+	UserID           primitive.ObjectID `json:"userId"`
+	Name             string             `json:"name"`
+	Email            string             `json:"email"`
+	TotalCredits     int                `json:"totalCredits"`
+	AvailableCredits int                `json:"availableCredits"`
+	Tier             string             `json:"tier"`
+	TotalSpent       float64            `json:"totalSpent"`
+	JoinedAt         time.Time          `json:"joinedAt"`
 }
 
 // CampaignStats represents campaign performance statistics

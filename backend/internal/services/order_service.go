@@ -307,12 +307,12 @@ func (s *orderService) CompleteOrder(orderID string) error {
 		return err
 	}
 
-	// Award loyalty points if user is authenticated and loyalty service is available
+	// Award loyalty credits if user is authenticated and loyalty service is available
 	if !order.UserID.IsZero() && s.loyaltyService != nil {
-		err := s.loyaltyService.AddPointsFromPurchase(ctx, order.UserID, order.Total, order.ID)
+		err := s.loyaltyService.AddCreditsFromPurchase(ctx, order.UserID, order.Total, order.ID)
 		if err != nil {
 			// Log error but don't fail the order completion
-			fmt.Printf("Failed to award loyalty points for order %s: %v\n", order.ID.Hex(), err)
+			fmt.Printf("Failed to award loyalty credits for order %s: %v\n", order.ID.Hex(), err)
 		}
 	}
 

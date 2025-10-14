@@ -469,9 +469,9 @@ func (r *adminRepository) GetLoyaltyStatistics(ctx context.Context) (*models.Loy
 		}
 		tierDistribution[result.ID] = result.Count
 	}
-	stats.MembersByTier = tierDistribution
+	stats.TierDistribution = tierDistribution
 
-	// Get total points issued
+	// Get total credits issued
 	pointsPipeline := []bson.M{
 		{"$group": bson.M{
 			"_id":    nil,
@@ -492,11 +492,11 @@ func (r *adminRepository) GetLoyaltyStatistics(ctx context.Context) (*models.Loy
 	}
 	if pointsCursor.Next(ctx) {
 		if err := pointsCursor.Decode(&pointsResult); err != nil {
-			return nil, fmt.Errorf("failed to decode points statistics: %w", err)
+			return nil, fmt.Errorf("failed to decode credits statistics: %w", err)
 		}
 	}
-	stats.TotalPointsIssued = pointsResult.Total
-	stats.TotalPointsRedeemed = pointsResult.Redeemed
+	stats.TotalCreditsIssued = pointsResult.Total
+	stats.TotalCreditsRedeemed = pointsResult.Redeemed
 
 	return stats, nil
 }

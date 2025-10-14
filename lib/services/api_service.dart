@@ -85,14 +85,33 @@ class ApiService {
   // Handle API response
   static Map<String, dynamic> _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return json.decode(response.body);
+      // Handle empty response body
+      if (response.body.isEmpty) {
+        return {'success': false, 'error': 'Empty response from server'};
+      }
+
+      try {
+        return json.decode(response.body);
+      } catch (e) {
+        print('JSON parse error: $e');
+        print('Response body: ${response.body}');
+        return {'success': false, 'error': 'Invalid JSON response: $e'};
+      }
     } else {
-      final errorData = json.decode(response.body);
-      throw ApiException(
-        message: errorData['error'] ?? 'An error occurred',
-        code: errorData['code'] ?? 'UNKNOWN_ERROR',
-        statusCode: response.statusCode,
-      );
+      try {
+        final errorData = json.decode(response.body);
+        throw ApiException(
+          message: errorData['error'] ?? 'An error occurred',
+          code: errorData['code'] ?? 'UNKNOWN_ERROR',
+          statusCode: response.statusCode,
+        );
+      } catch (e) {
+        throw ApiException(
+          message: 'Server error: ${response.statusCode}',
+          code: 'HTTP_ERROR',
+          statusCode: response.statusCode,
+        );
+      }
     }
   }
 
@@ -1174,61 +1193,98 @@ class ApiService {
   }
 
   // Loyalty Program API Methods
-  
+
   /// Get user's loyalty program
   static Future<Map<String, dynamic>> getLoyaltyProgram() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/loyalty/program'),
-      headers: await _getHeaders(requireAuth: true),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/loyalty/program'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
 
     return _handleResponse(response);
   }
 
-  /// Get loyalty points history
-  static Future<Map<String, dynamic>> getLoyaltyPointsHistory({
+  /// Get loyalty credits history
+  static Future<Map<String, dynamic>> getCreditHistory({
     int limit = 20,
     int offset = 0,
   }) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/loyalty/points/history?limit=$limit&offset=$offset'),
-      headers: await _getHeaders(requireAuth: true),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/loyalty/credits/history?limit=$limit&offset=$offset'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
 
     return _handleResponse(response);
   }
 
   /// Trigger daily login bonus check
   static Future<Map<String, dynamic>> checkDailyLogin() async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/loyalty/daily-login'),
-      headers: await _getHeaders(requireAuth: true),
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/loyalty/daily-login'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+
+    return _handleResponse(response);
+  }
+
+  /// Get available redemption options
+  static Future<Map<String, dynamic>> getRedemptionOptions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/loyalty/redemption-options'),
+      headers: await _getHeaders(),
     );
+
+    return _handleResponse(response);
+  }
+
+  /// Redeem credits for voucher or discount
+  static Future<Map<String, dynamic>> redeemCredits({
+    required String redemptionId,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/loyalty/redeem'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'redemptionId': redemptionId,
+        }),
+      );
+    });
 
     return _handleResponse(response);
   }
 
   /// Get available vouchers for redemption
   static Future<Map<String, dynamic>> getAvailableVouchers() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/loyalty/vouchers/available'),
-      headers: await _getHeaders(requireAuth: true),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/vouchers/available'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
 
     return _handleResponse(response);
   }
 
-  /// Redeem a voucher with loyalty points
+  /// Redeem a voucher with loyalty credits
   static Future<Map<String, dynamic>> redeemVoucher({
     required String voucherId,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/loyalty/vouchers/redeem'),
-      headers: await _getHeaders(requireAuth: true),
-      body: json.encode({
-        'voucherId': voucherId,
-      }),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/vouchers/redeem'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'voucherId': voucherId,
+        }),
+      );
+    });
 
     return _handleResponse(response);
   }
@@ -1237,10 +1293,12 @@ class ApiService {
   static Future<Map<String, dynamic>> getUserVouchers({
     bool unusedOnly = false,
   }) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/loyalty/vouchers/my?unused_only=$unusedOnly'),
-      headers: await _getHeaders(requireAuth: true),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/vouchers/my?unused_only=$unusedOnly'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
 
     return _handleResponse(response);
   }
@@ -1249,13 +1307,15 @@ class ApiService {
   static Future<Map<String, dynamic>> useVoucher({
     required String voucherCode,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/loyalty/vouchers/use'),
-      headers: await _getHeaders(requireAuth: true),
-      body: json.encode({
-        'voucherCode': voucherCode,
-      }),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/vouchers/use'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'voucherCode': voucherCode,
+        }),
+      );
+    });
 
     return _handleResponse(response);
   }
@@ -1264,7 +1324,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getLoyaltyConfig() async {
     final response = await http.get(
       Uri.parse('$baseUrl/loyalty/config'),
-      headers: await _getHeaders(requireAuth: true),
+      headers: await _getHeaders(),
     );
 
     return _handleResponse(response);
@@ -1280,23 +1340,80 @@ class ApiService {
     return _handleResponse(response);
   }
 
-  /// Add points to user (Admin only)
-  static Future<Map<String, dynamic>> addLoyaltyPoints({
+  // Admin Loyalty APIs
+
+  /// Add credits to user (Admin only)
+  static Future<Map<String, dynamic>> addCreditsToUser({
     required String userId,
-    required int points,
+    required int credits,
     required String description,
     required String type,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/loyalty/points/add'),
-      headers: await _getHeaders(requireAuth: true),
-      body: json.encode({
-        'userId': userId,
-        'points': points,
-        'description': description,
-        'type': type,
-      }),
-    );
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/loyalty/credits/add'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'userId': userId,
+          'credits': credits,
+          'description': description,
+          'type': type,
+        }),
+      );
+    });
+
+    return _handleResponse(response);
+  }
+
+  /// Get loyalty statistics (Admin only)
+  static Future<Map<String, dynamic>> getLoyaltyStatistics() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/loyalty/statistics'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+
+    return _handleResponse(response);
+  }
+
+  /// Get top loyalty members (Admin only)
+  static Future<Map<String, dynamic>> getTopLoyaltyMembers({
+    int limit = 10,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/loyalty/top-members?limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+
+    return _handleResponse(response);
+  }
+
+  /// Export loyalty data (Admin only)
+  static Future<http.Response> exportLoyaltyData() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/loyalty/export'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+
+    return response; // Return raw response for CSV download
+  }
+
+  /// Update loyalty configuration (Admin only)
+  static Future<Map<String, dynamic>> updateLoyaltyConfig({
+    required Map<String, dynamic> config,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/loyalty/config'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(config),
+      );
+    });
 
     return _handleResponse(response);
   }
@@ -1407,6 +1524,402 @@ class ApiService {
     final response = await http.delete(
       Uri.parse('$baseUrl/notifications/$notificationId'),
       headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Banner Management APIs
+  static Future<Map<String, dynamic>> getBanners({
+    bool activeOnly = false,
+  }) async {
+    final queryParams = activeOnly ? '?activeOnly=true' : '';
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/banners$queryParams'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> createBanner({
+    required Map<String, dynamic> bannerData,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/banners'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode(bannerData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> updateBanner({
+    required String bannerId,
+    required Map<String, dynamic> bannerData,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/banners/$bannerId'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode(bannerData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> deleteBanner({
+    required String bannerId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/banners/$bannerId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getActiveBanners() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/banners/active'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Event Management APIs
+  static Future<Map<String, dynamic>> getEvents({
+    bool upcomingOnly = false,
+  }) async {
+    final queryParams = upcomingOnly ? '?upcomingOnly=true' : '';
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/events$queryParams'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> createEvent({
+    required Map<String, dynamic> eventData,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/events'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode(eventData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> updateEvent({
+    required String eventId,
+    required Map<String, dynamic> eventData,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/events/$eventId'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode(eventData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> deleteEvent({
+    required String eventId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/events/$eventId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getUpcomingEvents() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/events/upcoming'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Theme Configuration APIs
+  static Future<Map<String, dynamic>> getThemeConfigs() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/themes'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> createThemeConfig({
+    required Map<String, dynamic> themeData,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/themes'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode(themeData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> activateTheme({
+    required String themeId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/themes/$themeId/activate'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getActiveTheme() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/theme/active'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getThemes() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/themes'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Promotion APIs
+  static Future<Map<String, dynamic>> getActivePromotions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/promotions/active'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getPopupPromotions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/promotions/popups'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> createPromotion({
+    required Map<String, dynamic> promotionData,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/promotions'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode(promotionData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> deletePromotion({
+    required String promotionId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/promotions/$promotionId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Invoice APIs
+  static Future<Map<String, dynamic>> generateInvoice({
+    required String orderId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/invoices/generate'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode({
+        'orderId': orderId,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getInvoices({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/invoices?page=$page&limit=$limit'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getInvoice({
+    required String invoiceId,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/invoices/$invoiceId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getInvoiceByOrderId({
+    required String orderId,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/invoices/order/$orderId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> markInvoiceAsDownloaded({
+    required String invoiceId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/invoices/$invoiceId/download'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Admin Invoice APIs
+  static Future<Map<String, dynamic>> getAdminInvoices({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+
+    final uri = Uri.parse('$baseUrl/admin/invoices').replace(queryParameters: queryParams);
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  static Future<http.Response> exportInvoicesCSV({
+    String? status,
+    String? dateFrom,
+    String? dateTo,
+  }) async {
+    final queryParams = <String, String>{};
+
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+    if (dateFrom != null && dateFrom.isNotEmpty) {
+      queryParams['dateFrom'] = dateFrom;
+    }
+    if (dateTo != null && dateTo.isNotEmpty) {
+      queryParams['dateTo'] = dateTo;
+    }
+
+    final uri = Uri.parse('$baseUrl/admin/invoices/export/csv').replace(queryParameters: queryParams);
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return response; // Return raw response for CSV download
+  }
+
+  static Future<Map<String, dynamic>> deleteInvoice({
+    required String invoiceId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/invoices/$invoiceId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // Homepage APIs
+
+  /// Get complete homepage data with all sections
+  static Future<Map<String, dynamic>> getHomepage() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get active deal of the day
+  static Future<Map<String, dynamic>> getActiveDealOfDay() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/deal-of-day'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get active flash sales
+  static Future<Map<String, dynamic>> getActiveFlashSales() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/flash-sales'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get active brands
+  static Future<Map<String, dynamic>> getActiveBrands() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/brands'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Track product view for recently viewed section
+  static Future<Map<String, dynamic>> trackProductView({
+    required String productId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/homepage/track/$productId'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get recently viewed products
+  static Future<Map<String, dynamic>> getRecentlyViewed({
+    int limit = 10,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/recently-viewed?limit=$limit'),
+      headers: await _getHeaders(),
     );
 
     return _handleResponse(response);

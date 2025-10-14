@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
 import '../providers/cart_provider.dart';
 import '../utils/theme.dart';
-import '../screens/home/home_screen.dart';
+import '../screens/home/dynamic_home_screen.dart';
 import '../screens/product/product_list_screen.dart';
 import '../screens/search/enhanced_search_screen.dart';
 import '../screens/cart/cart_screen.dart';
@@ -20,7 +20,7 @@ class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const HomeScreen(),
+    const DynamicHomeScreen(),
     const ProductListScreen(),
     const EnhancedSearchScreen(),
      const CartScreen(),

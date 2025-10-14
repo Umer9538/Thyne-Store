@@ -1,5 +1,3 @@
-//go:build exclude
-
 package mongo
 
 import (
@@ -16,7 +14,7 @@ import (
 )
 
 type loyaltyRepository struct {
-	loyaltyCollection     *mongo.Collection
+	programCollection     *mongo.Collection
 	transactionCollection *mongo.Collection
 	configCollection      *mongo.Collection
 }
@@ -24,8 +22,8 @@ type loyaltyRepository struct {
 // NewLoyaltyRepository creates a new loyalty repository
 func NewLoyaltyRepository(db *mongo.Database) repository.LoyaltyRepository {
 	return &loyaltyRepository{
-		loyaltyCollection:     db.Collection("loyalty_programs"),
-		transactionCollection: db.Collection("point_transactions"),
+		programCollection:     db.Collection("loyalty_programs"),
+		transactionCollection: db.Collection("credit_transactions"),
 		configCollection:      db.Collection("loyalty_config"),
 	}
 }
@@ -35,7 +33,7 @@ func (r *loyaltyRepository) CreateProgram(ctx context.Context, program *models.L
 	program.JoinedAt = time.Now()
 	program.UpdatedAt = time.Now()
 
-	_, err := r.loyaltyCollection.InsertOne(ctx, program)
+	_, err := r.programCollection.InsertOne(ctx, program)
 	if err != nil {
 		return fmt.Errorf("failed to create loyalty program: %w", err)
 	}
@@ -45,7 +43,7 @@ func (r *loyaltyRepository) CreateProgram(ctx context.Context, program *models.L
 
 func (r *loyaltyRepository) GetProgramByUserID(ctx context.Context, userID primitive.ObjectID) (*models.LoyaltyProgram, error) {
 	var program models.LoyaltyProgram
-	err := r.loyaltyCollection.FindOne(ctx, bson.M{"userId": userID}).Decode(&program)
+	err := r.programCollection.FindOne(ctx, bson.M{"userId": userID}).Decode(&program)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, fmt.Errorf("loyalty program not found")
@@ -58,7 +56,7 @@ func (r *loyaltyRepository) GetProgramByUserID(ctx context.Context, userID primi
 func (r *loyaltyRepository) UpdateProgram(ctx context.Context, program *models.LoyaltyProgram) error {
 	program.UpdatedAt = time.Now()
 
-	_, err := r.loyaltyCollection.UpdateOne(
+	_, err := r.programCollection.UpdateOne(
 		ctx,
 		bson.M{"_id": program.ID},
 		bson.M{"$set": program},
@@ -76,7 +74,7 @@ func (r *loyaltyRepository) AddTransaction(ctx context.Context, transaction *mod
 
 	_, err := r.transactionCollection.InsertOne(ctx, transaction)
 	if err != nil {
-		return fmt.Errorf("failed to add point transaction: %w", err)
+		return fmt.Errorf("failed to add credit transaction: %w", err)
 	}
 
 	return nil
@@ -110,7 +108,7 @@ func (r *loyaltyRepository) GetConfig(ctx context.Context) (*models.LoyaltyConfi
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			// Return default config
-			defaultConfig := models.GetDefaultLoyaltyConfig()
+			defaultConfig := models.DefaultLoyaltyConfig()
 			// Save default config
 			if createErr := r.UpdateConfig(ctx, defaultConfig); createErr != nil {
 				return nil, fmt.Errorf("failed to create default config: %w", createErr)
@@ -136,67 +134,48 @@ func (r *loyaltyRepository) UpdateConfig(ctx context.Context, config *models.Loy
 
 func (r *loyaltyRepository) GetLoyaltyStatistics(ctx context.Context) (*models.LoyaltyStatistics, error) {
 	// Total members
-	totalMembers, err := r.loyaltyCollection.CountDocuments(ctx, bson.M{})
+	totalMembers, err := r.programCollection.CountDocuments(ctx, bson.M{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to count total members: %w", err)
 	}
 
 	// Active members (those with activity in last 30 days)
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	activeMembers, err := r.loyaltyCollection.CountDocuments(ctx, bson.M{
-		"updatedAt": bson.M{"$gte": thirtyDaysAgo},
+	activeMembers, err := r.programCollection.CountDocuments(ctx, bson.M{
+		"lastLoginDate": bson.M{"$gte": thirtyDaysAgo},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to count active members: %w", err)
 	}
 
-	// Total points issued and redeemed
-	pointsStats, err := r.getPointsStatistics(ctx)
+	// Total credits issued and redeemed
+	creditsStats, err := r.getCreditsStatistics(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get points statistics: %w", err)
+		creditsStats = &struct {
+			Issued   int64
+			Redeemed int64
+		}{}
 	}
 
 	// Members by tier
-	membersByTier, err := r.getMembersByTier(ctx)
+	tierDistribution, err := r.getMembersByTier(ctx)
 	if err != nil {
-		membersByTier = make(map[string]int64)
+		tierDistribution = make(map[string]int64)
 	}
 
-	// Average points balance
-	avgPoints, err := r.getAveragePointsBalance(ctx)
+	// Average credits balance
+	avgCredits, err := r.getAverageCreditsBalance(ctx)
 	if err != nil {
-		avgPoints = 0
-	}
-
-	// Points issued today
-	today := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location())
-	pointsToday, err := r.getPointsIssuedToday(ctx, today)
-	if err != nil {
-		pointsToday = 0
-	}
-
-	// Top loyalty members
-	topMembers, err := r.getTopLoyaltyMembers(ctx, 10)
-	if err != nil {
-		topMembers = []models.TopLoyaltyMember{}
-	}
-
-	// Calculate engagement rate (simplified)
-	var engagementRate float64
-	if totalMembers > 0 {
-		engagementRate = (float64(activeMembers) / float64(totalMembers)) * 100
+		avgCredits = 0
 	}
 
 	return &models.LoyaltyStatistics{
-		TotalMembers:        totalMembers,
-		ActiveMembers:       activeMembers,
-		TotalPointsIssued:   pointsStats.Issued,
-		TotalPointsRedeemed: pointsStats.Redeemed,
-		MembersByTier:       membersByTier,
-		AveragePointsBalance: int(avgPoints),
-		PointsIssuedToday:   pointsToday,
-		TopLoyaltyMembers:   topMembers,
-		EngagementRate:      engagementRate,
+		TotalMembers:          totalMembers,
+		ActiveMembers:         activeMembers,
+		TotalCreditsIssued:    creditsStats.Issued,
+		TotalCreditsRedeemed:  creditsStats.Redeemed,
+		TierDistribution:      tierDistribution,
+		AverageCreditsPerUser: avgCredits,
 	}, nil
 }
 
@@ -211,7 +190,7 @@ func (r *loyaltyRepository) GetTopLoyaltyMembers(ctx context.Context, limit int)
 
 // Helper methods
 
-func (r *loyaltyRepository) getPointsStatistics(ctx context.Context) (*struct {
+func (r *loyaltyRepository) getCreditsStatistics(ctx context.Context) (*struct {
 	Issued   int64
 	Redeemed int64
 }, error) {
@@ -219,7 +198,7 @@ func (r *loyaltyRepository) getPointsStatistics(ctx context.Context) (*struct {
 		{
 			"$group": bson.M{
 				"_id": "$type",
-				"totalPoints": bson.M{"$sum": "$points"},
+				"totalCredits": bson.M{"$sum": "$credits"},
 			},
 		},
 	}
@@ -237,18 +216,23 @@ func (r *loyaltyRepository) getPointsStatistics(ctx context.Context) (*struct {
 
 	for cursor.Next(ctx) {
 		var result struct {
-			Type        string `bson:"_id"`
-			TotalPoints int64  `bson:"totalPoints"`
+			Type         string `bson:"_id"`
+			TotalCredits int64  `bson:"totalCredits"`
 		}
 		if err := cursor.Decode(&result); err != nil {
 			continue
 		}
 
 		switch result.Type {
-		case "earned", "bonus", "reward", "referral", "review", "milestone":
-			stats.Issued += result.TotalPoints
-		case "redemption":
-			stats.Redeemed += result.TotalPoints
+		case "earned", "login_bonus", "streak_bonus", "welcome_bonus":
+			stats.Issued += result.TotalCredits
+		case "redeemed":
+			// Credits are stored as negative for redemptions
+			if result.TotalCredits < 0 {
+				stats.Redeemed += -result.TotalCredits
+			} else {
+				stats.Redeemed += result.TotalCredits
+			}
 		}
 	}
 
@@ -265,7 +249,7 @@ func (r *loyaltyRepository) getMembersByTier(ctx context.Context) (map[string]in
 		},
 	}
 
-	cursor, err := r.loyaltyCollection.Aggregate(ctx, pipeline)
+	cursor, err := r.programCollection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, err
 	}
@@ -286,24 +270,24 @@ func (r *loyaltyRepository) getMembersByTier(ctx context.Context) (map[string]in
 	return membersByTier, nil
 }
 
-func (r *loyaltyRepository) getAveragePointsBalance(ctx context.Context) (float64, error) {
+func (r *loyaltyRepository) getAverageCreditsBalance(ctx context.Context) (float64, error) {
 	pipeline := []bson.M{
 		{
 			"$group": bson.M{
 				"_id":        nil,
-				"avgPoints":  bson.M{"$avg": "$currentPoints"},
+				"avgCredits": bson.M{"$avg": "$availableCredits"},
 			},
 		},
 	}
 
-	cursor, err := r.loyaltyCollection.Aggregate(ctx, pipeline)
+	cursor, err := r.programCollection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return 0, err
 	}
 	defer cursor.Close(ctx)
 
 	var result struct {
-		AvgPoints float64 `bson:"avgPoints"`
+		AvgCredits float64 `bson:"avgCredits"`
 	}
 
 	if cursor.Next(ctx) {
@@ -312,51 +296,15 @@ func (r *loyaltyRepository) getAveragePointsBalance(ctx context.Context) (float6
 		}
 	}
 
-	return result.AvgPoints, nil
-}
-
-func (r *loyaltyRepository) getPointsIssuedToday(ctx context.Context, today time.Time) (int64, error) {
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"createdAt": bson.M{"$gte": today},
-				"type": bson.M{"$in": []string{"earned", "bonus", "reward", "referral", "review", "milestone"}},
-				"points": bson.M{"$gt": 0},
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id":         nil,
-				"totalPoints": bson.M{"$sum": "$points"},
-			},
-		},
-	}
-
-	cursor, err := r.transactionCollection.Aggregate(ctx, pipeline)
-	if err != nil {
-		return 0, err
-	}
-	defer cursor.Close(ctx)
-
-	var result struct {
-		TotalPoints int64 `bson:"totalPoints"`
-	}
-
-	if cursor.Next(ctx) {
-		if err := cursor.Decode(&result); err != nil {
-			return 0, err
-		}
-	}
-
-	return result.TotalPoints, nil
+	return result.AvgCredits, nil
 }
 
 func (r *loyaltyRepository) getTopLoyaltyMembers(ctx context.Context, limit int) ([]models.TopLoyaltyMember, error) {
 	opts := options.Find().
 		SetLimit(int64(limit)).
-		SetSort(bson.M{"totalPoints": -1})
+		SetSort(bson.M{"totalCredits": -1})
 
-	cursor, err := r.loyaltyCollection.Find(ctx, bson.M{}, opts)
+	cursor, err := r.programCollection.Find(ctx, bson.M{}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -369,16 +317,12 @@ func (r *loyaltyRepository) getTopLoyaltyMembers(ctx context.Context, limit int)
 			continue
 		}
 
-		// Note: In a real implementation, you'd join with users collection to get name and email
 		topMembers = append(topMembers, models.TopLoyaltyMember{
-			UserID:        program.UserID,
-			Name:          "User", // Would be fetched from users collection
-			Email:         "user@example.com", // Would be fetched from users collection
-			TotalPoints:   program.TotalPoints,
-			CurrentPoints: program.CurrentPoints,
-			Tier:          string(program.Tier),
-			TotalSpent:    program.TotalSpent,
-			JoinedAt:      program.JoinedAt,
+			UserID:           program.UserID,
+			TotalCredits:     program.TotalCredits,
+			AvailableCredits: program.AvailableCredits,
+			Tier:             program.Tier,
+			TotalSpent:       program.TotalSpent,
 		})
 	}
 

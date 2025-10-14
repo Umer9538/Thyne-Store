@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/product.dart';
+import '../models/event_promotion.dart';
 import '../providers/product_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/wishlist_provider.dart';
+import '../services/promotion_manager.dart';
 import '../utils/theme.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final Product product;
   final VoidCallback onTap;
   final bool showDiscount;
@@ -20,14 +22,61 @@ class ProductCard extends StatelessWidget {
   });
 
   @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  EventPromotion? _promotion;
+  bool _loadingPromotion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPromotion();
+  }
+
+  Future<void> _checkPromotion() async {
+    setState(() => _loadingPromotion = true);
+    try {
+      // Check for product-specific or category promotion
+      final promo = await PromotionManager.getPromotionForProduct(widget.product.id);
+      if (promo == null && widget.product.category.isNotEmpty) {
+        final categoryPromo = await PromotionManager.getPromotionForCategory(widget.product.category);
+        if (mounted) {
+          setState(() {
+            _promotion = categoryPromo;
+            _loadingPromotion = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _promotion = promo;
+            _loadingPromotion = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingPromotion = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
     final wishlistProvider = Provider.of<WishlistProvider>(context);
-    final isInWishlist = wishlistProvider.isInWishlist(product.id);
+    final isInWishlist = wishlistProvider.isInWishlist(widget.product.id);
+    
+    // Determine which discount to show
+    final hasEventDiscount = _promotion != null && _promotion!.isLive;
+    final eventDiscountText = hasEventDiscount ? _promotion!.discountText : null;
+    final hasRegularDiscount = widget.showDiscount && widget.product.discount > 0;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(
@@ -46,8 +95,8 @@ class ProductCard extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: CachedNetworkImage(
-                      imageUrl: product.images.isNotEmpty
-                          ? product.images.first
+                      imageUrl: widget.product.images.isNotEmpty
+                          ? widget.product.images.first
                           : 'https://via.placeholder.com/300',
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
@@ -69,8 +118,76 @@ class ProductCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Discount Badge
-                if (showDiscount && product.discount > 0)
+                // Event Promotion Badge (priority over regular discount)
+                if (hasEventDiscount)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.primaryGold, AppTheme.accentPurple],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryGold.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.celebration,
+                                size: 10,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                eventDiscountText!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _promotion!.eventName.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                // Regular Discount Badge (if no event promotion)
+                else if (hasRegularDiscount)
                   Positioned(
                     top: 8,
                     left: 8,
@@ -84,7 +201,7 @@ class ProductCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${product.discount.toStringAsFixed(0)}% OFF',
+                        '${widget.product.discount.toStringAsFixed(0)}% OFF',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -99,7 +216,7 @@ class ProductCard extends StatelessWidget {
                   right: 8,
                   child: InkWell(
                     onTap: () {
-                      wishlistProvider.toggleWishlist(product.id);
+                      wishlistProvider.toggleWishlist(widget.product.id);
                     },
                     child: Container(
                       padding: const EdgeInsets.all(6),
@@ -136,7 +253,7 @@ class ProductCard extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        product.name,
+                        widget.product.name,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               fontSize: 9,
@@ -146,7 +263,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                     // Rating (compact, only if exists)
-                    if (product.rating > 0)
+                    if (widget.product.rating > 0)
                       SizedBox(
                         height: 10,
                         child: Row(
@@ -154,14 +271,14 @@ class ProductCard extends StatelessWidget {
                             ...List.generate(
                               5,
                               (index) => Icon(
-                                index < product.rating.floor() ? Icons.star : Icons.star_border,
+                                index < widget.product.rating.floor() ? Icons.star : Icons.star_border,
                                 size: 7,
                                 color: AppTheme.warningAmber,
                               ),
                             ),
                             const SizedBox(width: 2),
                             Text(
-                              '(${product.reviewCount})',
+                              '(${widget.product.reviewCount})',
                               style: const TextStyle(fontSize: 7),
                             ),
                           ],
@@ -174,7 +291,7 @@ class ProductCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              '₹${product.price.toStringAsFixed(0)}',
+                              '₹${widget.product.price.toStringAsFixed(0)}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primaryGold,
@@ -183,9 +300,9 @@ class ProductCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (product.originalPrice != null)
+                          if (widget.product.originalPrice != null || hasEventDiscount)
                             Text(
-                              '₹${product.originalPrice!.toStringAsFixed(0)}',
+                              '₹${(widget.product.originalPrice ?? widget.product.price).toStringAsFixed(0)}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     decoration: TextDecoration.lineThrough,
                                     color: AppTheme.textSecondary,
@@ -200,12 +317,12 @@ class ProductCard extends StatelessWidget {
                       width: double.infinity,
                       height: 18,
                       child: ElevatedButton(
-                        onPressed: product.isAvailable
+                        onPressed: widget.product.isAvailable
                             ? () {
-                                cartProvider.addToCart(product);
+                                cartProvider.addToCart(widget.product);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('${product.name} added to cart'),
+                                    content: Text('${widget.product.name} added to cart'),
                                     duration: const Duration(seconds: 2),
                                     action: SnackBarAction(
                                       label: 'View Cart',
@@ -226,7 +343,7 @@ class ProductCard extends StatelessWidget {
                           ),
                         ),
                         child: Text(
-                          product.isAvailable ? 'Add' : 'Out',
+                          widget.product.isAvailable ? 'Add' : 'Out',
                           style: const TextStyle(fontSize: 7),
                         ),
                       ),

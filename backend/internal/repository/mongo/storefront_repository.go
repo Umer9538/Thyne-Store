@@ -49,7 +49,6 @@ func (r *storefrontRepository) GetConfig(ctx context.Context) (*models.Storefron
 
 func (r *storefrontRepository) CreateConfig(ctx context.Context, config *models.StorefrontConfig) error {
 	config.ID = primitive.NewObjectID()
-	config.CreatedAt = time.Now()
 	config.LastUpdated = time.Now()
 	config.Version = 1
 
@@ -154,7 +153,6 @@ func (r *storefrontRepository) GetMenuConfig(ctx context.Context) (*models.MenuC
 			// Return default menu config
 			return &models.MenuConfig{
 				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}, nil
 		}
@@ -183,7 +181,6 @@ func (r *storefrontRepository) GetSEOConfig(ctx context.Context) (*models.SEOCon
 			// Return default SEO config
 			return &models.SEOConfig{
 				ID:        primitive.NewObjectID(),
-				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}, nil
 		}
@@ -193,14 +190,22 @@ func (r *storefrontRepository) GetSEOConfig(ctx context.Context) (*models.SEOCon
 }
 
 func (r *storefrontRepository) RecordBannerClick(ctx context.Context, bannerID string) error {
-	analytics := &models.StorefrontAnalytics{
-		ID:        primitive.NewObjectID(),
-		Event:     "banner_click",
-		Data:      map[string]interface{}{"bannerId": bannerID},
-		Timestamp: time.Now(),
+	// Update or create today's analytics
+	today := time.Now().Truncate(24 * time.Hour)
+	filter := bson.M{"date": today}
+	update := bson.M{
+		"$inc": bson.M{
+			"bannerClicks." + bannerID: 1,
+		},
+		"$setOnInsert": bson.M{
+			"_id":       primitive.NewObjectID(),
+			"date":      today,
+			"createdAt": time.Now(),
+		},
 	}
 
-	_, err := r.analyticsCollection.InsertOne(ctx, analytics)
+	opts := options.Update().SetUpsert(true)
+	_, err := r.analyticsCollection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
 		return fmt.Errorf("failed to record banner click: %w", err)
 	}
@@ -209,14 +214,22 @@ func (r *storefrontRepository) RecordBannerClick(ctx context.Context, bannerID s
 }
 
 func (r *storefrontRepository) RecordSectionView(ctx context.Context, sectionName string) error {
-	analytics := &models.StorefrontAnalytics{
-		ID:        primitive.NewObjectID(),
-		Event:     "section_view",
-		Data:      map[string]interface{}{"sectionName": sectionName},
-		Timestamp: time.Now(),
+	// Update or create today's analytics
+	today := time.Now().Truncate(24 * time.Hour)
+	filter := bson.M{"date": today}
+	update := bson.M{
+		"$inc": bson.M{
+			"sectionViews." + sectionName: 1,
+		},
+		"$setOnInsert": bson.M{
+			"_id":       primitive.NewObjectID(),
+			"date":      today,
+			"createdAt": time.Now(),
+		},
 	}
 
-	_, err := r.analyticsCollection.InsertOne(ctx, analytics)
+	opts := options.Update().SetUpsert(true)
+	_, err := r.analyticsCollection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
 		return fmt.Errorf("failed to record section view: %w", err)
 	}
@@ -225,14 +238,22 @@ func (r *storefrontRepository) RecordSectionView(ctx context.Context, sectionNam
 }
 
 func (r *storefrontRepository) RecordFeatureUsage(ctx context.Context, feature string) error {
-	analytics := &models.StorefrontAnalytics{
-		ID:        primitive.NewObjectID(),
-		Event:     "feature_usage",
-		Data:      map[string]interface{}{"feature": feature},
-		Timestamp: time.Now(),
+	// Update or create today's analytics
+	today := time.Now().Truncate(24 * time.Hour)
+	filter := bson.M{"date": today}
+	update := bson.M{
+		"$inc": bson.M{
+			"featureUsage." + feature: 1,
+		},
+		"$setOnInsert": bson.M{
+			"_id":       primitive.NewObjectID(),
+			"date":      today,
+			"createdAt": time.Now(),
+		},
 	}
 
-	_, err := r.analyticsCollection.InsertOne(ctx, analytics)
+	opts := options.Update().SetUpsert(true)
+	_, err := r.analyticsCollection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
 		return fmt.Errorf("failed to record feature usage: %w", err)
 	}
@@ -242,13 +263,13 @@ func (r *storefrontRepository) RecordFeatureUsage(ctx context.Context, feature s
 
 func (r *storefrontRepository) GetAnalytics(ctx context.Context, startDate, endDate time.Time) ([]models.StorefrontAnalytics, error) {
 	filter := bson.M{
-		"timestamp": bson.M{
-			"$gte": startDate,
-			"$lte": endDate,
+		"date": bson.M{
+			"$gte": startDate.Truncate(24 * time.Hour),
+			"$lte": endDate.Truncate(24 * time.Hour),
 		},
 	}
 
-	opts := options.Find().SetSort(bson.M{"timestamp": -1})
+	opts := options.Find().SetSort(bson.M{"date": -1})
 
 	cursor, err := r.analyticsCollection.Find(ctx, filter, opts)
 	if err != nil {

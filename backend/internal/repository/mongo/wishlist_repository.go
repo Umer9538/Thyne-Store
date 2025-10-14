@@ -47,7 +47,7 @@ func (r *wishlistRepository) GetByUserID(ctx context.Context, userID primitive.O
 			// Create a new wishlist if it doesn't exist
 			wishlist = models.Wishlist{
 				UserID: userID,
-				Items:  []primitive.ObjectID{},
+				Items:  []models.WishlistItem{},
 			}
 			if createErr := r.Create(ctx, &wishlist); createErr != nil {
 				return nil, fmt.Errorf("failed to create new wishlist: %w", createErr)
@@ -60,12 +60,19 @@ func (r *wishlistRepository) GetByUserID(ctx context.Context, userID primitive.O
 }
 
 func (r *wishlistRepository) AddItem(ctx context.Context, userID, productID primitive.ObjectID) error {
+	item := models.WishlistItem{
+		ID:        primitive.NewObjectID(),
+		UserID:    userID,
+		ProductID: productID,
+		CreatedAt: time.Now(),
+	}
+
 	_, err := r.collection.UpdateOne(
 		ctx,
 		bson.M{"userId": userID},
 		bson.M{
-			"$addToSet": bson.M{"items": productID},
-			"$set":      bson.M{"updatedAt": time.Now()},
+			"$push": bson.M{"items": item},
+			"$set":  bson.M{"updatedAt": time.Now()},
 		},
 		options.Update().SetUpsert(true),
 	)
@@ -81,7 +88,7 @@ func (r *wishlistRepository) RemoveItem(ctx context.Context, userID, productID p
 		ctx,
 		bson.M{"userId": userID},
 		bson.M{
-			"$pull": bson.M{"items": productID},
+			"$pull": bson.M{"items": bson.M{"productId": productID}},
 			"$set":  bson.M{"updatedAt": time.Now()},
 		},
 	)
@@ -94,8 +101,8 @@ func (r *wishlistRepository) RemoveItem(ctx context.Context, userID, productID p
 
 func (r *wishlistRepository) IsInWishlist(ctx context.Context, userID, productID primitive.ObjectID) (bool, error) {
 	count, err := r.collection.CountDocuments(ctx, bson.M{
-		"userId": userID,
-		"items":  productID,
+		"userId":           userID,
+		"items.productId":  productID,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to check wishlist: %w", err)
@@ -128,7 +135,11 @@ func (r *wishlistRepository) GetWishlistItems(ctx context.Context, userID primit
 	}
 
 	// Get product IDs for this page
-	productIDs := wishlist.Items[skip:end]
+	itemsPage := wishlist.Items[skip:end]
+	productIDs := make([]primitive.ObjectID, len(itemsPage))
+	for i, item := range itemsPage {
+		productIDs[i] = item.ProductID
+	}
 
 	// Get products
 	filter := bson.M{"_id": bson.M{"$in": productIDs}}
@@ -154,7 +165,7 @@ func (r *wishlistRepository) ClearWishlist(ctx context.Context, userID primitive
 		bson.M{"userId": userID},
 		bson.M{
 			"$set": bson.M{
-				"items":     []primitive.ObjectID{},
+				"items":     []models.WishlistItem{},
 				"updatedAt": time.Now(),
 			},
 		},
@@ -164,4 +175,40 @@ func (r *wishlistRepository) ClearWishlist(ctx context.Context, userID primitive
 	}
 
 	return nil
+}
+
+func (r *wishlistRepository) GetWishlistItemsByProduct(ctx context.Context, productID primitive.ObjectID) ([]models.WishlistItem, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"items.productId": productID,
+			},
+		},
+		{
+			"$unwind": "$items",
+		},
+		{
+			"$match": bson.M{
+				"items.productId": productID,
+			},
+		},
+		{
+			"$replaceRoot": bson.M{
+				"newRoot": "$items",
+			},
+		},
+	}
+
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find wishlist items: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var items []models.WishlistItem
+	if err = cursor.All(ctx, &items); err != nil {
+		return nil, fmt.Errorf("failed to decode wishlist items: %w", err)
+	}
+
+	return items, nil
 }

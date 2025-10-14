@@ -107,7 +107,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Points Summary Card
+          // Credits Summary Card
           Card(
             elevation: 4,
             child: Container(
@@ -125,7 +125,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
               child: Column(
                 children: [
                   Text(
-                    '${program.currentPoints}',
+                    '${program.availableCredits}',
                     style: const TextStyle(
                       fontSize: 48,
                       fontWeight: FontWeight.bold,
@@ -133,7 +133,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
                     ),
                   ),
                   const Text(
-                    'Available Points',
+                    'Available Credits',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.white,
@@ -146,7 +146,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
                       Column(
                         children: [
                           Text(
-                            '${program.totalPoints}',
+                            '${program.totalCredits}',
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -177,6 +177,37 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  // Daily Check-in Button
+                  if (program.isStreakActive)
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'Checked in today!',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ElevatedButton.icon(
+                      onPressed: () => _checkDailyLogin(),
+                      icon: const Icon(Icons.card_giftcard),
+                      label: const Text('Check In'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppTheme.primaryGold,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -201,12 +232,20 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
                         '${program.tier.displayName} Member',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
+                      const Spacer(),
+                      Text(
+                        '${(program.tier.creditsMultiplier * 100).toInt()}% earnings',
+                        style: const TextStyle(
+                          color: AppTheme.primaryGold,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   if (program.tier != LoyaltyTier.platinum) ...[
                     Text(
-                      '${program.pointsToNextTier} points to next tier',
+                      'Spend \$${program.spendingToNextTier.toStringAsFixed(2)} more to reach next tier',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
@@ -214,6 +253,11 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
                       value: program.tierProgress,
                       backgroundColor: Colors.grey[300],
                       valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryGold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Total spent: \$${program.totalSpent.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ] else ...[
                     const Text('Congratulations! You\'ve reached the highest tier!'),
@@ -280,25 +324,6 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.card_giftcard, color: AppTheme.primaryGold),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${program.vouchers.length}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const Text('Vouchers', style: TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ],
@@ -315,153 +340,271 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Redeem Points (${program.currentPoints} available)',
+            'Redeem Credits (${program.availableCredits} available)',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
 
-          FutureBuilder<List<Voucher>>(
-            future: loyaltyProvider.getAvailableVouchers(),
+          FutureBuilder<List<RedemptionOption>>(
+            future: loyaltyProvider.getRedemptionOptions(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              
+
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
-              
-              final availableVouchers = snapshot.data ?? [];
-              
-              return Column(
-                children: availableVouchers.map((voucher) => Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              voucher.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              voucher.description,
-                              style: const TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                            if (voucher.minimumPurchase != null)
-                              Text(
-                                'Min. purchase: \$${voucher.minimumPurchase!.toStringAsFixed(0)}',
-                                style: const TextStyle(fontSize: 12, color: Colors.orange),
-                              ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryGold.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${voucher.pointsCost} pts',
-                              style: const TextStyle(
-                                color: AppTheme.primaryGold,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: program.currentPoints >= voucher.pointsCost
-                                ? () => _redeemVoucher(loyaltyProvider, voucher)
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryGold,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(80, 32),
-                            ),
-                            child: const Text('Redeem', style: TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    ],
+
+              final redemptionOptions = snapshot.data ?? [];
+
+              if (redemptionOptions.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text('No redemption options available'),
                   ),
-                ],
-              ),
-            ),
-          )).toList(),
                 );
-              },
-            ),
+              }
+
+              return Column(
+                children: redemptionOptions.map((option) => Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGold.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            option.type == RedemptionType.freeShipping
+                                ? Icons.local_shipping
+                                : Icons.card_giftcard,
+                            color: AppTheme.primaryGold,
+                            size: 30,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                option.name,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                option.description,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryGold.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${option.creditsRequired} credits',
+                                  style: const TextStyle(
+                                    color: AppTheme.primaryGold,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: program.availableCredits >= option.creditsRequired
+                              ? () => _redeemCredits(loyaltyProvider, option)
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGold,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: const Text('Redeem'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
   Widget _buildHistoryTab(LoyaltyProgram program) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: program.transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = program.transactions[program.transactions.length - 1 - index];
-        final isPositive = transaction.points > 0;
+    final loyaltyProvider = context.read<LoyaltyProvider>();
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isPositive ? Colors.green.shade100 : Colors.red.shade100,
-              child: Icon(
-                isPositive ? Icons.add : Icons.remove,
-                color: isPositive ? Colors.green : Colors.red,
+    return FutureBuilder<List<CreditTransaction>>(
+      future: loyaltyProvider.getCreditHistory(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final transactions = snapshot.data ?? [];
+
+        if (transactions.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No transaction history yet',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
               ),
             ),
-            title: Text(transaction.description),
-            subtitle: Text(_formatDate(transaction.createdAt)),
-            trailing: Text(
-              '${isPositive ? '+' : ''}${transaction.points}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isPositive ? Colors.green : Colors.red,
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: transactions.length,
+          itemBuilder: (context, index) {
+            final transaction = transactions[index];
+            final isPositive = transaction.isPositive;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isPositive ? Colors.green.shade100 : Colors.red.shade100,
+                  child: Icon(
+                    _getTransactionIcon(transaction.type),
+                    color: isPositive ? Colors.green : Colors.red,
+                  ),
+                ),
+                title: Text(transaction.description),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_formatDate(transaction.createdAt)),
+                    Text(
+                      transaction.type.displayName,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                trailing: Text(
+                  '${isPositive ? '+' : ''}${transaction.credits}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isPositive ? Colors.green : Colors.red,
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  void _redeemVoucher(LoyaltyProvider loyaltyProvider, Voucher voucher) {
+  IconData _getTransactionIcon(TransactionType type) {
+    switch (type) {
+      case TransactionType.earned:
+        return Icons.shopping_bag;
+      case TransactionType.redeemed:
+        return Icons.card_giftcard;
+      case TransactionType.loginBonus:
+        return Icons.login;
+      case TransactionType.streakBonus:
+        return Icons.local_fire_department;
+      case TransactionType.welcomeBonus:
+        return Icons.celebration;
+      case TransactionType.expired:
+        return Icons.schedule;
+      case TransactionType.refund:
+        return Icons.currency_exchange;
+    }
+  }
+
+  void _checkDailyLogin() async {
+    try {
+      final loyaltyProvider = context.read<LoyaltyProvider>();
+      await loyaltyProvider.checkDailyLogin();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Daily check-in complete! Credits added to your account.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _redeemCredits(LoyaltyProvider loyaltyProvider, RedemptionOption option) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Redeem Voucher'),
+        title: const Text('Redeem Credits'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Redeem "${voucher.title}" for ${voucher.pointsCost} points?'),
+            Text('Redeem "${option.name}" for ${option.creditsRequired} credits?'),
             const SizedBox(height: 8),
             Text(
-              voucher.description,
+              option.description,
               style: const TextStyle(color: Colors.grey),
             ),
+            if (option.discountValue > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'You will receive: \$${option.discountValue.toStringAsFixed(2)} ${option.type.displayName}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryGold,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -472,22 +615,26 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
           ElevatedButton(
             onPressed: () async {
               try {
-                await loyaltyProvider.redeemPoints(voucher);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Voucher "${voucher.code}" has been added to your account!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                await loyaltyProvider.redeemCredits(option.id);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Credits redeemed successfully! Check your vouchers.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } catch (e) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error: ${e.toString()}'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(

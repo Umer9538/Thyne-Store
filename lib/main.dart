@@ -10,6 +10,7 @@ import 'providers/order_provider.dart';
 import 'providers/guest_session_provider.dart';
 import 'providers/wishlist_provider.dart';
 import 'providers/address_provider.dart';
+import 'providers/theme_provider.dart';
 import 'utils/theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'widgets/main_navigation.dart';
@@ -26,7 +27,20 @@ import 'screens/admin/analytics/analytics_dashboard.dart';
 import 'screens/search/enhanced_search_screen.dart';
 import 'screens/loyalty/loyalty_screen.dart';
 import 'screens/admin/storefront/storefront_management_screen.dart';
+import 'screens/admin/events/event_calendar_screen.dart';
+import 'screens/admin/homepage/homepage_manager_screen.dart';
+import 'screens/admin/theme/theme_switcher_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
+import 'screens/admin/dynamic_content/dynamic_content_dashboard.dart';
+import 'screens/admin/dynamic_content/deals_of_day_screen.dart';
+import 'screens/admin/dynamic_content/bundle_deals_screen.dart';
+import 'screens/admin/dynamic_content/flash_sales_screen.dart';
+import 'screens/admin/dynamic_content/showcases_360_screen.dart';
+import 'screens/admin/dynamic_content/brands_screen.dart';
+import 'screens/admin/dynamic_content/create_deal_form.dart';
+import 'screens/admin/dynamic_content/create_flash_sale_form.dart';
+import 'screens/admin/dynamic_content/create_showcase_form.dart';
+import 'screens/admin/dynamic_content/create_bundle_form.dart';
 import 'screens/orders/order_history_screen.dart';
 import 'screens/orders/track_order_screen.dart';
 import 'screens/orders/my_orders_screen.dart';
@@ -46,7 +60,7 @@ void main() async {
     if (!kIsWeb) {
       // For mobile platforms, use default initialization
       await Firebase.initializeApp();
-      
+
       // Initialize notification service
       await NotificationService().initialize();
     } else {
@@ -55,6 +69,12 @@ void main() async {
   } catch (e) {
     debugPrint('Initialization failed: $e');
     // Continue with app startup
+  }
+
+  // Set up responsive design for web
+  if (kIsWeb) {
+    // Prevent browser zoom
+    // This helps maintain consistent responsive layout
   }
 
   // Initialize auth status
@@ -74,6 +94,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: authProvider),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
@@ -101,12 +122,26 @@ class MyApp extends StatelessWidget {
             }
           });
           
-          return MaterialApp(
-            title: 'Thyne Jewels',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            home: const AppWrapper(),
-            routes: {
+          return Consumer<ThemeProvider>(
+            builder: (context, themeProvider, _) {
+              return MaterialApp(
+                title: 'Thyne Jewels',
+                debugShowCheckedModeBanner: false,
+                theme: themeProvider.createThemeData(),
+                // Enable responsive behavior
+                builder: (context, child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      // Ensure text scaling doesn't break layout
+                      textScaler: TextScaler.linear(
+                        MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.3),
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+                home: const AppWrapper(),
+                routes: {
               '/login': (context) => const LoginScreen(),
               '/home': (context) => const MainNavigation(),
               '/cart': (context) => const CartScreen(),
@@ -122,11 +157,26 @@ class MyApp extends StatelessWidget {
               '/search': (context) => const EnhancedSearchScreen(),
               '/loyalty': (context) => const LoyaltyScreen(),
               '/admin/storefront': (context) => const StorefrontManagementScreen(),
+              '/admin/events': (context) => const EventCalendarScreen(),
+              '/admin/banners': (context) => const HomepageManagerScreen(),
+              '/admin/themes': (context) => const ThemeSwitcherScreen(),
+              '/admin/dynamic-content': (context) => const DynamicContentDashboard(),
+              '/admin/deals-of-day': (context) => const DealsOfDayScreen(),
+              '/admin/deals-of-day/create': (context) => const CreateDealForm(),
+              '/admin/bundle-deals': (context) => const BundleDealsScreen(),
+              '/admin/bundle-deals/create': (context) => const CreateBundleForm(),
+              '/admin/flash-sales': (context) => const FlashSalesScreen(),
+              '/admin/flash-sales/create': (context) => const CreateFlashSaleForm(),
+              '/admin/showcases-360': (context) => const Showcases360Screen(),
+              '/admin/showcases-360/create': (context) => const CreateShowcaseForm(),
+              '/admin/brands': (context) => const BrandsScreen(),
               '/wishlist': (context) => const WishlistScreen(),
               '/orders': (context) => const MyOrdersScreen(),
               '/order-history': (context) => const OrderHistoryScreen(),
               '/track-order': (context) => const TrackOrderScreen(),
               '/addresses': (context) => const AddressesScreen(),
+            },
+              );
             },
           );
         },
