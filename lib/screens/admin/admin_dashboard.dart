@@ -287,6 +287,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildManagementGrid() {
     final managementOptions = [
       {
+        'title': 'Dynamic Content',
+        'subtitle': 'Homepage & promotions',
+        'icon': Icons.dashboard_customize,
+        'color': Colors.deepPurple,
+        'route': '/admin/dynamic-content',
+      },
+      {
         'title': 'Products',
         'subtitle': 'Add, edit & manage products',
         'icon': Icons.inventory_2,
@@ -334,6 +341,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'icon': Icons.storefront,
         'color': Colors.purple,
         'route': '/admin/storefront',
+      },
+      {
+        'title': 'Events & Festivals',
+        'subtitle': 'Manage special events',
+        'icon': Icons.celebration,
+        'color': Colors.deepOrange,
+        'route': '/admin/events',
+      },
+      {
+        'title': 'Banners',
+        'subtitle': 'Homepage banners',
+        'icon': Icons.image,
+        'color': Colors.teal,
+        'route': '/admin/banners',
+      },
+      {
+        'title': 'Themes',
+        'subtitle': 'App theme switcher',
+        'icon': Icons.palette,
+        'color': Colors.pink,
+        'route': '/admin/themes',
       },
     ];
 
@@ -389,10 +417,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -400,24 +429,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
               child: Icon(
                 icon,
                 color: color,
-                size: 28,
+                size: 24,
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 8),
+            Flexible(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 2),
+            Flexible(
+              child: Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11,
+                    ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

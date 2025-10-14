@@ -313,6 +313,168 @@ func (r *userRepository) CreateAuditLog(ctx context.Context, log *models.AuditLo
 	return err
 }
 
+func (r *userRepository) UpdatePassword(ctx context.Context, id primitive.ObjectID, hashedPassword string) error {
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{
+			"password":  hashedPassword,
+			"updatedAt": time.Now(),
+		}},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Create audit log
+	r.createAuditLog(ctx, id, "update_password", "user", id.Hex(), "Password updated", nil)
+
+	return nil
+}
+
+func (r *userRepository) UpdateProfile(ctx context.Context, id primitive.ObjectID, updates *models.UpdateProfileRequest) error {
+	updateDoc := bson.M{
+		"updatedAt": time.Now(),
+	}
+
+	if updates.Name != "" {
+		updateDoc["name"] = updates.Name
+	}
+	if updates.Phone != "" {
+		updateDoc["phone"] = updates.Phone
+	}
+	if updates.ProfileImage != "" {
+		updateDoc["profileImage"] = updates.ProfileImage
+	}
+
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": updateDoc},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	// Create audit log
+	r.createAuditLog(ctx, id, "update_profile", "user", id.Hex(), "Profile updated", nil)
+
+	return nil
+}
+
+func (r *userRepository) AddAddress(ctx context.Context, userID primitive.ObjectID, address models.Address) error {
+	address.ID = primitive.NewObjectID()
+	address.CreatedAt = time.Now()
+	address.UpdatedAt = time.Now()
+
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{
+			"$push": bson.M{"addresses": address},
+			"$set":  bson.M{"updatedAt": time.Now()},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to add address: %w", err)
+	}
+
+	// Create audit log
+	r.createAuditLog(ctx, userID, "add_address", "user", userID.Hex(), "Address added", nil)
+
+	return nil
+}
+
+func (r *userRepository) UpdateAddress(ctx context.Context, userID primitive.ObjectID, addressID primitive.ObjectID, address models.Address) error {
+	address.UpdatedAt = time.Now()
+
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{
+			"_id":          userID,
+			"addresses.id": addressID,
+		},
+		bson.M{
+			"$set": bson.M{
+				"addresses.$":   address,
+				"updatedAt":     time.Now(),
+			},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update address: %w", err)
+	}
+
+	// Create audit log
+	r.createAuditLog(ctx, userID, "update_address", "user", userID.Hex(), "Address updated", nil)
+
+	return nil
+}
+
+func (r *userRepository) DeleteAddress(ctx context.Context, userID primitive.ObjectID, addressID primitive.ObjectID) error {
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{
+			"$pull": bson.M{"addresses": bson.M{"id": addressID}},
+			"$set":  bson.M{"updatedAt": time.Now()},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete address: %w", err)
+	}
+
+	// Create audit log
+	r.createAuditLog(ctx, userID, "delete_address", "user", userID.Hex(), "Address deleted", nil)
+
+	return nil
+}
+
+func (r *userRepository) SetDefaultAddress(ctx context.Context, userID primitive.ObjectID, addressID primitive.ObjectID) error {
+	// First, set all addresses to non-default
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{
+			"$set": bson.M{"addresses.$[].isDefault": false},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to reset default addresses: %w", err)
+	}
+
+	// Then set the specified address as default
+	_, err = r.collection.UpdateOne(
+		ctx,
+		bson.M{
+			"_id":          userID,
+			"addresses.id": addressID,
+		},
+		bson.M{
+			"$set": bson.M{
+				"addresses.$.isDefault": true,
+				"updatedAt":             time.Now(),
+			},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set default address: %w", err)
+	}
+
+	// Create audit log
+	r.createAuditLog(ctx, userID, "set_default_address", "user", userID.Hex(), "Default address updated", nil)
+
+	return nil
+}
+
+func (r *userRepository) GetAll(ctx context.Context, page, limit int) ([]models.User, int64, error) {
+	return r.List(ctx, page, limit, nil)
+}
+
+func (r *userRepository) Search(ctx context.Context, query string, page, limit int) ([]models.User, int64, error) {
+	return r.List(ctx, page, limit, map[string]interface{}{"search": query})
+}
+
 // Helper methods
 
 func (r *userRepository) createAuditLog(ctx context.Context, userID primitive.ObjectID, action, resource, resourceID, description string, metadata map[string]interface{}) {

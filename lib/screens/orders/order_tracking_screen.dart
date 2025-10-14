@@ -333,12 +333,27 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.product.images.first,
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                    ),
+                    child: item.product.images.isNotEmpty
+                        ? Image.network(
+                            item.product.images.first,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 60,
+                                height: 60,
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.image_not_supported),
+                              );
+                            },
+                          )
+                        : Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.image, color: Colors.grey),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

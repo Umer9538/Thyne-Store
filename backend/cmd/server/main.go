@@ -15,6 +15,7 @@ import (
 	"thyne-jewels-backend/internal/handlers"
 	"thyne-jewels-backend/internal/middleware"
     "thyne-jewels-backend/internal/repository"
+	"thyne-jewels-backend/internal/repository/mongo"
 	"thyne-jewels-backend/internal/services"
 
 	"github.com/gin-contrib/cors"
@@ -73,7 +74,10 @@ func main() {
 	reviewRepo := repository.NewReviewRepository(db)
 	couponRepo := repository.NewCouponRepository(db)
 	wishlistRepo := repository.NewWishlistRepository(db)
-    // loyaltyRepo := mongo.NewLoyaltyRepository(db)
+	eventRepo := repository.NewEventRepository(db)
+	invoiceRepo := mongo.NewInvoiceRepository(db)
+    loyaltyRepo := mongo.NewLoyaltyRepository(db)
+	homepageRepo := mongo.NewHomepageRepository(db)
     // notificationRepo := mongo.NewNotificationRepository(db)
 
 	// Initialize services
@@ -82,8 +86,10 @@ func main() {
 	userService.SetWishlistRepository(wishlistRepo)
 	productService := services.NewProductService(productRepo, reviewRepo)
 	cartService := services.NewCartService(cartRepo, productRepo, couponRepo)
-    var loyaltyService *services.LoyaltyService
+    loyaltyService := services.NewLoyaltyService(loyaltyRepo, userRepo, nil)
 	orderService := services.NewOrderService(orderRepo, productRepo, cartRepo)
+	invoiceService := services.NewInvoiceService(invoiceRepo, orderRepo, userRepo)
+	homepageService := services.NewHomepageService(homepageRepo, productRepo)
 	
 	// Initialize notification service (without Firebase credentials for now)
     // notifications disabled for build-only profile
@@ -110,7 +116,11 @@ func main() {
     categoryService := services.NewCategoryService(categoryRepo)
     categoryHandler := handlers.NewCategoryHandler(categoryService)
     adminHandler := handlers.NewAdminHandler(userService, productService, orderService)
-    
+	eventHandler := handlers.NewEventHandler(eventRepo)
+	invoiceHandler := handlers.NewInvoiceHandler(invoiceService)
+	loyaltyHandler := handlers.NewLoyaltyHandler(loyaltyService)
+	homepageHandler := handlers.NewHomepageHandler(homepageService)
+
     // Initialize notification handler if service is available
     // var notificationHandler *handlers.NotificationHandler
 
@@ -129,8 +139,8 @@ func main() {
 	corsConfig.AllowCredentials = true
 	router.Use(cors.New(corsConfig))
 
-	// Rate limiting middleware
-	router.Use(middleware.RateLimit(cfg.Security.RateLimitPerMinute))
+	// Rate limiting middleware - Commented out for development
+	// router.Use(middleware.RateLimit(cfg.Security.RateLimitPerMinute))
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -217,6 +227,17 @@ func main() {
 			orders.GET("/:id/track", orderHandler.TrackOrder)
 		}
 
+		// Invoice routes
+		invoices := api.Group("/invoices")
+		invoices.Use(middleware.OptionalAuth(authService))
+		{
+			invoices.POST("/generate", invoiceHandler.GenerateInvoice)
+			invoices.GET("", invoiceHandler.GetUserInvoices)
+			invoices.GET("/:id", invoiceHandler.GetInvoice)
+			invoices.GET("/order/:orderId", invoiceHandler.GetInvoiceByOrderID)
+			invoices.POST("/:id/download", invoiceHandler.MarkInvoiceAsDownloaded)
+		}
+
 		// Review routes
 		reviews := api.Group("/reviews")
 		reviews.Use(middleware.AuthRequired(authService))
@@ -244,9 +265,45 @@ func main() {
 			payment.POST("/webhook", orderHandler.HandleWebhook)
 		}
 
-        // Loyalty routes disabled in build-only profile
+        // Loyalty routes
+		loyalty := api.Group("/loyalty")
+		{
+			// Public endpoints
+			loyalty.GET("/tiers", loyaltyHandler.GetTierInfo)
+			loyalty.GET("/redemption-options", loyaltyHandler.GetRedemptionOptions)
+			loyalty.GET("/config", loyaltyHandler.GetLoyaltyConfig)
+
+			// Protected endpoints
+			loyaltyAuth := loyalty.Group("")
+			loyaltyAuth.Use(middleware.AuthRequired(authService))
+			{
+				loyaltyAuth.GET("/program", loyaltyHandler.GetLoyaltyProgram)
+				loyaltyAuth.GET("/credits/history", loyaltyHandler.GetCreditHistory)
+				loyaltyAuth.POST("/redeem", loyaltyHandler.RedeemCredits)
+				loyaltyAuth.POST("/daily-login", loyaltyHandler.CheckDailyLogin)
+			}
+		}
 
         // Notification routes disabled in build-only profile
+
+		// Public Event/Banner/Theme routes
+		api.GET("/events/upcoming", eventHandler.GetEvents)
+		api.GET("/banners/active", eventHandler.GetActiveBanners)
+		api.GET("/theme/active", eventHandler.GetActiveTheme)
+		api.GET("/promotions/active", eventHandler.GetActivePromotions)
+		api.GET("/promotions/popups", eventHandler.GetPopupPromotions)
+
+		// Homepage routes
+		homepage := api.Group("/homepage")
+		{
+			// Public endpoints
+			homepage.GET("", homepageHandler.GetHomepageData)
+			homepage.GET("/deal-of-day", homepageHandler.GetActiveDealOfDay)
+			homepage.GET("/flash-sales", homepageHandler.GetActiveFlashSales)
+			homepage.GET("/brands", homepageHandler.GetActiveBrands)
+			homepage.POST("/track/:productId", homepageHandler.TrackProductView)
+			homepage.GET("/recently-viewed", homepageHandler.GetRecentlyViewed)
+		}
 
         // Admin routes
 		admin := api.Group("/admin")
@@ -292,10 +349,65 @@ func main() {
 			admin.GET("/audit-logs", adminHandler.GetAuditLogs)
 			admin.POST("/export/orders", adminHandler.ExportOrders)
 			
+			// Event management
+			admin.POST("/events", eventHandler.CreateEvent)
+			admin.GET("/events", eventHandler.GetEvents)
+			admin.GET("/events/:id", eventHandler.GetEvent)
+			admin.PUT("/events/:id", eventHandler.UpdateEvent)
+			admin.DELETE("/events/:id", eventHandler.DeleteEvent)
+
+			// Banner management
+			admin.POST("/banners", eventHandler.CreateBanner)
+			admin.GET("/banners", eventHandler.GetBanners)
+			admin.GET("/banners/:id", eventHandler.GetBanner)
+			admin.PUT("/banners/:id", eventHandler.UpdateBanner)
+			admin.DELETE("/banners/:id", eventHandler.DeleteBanner)
+
+			// Theme management
+			admin.POST("/themes", eventHandler.CreateTheme)
+			admin.GET("/themes", eventHandler.GetThemes)
+			admin.POST("/themes/:id/activate", eventHandler.ActivateTheme)
+			admin.DELETE("/themes/:id", eventHandler.DeleteTheme)
+
+			// Promotion management
+			admin.POST("/promotions", eventHandler.CreatePromotion)
+			admin.DELETE("/promotions/:id", eventHandler.DeletePromotion)
+
             // Storefront admin disabled in build-only profile
-            
+
             // Admin notification endpoints disabled in build-only profile
-			
+
+			// Invoice management
+			admin.GET("/invoices", invoiceHandler.ListAllInvoices)
+			admin.GET("/invoices/export/csv", invoiceHandler.ExportInvoicesCSV)
+			admin.DELETE("/invoices/:id", invoiceHandler.DeleteInvoice)
+
+			// Loyalty management
+			admin.GET("/loyalty/config", loyaltyHandler.GetLoyaltyConfig)
+			admin.PUT("/loyalty/config", loyaltyHandler.UpdateLoyaltyConfig)
+			admin.GET("/loyalty/statistics", loyaltyHandler.GetLoyaltyStatistics)
+			admin.GET("/loyalty/top-members", loyaltyHandler.GetTopLoyaltyMembers)
+			admin.GET("/loyalty/export", loyaltyHandler.ExportLoyaltyData)
+			admin.POST("/loyalty/credits/add", loyaltyHandler.AddCredits)
+
+			// Homepage management
+			adminHomepage := admin.Group("/homepage")
+			{
+				adminHomepage.GET("/config", homepageHandler.GetHomepageConfig)
+				adminHomepage.PUT("/config", homepageHandler.UpdateHomepageConfig)
+
+				// Deal of Day management
+				adminHomepage.POST("/deal-of-day", homepageHandler.CreateDealOfDay)
+
+				// Flash Sale management
+				adminHomepage.POST("/flash-sale", homepageHandler.CreateFlashSale)
+				adminHomepage.GET("/flash-sales", homepageHandler.GetAllFlashSales)
+
+				// Brand management
+				adminHomepage.POST("/brands", homepageHandler.CreateBrand)
+				adminHomepage.GET("/brands", homepageHandler.GetAllBrands)
+			}
+
 			// Placeholder endpoints for future implementation
 			admin.GET("/config/business", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"message": "Business config not implemented"})

@@ -293,3 +293,51 @@ func (r *reviewRepository) RejectReview(ctx context.Context, reviewID primitive.
 
 	return nil
 }
+
+func (r *reviewRepository) GetAverageRating(ctx context.Context, productID primitive.ObjectID) (float64, int64, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{"productId": productID},
+		},
+		{
+			"$group": bson.M{
+				"_id":      nil,
+				"avgRating": bson.M{"$avg": "$rating"},
+				"count":     bson.M{"$sum": 1},
+			},
+		},
+	}
+
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get average rating: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var result struct {
+		AvgRating float64 `bson:"avgRating"`
+		Count     int64   `bson:"count"`
+	}
+
+	if cursor.Next(ctx) {
+		if err := cursor.Decode(&result); err != nil {
+			return 0, 0, fmt.Errorf("failed to decode rating result: %w", err)
+		}
+	}
+
+	return result.AvgRating, result.Count, nil
+}
+
+func (r *reviewRepository) GetByProductID(ctx context.Context, productID primitive.ObjectID, page, limit int) ([]models.Review, int64, error) {
+	// Just call GetProductReviews for compatibility
+	return r.GetProductReviews(ctx, productID, page, limit)
+}
+
+func (r *reviewRepository) GetByUserID(ctx context.Context, userID primitive.ObjectID) ([]models.Review, error) {
+	// Call GetUserReviews with default pagination
+	reviews, _, err := r.GetUserReviews(ctx, userID, 1, 1000)
+	if err != nil {
+		return nil, err
+	}
+	return reviews, nil
+}

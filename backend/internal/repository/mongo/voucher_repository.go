@@ -93,13 +93,19 @@ func (r *voucherRepository) GetAvailable(ctx context.Context) ([]models.Voucher,
 	now := time.Now()
 	filter := bson.M{
 		"isActive": true,
-		"$or": []bson.M{
-			{"validFrom": bson.M{"$lte": now}},
-			{"validFrom": nil},
-		},
-		"$or": []bson.M{
-			{"validUntil": bson.M{"$gte": now}},
-			{"validUntil": nil},
+		"$and": []bson.M{
+			{
+				"$or": []bson.M{
+					{"validFrom": bson.M{"$lte": now}},
+					{"validFrom": nil},
+				},
+			},
+			{
+				"$or": []bson.M{
+					{"validUntil": bson.M{"$gte": now}},
+					{"validUntil": nil},
+				},
+			},
 		},
 	}
 

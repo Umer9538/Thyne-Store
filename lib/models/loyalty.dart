@@ -1,39 +1,35 @@
 class LoyaltyProgram {
   final String userId;
-  final int totalPoints;
-  final int currentPoints;
+  final int totalCredits;
+  final int availableCredits;
   final LoyaltyTier tier;
   final int loginStreak;
   final DateTime? lastLoginDate;
   final double totalSpent;
   final int totalOrders;
-  final List<PointTransaction> transactions;
-  final List<Voucher> vouchers;
   final DateTime joinedAt;
 
   LoyaltyProgram({
     required this.userId,
-    required this.totalPoints,
-    required this.currentPoints,
+    required this.totalCredits,
+    required this.availableCredits,
     required this.tier,
     required this.loginStreak,
     this.lastLoginDate,
     required this.totalSpent,
     required this.totalOrders,
-    this.transactions = const [],
-    this.vouchers = const [],
     required this.joinedAt,
   });
 
-  // Calculate points to next tier
-  int get pointsToNextTier {
+  // Calculate spending to next tier
+  double get spendingToNextTier {
     switch (tier) {
       case LoyaltyTier.bronze:
-        return 500 - totalPoints;
+        return 1000 - totalSpent;
       case LoyaltyTier.silver:
-        return 2000 - totalPoints;
+        return 5000 - totalSpent;
       case LoyaltyTier.gold:
-        return 5000 - totalPoints;
+        return 10000 - totalSpent;
       case LoyaltyTier.platinum:
         return 0; // Already at max tier
     }
@@ -43,11 +39,11 @@ class LoyaltyProgram {
   double get tierProgress {
     switch (tier) {
       case LoyaltyTier.bronze:
-        return totalPoints / 500;
+        return (totalSpent / 1000).clamp(0.0, 1.0);
       case LoyaltyTier.silver:
-        return (totalPoints - 500) / 1500;
+        return ((totalSpent - 1000) / 4000).clamp(0.0, 1.0);
       case LoyaltyTier.gold:
-        return (totalPoints - 2000) / 3000;
+        return ((totalSpent - 5000) / 5000).clamp(0.0, 1.0);
       case LoyaltyTier.platinum:
         return 1.0;
     }
@@ -64,39 +60,34 @@ class LoyaltyProgram {
   factory LoyaltyProgram.fromJson(Map<String, dynamic> json) {
     return LoyaltyProgram(
       userId: json['userId'],
-      totalPoints: json['totalPoints'],
-      currentPoints: json['currentPoints'],
+      totalCredits: json['totalCredits'] ?? 0,
+      availableCredits: json['availableCredits'] ?? 0,
       tier: LoyaltyTier.values.firstWhere(
         (t) => t.toString() == 'LoyaltyTier.${json['tier']}',
+        orElse: () => LoyaltyTier.bronze,
       ),
-      loginStreak: json['loginStreak'],
+      loginStreak: json['loginStreak'] ?? 0,
       lastLoginDate: json['lastLoginDate'] != null
           ? DateTime.parse(json['lastLoginDate'])
           : null,
-      totalSpent: json['totalSpent'].toDouble(),
-      totalOrders: json['totalOrders'],
-      transactions: (json['transactions'] as List?)
-          ?.map((t) => PointTransaction.fromJson(t))
-          .toList() ?? [],
-      vouchers: (json['vouchers'] as List?)
-          ?.map((v) => Voucher.fromJson(v))
-          .toList() ?? [],
-      joinedAt: DateTime.parse(json['joinedAt']),
+      totalSpent: (json['totalSpent'] ?? 0).toDouble(),
+      totalOrders: json['totalOrders'] ?? 0,
+      joinedAt: json['joinedAt'] != null
+          ? DateTime.parse(json['joinedAt'])
+          : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
-      'totalPoints': totalPoints,
-      'currentPoints': currentPoints,
+      'totalCredits': totalCredits,
+      'availableCredits': availableCredits,
       'tier': tier.toString().split('.').last,
       'loginStreak': loginStreak,
       'lastLoginDate': lastLoginDate?.toIso8601String(),
       'totalSpent': totalSpent,
       'totalOrders': totalOrders,
-      'transactions': transactions.map((t) => t.toJson()).toList(),
-      'vouchers': vouchers.map((v) => v.toJson()).toList(),
       'joinedAt': joinedAt.toIso8601String(),
     };
   }
@@ -136,16 +127,29 @@ extension LoyaltyTierExtension on LoyaltyTier {
     }
   }
 
-  double get pointsMultiplier {
+  double get creditsMultiplier {
     switch (this) {
       case LoyaltyTier.bronze:
         return 1.0;
       case LoyaltyTier.silver:
-        return 1.2;
-      case LoyaltyTier.gold:
         return 1.5;
-      case LoyaltyTier.platinum:
+      case LoyaltyTier.gold:
         return 2.0;
+      case LoyaltyTier.platinum:
+        return 2.5;
+    }
+  }
+
+  double get spendingRequired {
+    switch (this) {
+      case LoyaltyTier.bronze:
+        return 0;
+      case LoyaltyTier.silver:
+        return 1000;
+      case LoyaltyTier.gold:
+        return 5000;
+      case LoyaltyTier.platinum:
+        return 10000;
     }
   }
 
@@ -153,76 +157,89 @@ extension LoyaltyTierExtension on LoyaltyTier {
     switch (this) {
       case LoyaltyTier.bronze:
         return [
-          'Earn 1 point per \$1 spent',
-          'Birthday bonus points',
+          'Earn 1 credit per \$1 spent',
+          'Login streak bonuses',
           'Early access to sales',
         ];
       case LoyaltyTier.silver:
         return [
-          'Earn 1.2 points per \$1 spent',
+          'Earn 1.5 credits per \$1 spent',
           'Free shipping on orders over \$50',
           'Exclusive member discounts',
-          'Birthday bonus points',
+          'Enhanced login bonuses',
         ];
       case LoyaltyTier.gold:
         return [
-          'Earn 1.5 points per \$1 spent',
+          'Earn 2 credits per \$1 spent',
           'Free shipping on all orders',
           'Priority customer service',
           'Exclusive gold member sales',
-          'Birthday bonus points',
+          'Double login bonuses',
         ];
       case LoyaltyTier.platinum:
         return [
-          'Earn 2 points per \$1 spent',
+          'Earn 2.5 credits per \$1 spent',
           'Free express shipping',
           'VIP customer service',
           'Exclusive platinum previews',
           'Personal shopping assistant',
-          'Birthday bonus points',
+          'Triple login bonuses',
         ];
     }
   }
 }
 
-class PointTransaction {
+class CreditTransaction {
   final String id;
+  final String userId;
   final TransactionType type;
-  final int points;
+  final int credits;
   final String description;
   final DateTime createdAt;
   final String? orderId;
+  final String? voucherId;
 
-  PointTransaction({
+  CreditTransaction({
     required this.id,
+    required this.userId,
     required this.type,
-    required this.points,
+    required this.credits,
     required this.description,
     required this.createdAt,
     this.orderId,
+    this.voucherId,
   });
 
-  factory PointTransaction.fromJson(Map<String, dynamic> json) {
-    return PointTransaction(
-      id: json['id'],
+  bool get isPositive => credits > 0;
+
+  factory CreditTransaction.fromJson(Map<String, dynamic> json) {
+    return CreditTransaction(
+      id: json['id'] ?? '',
+      userId: json['userId'] ?? '',
       type: TransactionType.values.firstWhere(
         (t) => t.toString() == 'TransactionType.${json['type']}',
+        orElse: () => TransactionType.earned,
       ),
-      points: json['points'],
-      description: json['description'],
-      createdAt: DateTime.parse(json['createdAt']),
+      credits: json['credits'] ?? 0,
+      description: json['description'] ?? '',
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
       orderId: json['orderId'],
+      voucherId: json['voucherId'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'userId': userId,
       'type': type.toString().split('.').last,
-      'points': points,
+      'credits': credits,
       'description': description,
       'createdAt': createdAt.toIso8601String(),
-      'orderId': orderId,
+      if (orderId != null) 'orderId': orderId,
+      if (voucherId != null) 'voucherId': voucherId,
     };
   }
 }
@@ -230,93 +247,131 @@ class PointTransaction {
 enum TransactionType {
   earned,
   redeemed,
-  bonus,
+  loginBonus,
+  streakBonus,
+  welcomeBonus,
   expired,
+  refund,
 }
 
-class Voucher {
-  final String id;
-  final String code;
-  final String title;
-  final String description;
-  final VoucherType type;
-  final double value;
-  final int pointsCost;
-  final DateTime? validFrom;
-  final DateTime? validUntil;
-  final bool isUsed;
-  final DateTime? usedAt;
-  final double? minimumPurchase;
+extension TransactionTypeExtension on TransactionType {
+  String get displayName {
+    switch (this) {
+      case TransactionType.earned:
+        return 'Earned';
+      case TransactionType.redeemed:
+        return 'Redeemed';
+      case TransactionType.loginBonus:
+        return 'Login Bonus';
+      case TransactionType.streakBonus:
+        return 'Streak Bonus';
+      case TransactionType.welcomeBonus:
+        return 'Welcome Bonus';
+      case TransactionType.expired:
+        return 'Expired';
+      case TransactionType.refund:
+        return 'Refund';
+    }
+  }
+}
 
-  Voucher({
+class RedemptionOption {
+  final String id;
+  final String name;
+  final String description;
+  final int creditsRequired;
+  final double discountValue;
+  final RedemptionType type;
+
+  RedemptionOption({
     required this.id,
-    required this.code,
-    required this.title,
+    required this.name,
     required this.description,
+    required this.creditsRequired,
+    required this.discountValue,
     required this.type,
-    required this.value,
-    required this.pointsCost,
-    this.validFrom,
-    this.validUntil,
-    this.isUsed = false,
-    this.usedAt,
-    this.minimumPurchase,
   });
 
-  bool get isValid {
-    final now = DateTime.now();
-    if (isUsed) return false;
-    if (validFrom != null && now.isBefore(validFrom!)) return false;
-    if (validUntil != null && now.isAfter(validUntil!)) return false;
-    return true;
-  }
-
-  factory Voucher.fromJson(Map<String, dynamic> json) {
-    return Voucher(
-      id: json['id'],
-      code: json['code'],
-      title: json['title'],
-      description: json['description'],
-      type: VoucherType.values.firstWhere(
-        (t) => t.toString() == 'VoucherType.${json['type']}',
+  factory RedemptionOption.fromJson(Map<String, dynamic> json) {
+    return RedemptionOption(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      creditsRequired: json['creditsRequired'] ?? 0,
+      discountValue: (json['discountValue'] ?? 0).toDouble(),
+      type: RedemptionType.values.firstWhere(
+        (t) => t.toString() == 'RedemptionType.${json['type']}',
+        orElse: () => RedemptionType.discount,
       ),
-      value: json['value'].toDouble(),
-      pointsCost: json['pointsCost'],
-      validFrom: json['validFrom'] != null
-          ? DateTime.parse(json['validFrom'])
-          : null,
-      validUntil: json['validUntil'] != null
-          ? DateTime.parse(json['validUntil'])
-          : null,
-      isUsed: json['isUsed'] ?? false,
-      usedAt: json['usedAt'] != null
-          ? DateTime.parse(json['usedAt'])
-          : null,
-      minimumPurchase: json['minimumPurchase']?.toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'code': code,
-      'title': title,
+      'name': name,
       'description': description,
+      'creditsRequired': creditsRequired,
+      'discountValue': discountValue,
       'type': type.toString().split('.').last,
-      'value': value,
-      'pointsCost': pointsCost,
-      'validFrom': validFrom?.toIso8601String(),
-      'validUntil': validUntil?.toIso8601String(),
-      'isUsed': isUsed,
-      'usedAt': usedAt?.toIso8601String(),
-      'minimumPurchase': minimumPurchase,
     };
   }
 }
 
-enum VoucherType {
-  percentage,
-  fixed,
+enum RedemptionType {
+  discount,
+  voucher,
   freeShipping,
-  gift,
+}
+
+extension RedemptionTypeExtension on RedemptionType {
+  String get displayName {
+    switch (this) {
+      case RedemptionType.discount:
+        return 'Discount';
+      case RedemptionType.voucher:
+        return 'Voucher';
+      case RedemptionType.freeShipping:
+        return 'Free Shipping';
+    }
+  }
+}
+
+class TierInfo {
+  final String name;
+  final String icon;
+  final double spendingRequired;
+  final double creditsMultiplier;
+  final List<String> benefits;
+
+  TierInfo({
+    required this.name,
+    required this.icon,
+    required this.spendingRequired,
+    required this.creditsMultiplier,
+    required this.benefits,
+  });
+
+  factory TierInfo.fromJson(Map<String, dynamic> json) {
+    return TierInfo(
+      name: json['name'] ?? '',
+      icon: json['icon'] ?? '',
+      spendingRequired: (json['spendingRequired'] ?? 0).toDouble(),
+      creditsMultiplier: (json['creditsMultiplier'] ?? 1.0).toDouble(),
+      benefits: (json['benefits'] as List<dynamic>?)
+              ?.map((b) => b.toString())
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'icon': icon,
+      'spendingRequired': spendingRequired,
+      'creditsMultiplier': creditsMultiplier,
+      'benefits': benefits,
+    };
+  }
 }

@@ -320,7 +320,7 @@ func (r *orderRepository) ExportOrders(ctx context.Context, format string, start
 	return fmt.Sprintf("orders_export_%s.%s", time.Now().Format("20060102"), format), nil
 }
 
-func (r *orderRepository) UpdateStatus(ctx context.Context, orderID primitive.ObjectID, status string) error {
+func (r *orderRepository) UpdateStatus(ctx context.Context, orderID primitive.ObjectID, status models.OrderStatus) error {
 	_, err := r.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": orderID},
@@ -336,6 +336,108 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderID primitive.Ob
 	}
 
 	return nil
+}
+
+// GetAll lists orders for admin with optional status filter and pagination
+func (r *orderRepository) GetAll(ctx context.Context, page, limit int, status *models.OrderStatus) ([]models.Order, int64, error) {
+	filter := bson.M{}
+	if status != nil {
+		filter["status"] = *status
+	}
+
+	total, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count orders: %w", err)
+	}
+
+	skip := (page - 1) * limit
+	opts := options.Find().
+		SetSkip(int64(skip)).
+		SetLimit(int64(limit)).
+		SetSort(bson.M{"createdAt": -1})
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to find orders: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var orders []models.Order
+	if err = cursor.All(ctx, &orders); err != nil {
+		return nil, 0, fmt.Errorf("failed to decode orders: %w", err)
+	}
+
+	if orders == nil {
+		orders = []models.Order{}
+	}
+
+	return orders, total, nil
+}
+
+// GetByUserID retrieves orders for a specific user
+func (r *orderRepository) GetByUserID(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.Order, int64, error) {
+	filter := bson.M{"userId": userID}
+
+	total, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count user orders: %w", err)
+	}
+
+	skip := (page - 1) * limit
+	opts := options.Find().
+		SetSkip(int64(skip)).
+		SetLimit(int64(limit)).
+		SetSort(bson.M{"createdAt": -1})
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to find user orders: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var orders []models.Order
+	if err = cursor.All(ctx, &orders); err != nil {
+		return nil, 0, fmt.Errorf("failed to decode user orders: %w", err)
+	}
+
+	if orders == nil {
+		orders = []models.Order{}
+	}
+
+	return orders, total, nil
+}
+
+// GetByGuestSessionID retrieves orders for a guest session
+func (r *orderRepository) GetByGuestSessionID(ctx context.Context, sessionID string, page, limit int) ([]models.Order, int64, error) {
+	filter := bson.M{"guestSessionId": sessionID}
+
+	total, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count guest orders: %w", err)
+	}
+
+	skip := (page - 1) * limit
+	opts := options.Find().
+		SetSkip(int64(skip)).
+		SetLimit(int64(limit)).
+		SetSort(bson.M{"createdAt": -1})
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to find guest orders: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var orders []models.Order
+	if err = cursor.All(ctx, &orders); err != nil {
+		return nil, 0, fmt.Errorf("failed to decode guest orders: %w", err)
+	}
+
+	if orders == nil {
+		orders = []models.Order{}
+	}
+
+	return orders, total, nil
 }
 
 func (r *orderRepository) GetOrdersByStatus(ctx context.Context, status string, page, limit int) ([]models.Order, int64, error) {

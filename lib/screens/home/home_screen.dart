@@ -9,7 +9,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/guest_session_provider.dart';
 import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
 import '../../services/api_service.dart';
+import '../../services/promotion_manager.dart';
 import '../../widgets/product_card.dart';
 import '../product/product_list_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -29,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<Map<String, String>> _banners = [];
   List<String> _visibleCategories = [];
   bool _loadingStorefront = true;
+  List<Map<String, dynamic>> _upcomingEvents = [];
 
   @override
   void initState() {
@@ -41,6 +44,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (productProvider.products.isEmpty) {
         productProvider.loadProducts();
       }
+      // Check and show event promotions
+      PromotionManager.checkAndShowPromotions(context);
     });
   }
 
@@ -69,30 +74,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       setState(() { _loadingStorefront = true; });
       
-      // Try to get homepage config, but fallback gracefully if not available
+      // Get active banners created by admin
       try {
-        final resp = await ApiService.getHomePageConfig();
+        final resp = await ApiService.getActiveBanners();
         if (resp['success'] == true && resp['data'] != null) {
-          final data = resp['data'] as Map<String, dynamic>;
-          final heroBanners = (data['heroBanners'] as List? ?? []);
-          _banners = heroBanners.map<Map<String, String>>((b) => {
-            'image': (b['imageUrl'] ?? '').toString(),
-            'title': (b['title'] ?? ' ').toString(),
-            'subtitle': (b['subtitle'] ?? ' ').toString(),
-          }).toList();
+          final activeBanners = (resp['data'] as List? ?? []);
+          if (activeBanners.isNotEmpty) {
+            _banners = activeBanners.map<Map<String, String>>((b) => {
+              'image': (b['imageUrl'] ?? '').toString(),
+              'title': (b['title'] ?? 'Featured').toString(),
+              'subtitle': (b['description'] ?? 'Shop now').toString(),
+              'festivalTag': (b['festivalTag'] ?? '').toString(),
+            }).toList();
+          }
         }
       } catch (e) {
-        // Use default banners if homepage config fails
+        print('Error loading banners: $e');
+      }
+      
+      // Use default banners if no banners were loaded
+      if (_banners.isEmpty) {
         _banners = [
           {
             'image': 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338',
             'title': 'Exquisite Jewelry Collection',
             'subtitle': 'Discover our handcrafted pieces',
+            'festivalTag': '',
           },
           {
             'image': 'https://images.unsplash.com/photo-1605100804763-247f67b3557e',
             'title': 'Diamond Collection',
             'subtitle': 'Brilliance that lasts forever',
+            'festivalTag': '',
           },
         ];
       }
@@ -108,6 +121,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         // Fallback to default categories
         _visibleCategories = ['Rings', 'Necklaces', 'Earrings', 'Bracelets'];
       }
+      
+      // Get upcoming events
+      try {
+        final eventsResp = await ApiService.getUpcomingEvents();
+        if (eventsResp['success'] == true && eventsResp['data'] != null) {
+          final events = (eventsResp['data'] as List<dynamic>);
+          _upcomingEvents = events.map<Map<String, dynamic>>((e) => e as Map<String, dynamic>).toList();
+        }
+      } catch (e) {
+        // No events to display
+        _upcomingEvents = [];
+      }
     } catch (_) {
       // Final fallback
       _banners = [
@@ -115,9 +140,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           'image': 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338',
           'title': 'Exquisite Jewelry Collection',
           'subtitle': 'Discover our handcrafted pieces',
+          'festivalTag': '',
         },
       ];
       _visibleCategories = ['Rings', 'Necklaces', 'Earrings', 'Bracelets'];
+      _upcomingEvents = [];
     } finally {
       if (mounted) setState(() { _loadingStorefront = false; });
     }
@@ -203,6 +230,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       body: RefreshIndicator(
         onRefresh: () async {
           await productProvider.loadProducts();
+          await _loadStorefront();
         },
         child: SingleChildScrollView(
           child: Column(
@@ -210,6 +238,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               // Hero Carousel
               _buildHeroCarousel(),
+
+              // Upcoming Events Section
+              if (_upcomingEvents.isNotEmpty) _buildUpcomingEvents(context),
 
               // Categories Section
               _buildCategoriesSection(context),
@@ -235,7 +266,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Column(
       children: [
         SizedBox(
-          height: 220,
+          height: Responsive.valueByDevice(
+            context: context,
+            mobile: 200.0,
+            tablet: 300.0,
+            desktop: 400.0,
+          ),
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -282,6 +318,54 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       ),
                     ),
+                    // Festival tag badge (top-right)
+                    if (banner['festivalTag'] != null && banner['festivalTag']!.isNotEmpty)
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                AppTheme.primaryGold,
+                                AppTheme.accentPurple,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryGold.withOpacity(0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.celebration,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                banner['festivalTag']!.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     Positioned(
                       bottom: 20,
                       left: 20,
@@ -359,6 +443,202 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildUpcomingEvents(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.celebration,
+                color: AppTheme.primaryGold,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Upcoming Events',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppTheme.primaryGold,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 160,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _upcomingEvents.length,
+              itemBuilder: (context, index) {
+                final event = _upcomingEvents[index];
+                final name = event['name'] ?? 'Event';
+                final type = event['type'] ?? 'festival';
+                final description = event['description'] ?? '';
+                final dateStr = event['date'] ?? '';
+                final themeColor = event['themeColor'] ?? '#FFD700';
+                
+                // Parse date
+                DateTime? eventDate;
+                try {
+                  eventDate = DateTime.parse(dateStr);
+                } catch (e) {
+                  eventDate = null;
+                }
+
+                // Calculate days until event
+                int? daysUntil;
+                String dateDisplay = '';
+                if (eventDate != null) {
+                  final now = DateTime.now();
+                  final today = DateTime(now.year, now.month, now.day);
+                  final eventDay = DateTime(eventDate.year, eventDate.month, eventDate.day);
+                  daysUntil = eventDay.difference(today).inDays;
+                  
+                  if (daysUntil == 0) {
+                    dateDisplay = 'TODAY';
+                  } else if (daysUntil == 1) {
+                    dateDisplay = 'TOMORROW';
+                  } else if (daysUntil > 1) {
+                    dateDisplay = 'IN $daysUntil DAYS';
+                  } else {
+                    dateDisplay = 'ONGOING';
+                  }
+                }
+
+                // Parse color
+                Color cardColor = AppTheme.primaryGold;
+                try {
+                  if (themeColor.startsWith('#')) {
+                    cardColor = Color(int.parse(themeColor.substring(1), radix: 16) + 0xFF000000);
+                  }
+                } catch (e) {
+                  cardColor = AppTheme.primaryGold;
+                }
+
+                return Container(
+                  width: 280,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        cardColor,
+                        cardColor.withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cardColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      // Decorative pattern
+                      Positioned(
+                        right: -20,
+                        top: -20,
+                        child: Icon(
+                          Icons.celebration,
+                          size: 120,
+                          color: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                      // Content
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    type.toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (description.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    description,
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (dateDisplay.isNotEmpty)
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    dateDisplay,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -555,11 +835,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: Responsive.gridCount(context, mobile: 2, tablet: 3, desktop: 4),
               childAspectRatio: 0.75,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+              crossAxisSpacing: Responsive.spacing(context, 12),
+              mainAxisSpacing: Responsive.spacing(context, 12),
             ),
             itemCount: newProducts.length,
             itemBuilder: (context, index) {

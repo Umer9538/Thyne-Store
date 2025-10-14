@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
 import '../../utils/mock_data.dart';
 import '../../widgets/product_card.dart';
 import 'product_detail_screen.dart';
@@ -230,12 +231,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       )
                     : _isGridView
                         ? GridView.builder(
-                            padding: const EdgeInsets.all(16),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
+                            padding: EdgeInsets.all(Responsive.padding(context, 16)),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: Responsive.gridCount(context, mobile: 2, tablet: 3, desktop: 4),
                               childAspectRatio: 0.75,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
+                              crossAxisSpacing: Responsive.spacing(context, 12),
+                              mainAxisSpacing: Responsive.spacing(context, 12),
                             ),
                             itemCount: productProvider.products.length,
                             itemBuilder: (context, index) {

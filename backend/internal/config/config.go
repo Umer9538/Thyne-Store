@@ -157,7 +157,7 @@ func Load() *Config {
 		},
 		Security: SecurityConfig{
 			BcryptCost:         getEnvAsInt("BCRYPT_COST", 12),
-			RateLimitPerMinute: getEnvAsInt("RATE_LIMIT_PER_MINUTE", 100),
+			RateLimitPerMinute: getEnvAsInt("RATE_LIMIT_PER_MINUTE", 10000), // Increased to 10000 requests per minute
 			CORSAllowedOrigins: strings.Split(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000"), ","),
 		},
 		File: FileConfig{

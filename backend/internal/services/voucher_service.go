@@ -85,14 +85,14 @@ func (s *VoucherService) RedeemVoucher(ctx context.Context, userID, voucherID pr
 		return nil, fmt.Errorf("failed to get loyalty program: %w", err)
 	}
 
-	// Check if user has enough points
-	if loyaltyProgram.CurrentPoints < voucher.PointsCost {
-		return nil, fmt.Errorf("insufficient points: need %d, have %d", voucher.PointsCost, loyaltyProgram.CurrentPoints)
+	// Check if user has enough credits
+	if loyaltyProgram.AvailableCredits < voucher.PointsCost {
+		return nil, fmt.Errorf("insufficient credits: need %d, have %d", voucher.PointsCost, loyaltyProgram.AvailableCredits)
 	}
 
-	// Deduct points from user's account
-	loyaltyProgram.CurrentPoints -= voucher.PointsCost
-	// Note: RedeemedPoints field doesn't exist in current model
+	// Deduct credits from user's account
+	loyaltyProgram.AvailableCredits -= voucher.PointsCost
+	// Note: RedeemedCredits field doesn't exist in current model
 	loyaltyProgram.UpdatedAt = time.Now()
 
 	err = s.loyaltyRepo.UpdateProgram(ctx, loyaltyProgram)
@@ -300,13 +300,13 @@ func (s *VoucherService) ClaimReward(ctx context.Context, userID, rewardID primi
 		return fmt.Errorf("failed to update reward: %w", err)
 	}
 
-	// Add points to user's loyalty account
+	// Add credits to user's loyalty account
 	loyaltyProgram, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get loyalty program: %w", err)
 	}
 
-	loyaltyProgram.CurrentPoints += reward.Value
+	loyaltyProgram.AvailableCredits += reward.Value
 	loyaltyProgram.UpdatedAt = time.Now()
 
 	err = s.loyaltyRepo.UpdateProgram(ctx, loyaltyProgram)

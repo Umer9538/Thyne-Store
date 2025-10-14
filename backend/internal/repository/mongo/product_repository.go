@@ -196,7 +196,7 @@ func (r *productRepository) GetFeaturedProducts(ctx context.Context, limit int) 
 
 	opts := options.Find().
 		SetLimit(int64(limit)).
-		SetSort(bson.M{"rating": -1, "salesCount": -1})
+		SetSort(bson.M{"rating": -1})
 
 	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -207,6 +207,57 @@ func (r *productRepository) GetFeaturedProducts(ctx context.Context, limit int) 
 	var products []models.Product
 	if err = cursor.All(ctx, &products); err != nil {
 		return nil, fmt.Errorf("failed to decode featured products: %w", err)
+	}
+
+	return products, nil
+}
+
+// GetAll retrieves all products with filter
+func (r *productRepository) GetAll(ctx context.Context, filter models.ProductFilter) ([]models.Product, int64, error) {
+	return r.List(ctx, filter.Page, filter.Limit, nil)
+}
+
+// GetFeatured retrieves featured products
+func (r *productRepository) GetFeatured(ctx context.Context) ([]models.Product, error) {
+	return r.GetFeaturedProducts(ctx, 20)
+}
+
+// GetCategories retrieves all unique categories
+func (r *productRepository) GetCategories(ctx context.Context) ([]string, error) {
+	distinct, err := r.collection.Distinct(ctx, "category", bson.M{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get categories: %w", err)
+	}
+
+	var categories []string
+	for _, v := range distinct {
+		if cat, ok := v.(string); ok {
+			categories = append(categories, cat)
+		}
+	}
+
+	return categories, nil
+}
+
+// Search performs a text search on products
+func (r *productRepository) Search(ctx context.Context, query string) ([]models.Product, error) {
+	filter := bson.M{
+		"$or": []bson.M{
+			{"name": bson.M{"$regex": query, "$options": "i"}},
+			{"description": bson.M{"$regex": query, "$options": "i"}},
+			{"category": bson.M{"$regex": query, "$options": "i"}},
+		},
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search products: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var products []models.Product
+	if err = cursor.All(ctx, &products); err != nil {
+		return nil, fmt.Errorf("failed to decode products: %w", err)
 	}
 
 	return products, nil
@@ -236,7 +287,7 @@ func (r *productRepository) GetNewArrivals(ctx context.Context, limit int) ([]mo
 func (r *productRepository) GetBestSellers(ctx context.Context, limit int) ([]models.Product, error) {
 	opts := options.Find().
 		SetLimit(int64(limit)).
-		SetSort(bson.M{"salesCount": -1, "rating": -1})
+		SetSort(bson.M{"rating": -1})
 
 	filter := bson.M{"stockQuantity": bson.M{"$gt": 0}}
 
@@ -487,7 +538,7 @@ func (r *productRepository) getCategoryDistribution(ctx context.Context) (map[st
 func (r *productRepository) getTopSellingProducts(ctx context.Context, limit int) ([]models.TopProduct, error) {
 	opts := options.Find().
 		SetLimit(int64(limit)).
-		SetSort(bson.M{"salesCount": -1})
+		SetSort(bson.M{"rating": -1})
 
 	cursor, err := r.collection.Find(ctx, bson.M{}, opts)
 	if err != nil {
@@ -507,8 +558,8 @@ func (r *productRepository) getTopSellingProducts(ctx context.Context, limit int
 			Name:       product.Name,
 			Category:   product.Category,
 			Price:      product.Price,
-			SalesCount: int64(product.SalesCount),
-			Revenue:    product.Price * float64(product.SalesCount),
+			SalesCount: 0, // Field not available in model
+			Revenue:    0, // Field not available in model
 			Rating:     product.Rating,
 		})
 	}
@@ -518,9 +569,7 @@ func (r *productRepository) getTopSellingProducts(ctx context.Context, limit int
 
 func (r *productRepository) getLowStockProducts(ctx context.Context, limit int) ([]models.LowStockProduct, error) {
 	filter := bson.M{
-		"$expr": bson.M{
-			"$lte": []interface{}{"$stockQuantity", "$minimumStock"},
-		},
+		"stockQuantity": bson.M{"$lt": 10}, // Low stock threshold
 	}
 
 	opts := options.Find().
@@ -543,10 +592,10 @@ func (r *productRepository) getLowStockProducts(ctx context.Context, limit int) 
 		lowStockProducts = append(lowStockProducts, models.LowStockProduct{
 			ProductID:    product.ID,
 			Name:         product.Name,
-			SKU:          product.SKU,
+			SKU:          "", // Field not available in model
 			Category:     product.Category,
 			CurrentStock: product.StockQuantity,
-			MinimumStock: product.MinimumStock,
+			MinimumStock: 10, // Default threshold
 			Price:        product.Price,
 		})
 	}
