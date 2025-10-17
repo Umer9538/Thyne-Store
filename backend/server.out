@@ -1,4 +1,4 @@
-2025/10/12 21:21:57 Error reading config file: Config File "config" Not Found in "[/Users/mac/StudioProjects/thyne_jewls/backend /Users/mac/StudioProjects/thyne_jewls/backend/config /Users/mac/StudioProjects/thyne_jewls/config /Users/mac/StudioProjects/config]"
+2025/10/17 17:37:26 Error reading config file: Config File "config" Not Found in "[/Users/mac/StudioProjects/thyne_jewls/backend /Users/mac/StudioProjects/thyne_jewls/backend/config /Users/mac/StudioProjects/thyne_jewls/config /Users/mac/StudioProjects/config]"
 Successfully connected to MongoDB database: thyne_jewels
 [GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
  - using env:	export GIN_MODE=release
@@ -138,30 +138,5 @@ Successfully connected to MongoDB database: thyne_jewels
 [GIN-debug] GET    /api/v1/admin/homepage/brands --> thyne-jewels-backend/internal/handlers.(*HomepageHandler).GetAllBrands-fm (6 handlers)
 [GIN-debug] GET    /api/v1/admin/config/business --> main.main.func4 (6 handlers)
 [GIN-debug] PUT    /api/v1/admin/config/business --> main.main.func5 (6 handlers)
-2025/10/12 21:21:57 Server starting on localhost:8080
-[GIN] 2025/10/12 - 21:22:14 | 200 |    1.830953ms |       127.0.0.1 | GET      "/api/v1/products"
-[GIN] 2025/10/12 - 21:23:36 | 404 |       1.172µs |       127.0.0.1 | GET      "/api/products"
-[GIN] 2025/10/12 - 21:23:48 | 200 |    1.372257ms |       127.0.0.1 | GET      "/api/v1/products"
-[GIN] 2025/10/12 - 21:24:43 | 200 |    1.713352ms |       127.0.0.1 | GET      "/api/v1/products"
-[GIN] 2025/10/12 - 21:24:52 | 200 |    1.988033ms |       127.0.0.1 | GET      "/api/v1/products"
-[GIN] 2025/10/12 - 21:25:40 | 200 |   12.324491ms |       127.0.0.1 | GET      "/api/v1/homepage"
-[GIN] 2025/10/12 - 21:25:48 | 200 |    9.247463ms |       127.0.0.1 | GET      "/api/v1/homepage"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    4.513925ms |       127.0.0.1 | GET      "/api/v1/theme/active"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    3.759065ms |       127.0.0.1 | GET      "/api/v1/products?page=1&limit=20"
-[GIN] 2025/10/12 - 21:26:38 | 200 |      9.1358ms |       127.0.0.1 | GET      "/api/v1/homepage"
-[GIN] 2025/10/12 - 21:26:38 | 200 |   12.232151ms |       127.0.0.1 | GET      "/api/v1/admin/dashboard/stats"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    4.125273ms |       127.0.0.1 | GET      "/api/v1/homepage"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    3.508603ms |       127.0.0.1 | GET      "/api/v1/products?page=1&limit=20"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    3.139955ms |       127.0.0.1 | GET      "/api/v1/users/wishlist?page=1&limit=20"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    1.402839ms |       127.0.0.1 | GET      "/api/v1/users/wishlist?page=1&limit=20"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    1.004392ms |       127.0.0.1 | GET      "/api/v1/products/68d56575e0f468d0541e9b1a"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    6.250691ms |       127.0.0.1 | GET      "/api/v1/admin/dashboard/products"
-[GIN] 2025/10/12 - 21:26:38 | 200 |     959.652µs |       127.0.0.1 | GET      "/api/v1/products/68d56575e0f468d0541e9b1b"
-[GIN] 2025/10/12 - 21:26:38 | 200 |     824.424µs |       127.0.0.1 | GET      "/api/v1/products/68d56575e0f468d0541e9b1c"
-[GIN] 2025/10/12 - 21:26:38 | 200 |     919.589µs |       127.0.0.1 | GET      "/api/v1/products/68d56575e0f468d0541e9b19"
-[GIN] 2025/10/12 - 21:26:38 | 200 |     754.044µs |       127.0.0.1 | GET      "/api/v1/products/68dfd3dc0665ee044efd6b67"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    1.250394ms |       127.0.0.1 | GET      "/api/v1/banners/active"
-[GIN] 2025/10/12 - 21:26:38 | 200 |    1.176626ms |       127.0.0.1 | GET      "/api/v1/products/categories"
-[GIN] 2025/10/12 - 21:26:43 | 200 |    5.780017ms |       127.0.0.1 | GET      "/api/v1/homepage"
-[GIN] 2025/10/12 - 21:26:46 | 200 |   15.931868ms |       127.0.0.1 | GET      "/api/v1/products?page=1&limit=20"
-[GIN] 2025/10/12 - 21:26:53 | 200 |    6.614012ms |       127.0.0.1 | GET      "/api/v1/homepage"
+2025/10/17 17:37:26 Server starting on localhost:8080
+2025/10/17 17:37:26 Failed to start server: listen tcp 127.0.0.1:8080: bind: address already in use
