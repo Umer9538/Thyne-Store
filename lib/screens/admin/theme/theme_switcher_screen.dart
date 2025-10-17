@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../models/theme_config.dart';
 import '../../../services/api_service.dart';
 import '../../../utils/theme.dart';
+import '../../../utils/responsive.dart';
 import '../../../providers/theme_provider.dart';
+import '../../../widgets/responsive_screen_wrapper.dart';
 import 'custom_theme_form_screen.dart';
 
 class ThemeSwitcherScreen extends StatefulWidget {
@@ -106,78 +108,166 @@ class _ThemeSwitcherScreenState extends State<ThemeSwitcherScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Theme Manager'),
-            if (_activeTheme != null)
-              Text(
-                'Active: ${_activeTheme!.name}',
-                style: const TextStyle(fontSize: 12),
-              ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CustomThemeFormScreen(),
+    final isWeb = Responsive.isWeb(context);
+
+    return ResponsiveScaffold(
+      title: 'Theme Manager',
+      titleWidget: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Theme Manager',
+            style: TextStyle(
+              fontSize: Responsive.fontSize(context, 18),
             ),
-          );
-          if (result == true) {
-            _loadThemes();
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Create Custom'),
-        backgroundColor: AppTheme.primaryGold,
+          ),
+          if (_activeTheme != null)
+            Text(
+              'Active: ${_activeTheme!.name}',
+              style: TextStyle(
+                fontSize: Responsive.fontSize(context, 12),
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+        ],
       ),
+      actions: [
+        if (isWeb)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: Responsive.padding(context, 16),
+              vertical: Responsive.padding(context, 8),
+            ),
+            child: ResponsiveButton(
+              label: 'Create Custom Theme',
+              icon: Icons.add,
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CustomThemeFormScreen(),
+                  ),
+                );
+                if (result == true) {
+                  _loadThemes();
+                }
+              },
+              color: AppTheme.primaryGold,
+            ),
+          ),
+      ],
+      floatingActionButton: isWeb
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CustomThemeFormScreen(),
+                  ),
+                );
+                if (result == true) {
+                  _loadThemes();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Create Custom'),
+              backgroundColor: AppTheme.primaryGold,
+            ),
+      maxWidth: 1200,
+      centerContent: true,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
               children: [
-                const Text(
-                  'Predefined Festival Themes',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ..._predefinedThemes.map((theme) => _buildThemeCard(theme)),
-                
-                if (_themes.isNotEmpty) ...[
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Custom Themes',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: AppTheme.primaryGold, size: 28),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Predefined Festival Themes',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _loadThemes,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Refresh'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ..._themes.map((theme) => _buildThemeCard(theme, isCustom: true)),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (isWeb)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cardWidth = constraints.maxWidth > 800
+                              ? (constraints.maxWidth - 32) / 2
+                              : constraints.maxWidth;
+                          return Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: _predefinedThemes
+                                .map((theme) => SizedBox(
+                                      width: cardWidth,
+                                      child: _buildThemeCard(theme),
+                                    ))
+                                .toList(),
+                          );
+                        },
+                      )
+                    else
+                      ..._predefinedThemes.map((theme) => _buildThemeCard(theme)),
                 
-                const SizedBox(height: 24),
-                _buildColorLegend(),
-              ],
-            ),
+                    if (_themes.isNotEmpty) ...[
+                      const SizedBox(height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.brush, color: AppTheme.primaryGold, size: 28),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Custom Themes',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          TextButton.icon(
+                            onPressed: _loadThemes,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Refresh'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (isWeb)
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final cardWidth = constraints.maxWidth > 800
+                                ? (constraints.maxWidth - 32) / 2
+                                : constraints.maxWidth;
+                            return Wrap(
+                              spacing: 16,
+                              runSpacing: 16,
+                              children: _themes
+                                  .map((theme) => SizedBox(
+                                        width: cardWidth,
+                                        child: _buildThemeCard(theme, isCustom: true),
+                                      ))
+                                  .toList(),
+                            );
+                          },
+                        )
+                      else
+                        ..._themes.map((theme) => _buildThemeCard(theme, isCustom: true)),
+                    ],
+                
+                    SizedBox(height: Responsive.spacing(context, 24)),
+                    _buildColorLegend(),
+                  ],
+                ),
     );
   }
 
@@ -280,6 +370,28 @@ class _ThemeSwitcherScreenState extends State<ThemeSwitcherScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildColorSwatch(
+                    'Background',
+                    theme.backgroundColorValue,
+                    theme.backgroundColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildColorSwatch(
+                    'Surface',
+                    theme.surfaceColorValue,
+                    theme.surfaceColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Spacer(),
+              ],
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -313,17 +425,21 @@ class _ThemeSwitcherScreenState extends State<ThemeSwitcherScreen> {
         child: Column(
           children: [
             Expanded(
-              child: Container(color: theme.primaryColorValue),
-            ),
-            Expanded(
+              flex: 2,
               child: Row(
                 children: [
-                  Expanded(
-                    child: Container(color: theme.secondaryColorValue),
-                  ),
-                  Expanded(
-                    child: Container(color: theme.accentColorValue),
-                  ),
+                  Expanded(child: Container(color: theme.primaryColorValue)),
+                  Expanded(child: Container(color: theme.secondaryColorValue)),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Row(
+                children: [
+                  Expanded(child: Container(color: theme.accentColorValue)),
+                  Expanded(child: Container(color: theme.backgroundColorValue)),
+                  Expanded(child: Container(color: theme.surfaceColorValue)),
                 ],
               ),
             ),
@@ -399,8 +515,10 @@ class _ThemeSwitcherScreenState extends State<ThemeSwitcherScreen> {
           const Text(
             '• Select a festival theme to instantly update your app colors\n'
             '• Primary: Main buttons, headers, and key UI elements\n'
-            '• Secondary: Supporting colors and accents\n'
+            '• Secondary: Supporting colors and secondary buttons\n'
             '• Accent: Highlights, links, and special elements\n'
+            '• Background: Main background for pages\n'
+            '• Surface: Cards, containers, and elevated surfaces\n'
             '• Changes apply immediately across the entire app',
             style: TextStyle(
               fontSize: 14,
