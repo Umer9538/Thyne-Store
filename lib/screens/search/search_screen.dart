@@ -5,7 +5,14 @@ import '../../utils/theme.dart';
 import '../product/product_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final bool isEmbedded;
+  final VoidCallback? onBack;
+
+  const SearchScreen({
+    super.key,
+    this.isEmbedded = false,
+    this.onBack,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -54,6 +61,74 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
 
+    final searchBar = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (widget.isEmbedded && widget.onBack != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: widget.onBack,
+            ),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              decoration: InputDecoration(
+                hintText: 'Search for jewelry...',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: Colors.grey.shade500),
+                prefixIcon: const Icon(Icons.search),
+              ),
+              onChanged: _performSearch,
+              onSubmitted: (value) {
+                if (value.isNotEmpty) {
+                  _performSearch(value);
+                }
+              },
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                _searchController.clear();
+                Provider.of<ProductProvider>(context, listen: false).loadProducts();
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.mic),
+            onPressed: () {
+              // Voice search functionality
+            },
+          ),
+        ],
+      ),
+    );
+
+    final body = Column(
+      children: [
+        searchBar,
+        Expanded(
+          child: _searchController.text.isEmpty
+              ? _buildSearchSuggestions()
+              : _buildSearchResults(productProvider),
+        ),
+      ],
+    );
+
+    // If embedded, return body directly without Scaffold
+    if (widget.isEmbedded) {
+      return body;
+    }
+
+    // Otherwise, return with Scaffold and AppBar
     return Scaffold(
       appBar: AppBar(
         title: TextField(
