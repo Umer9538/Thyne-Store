@@ -16,12 +16,12 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const UnifiedHomeContainer(),
-    const ProductListScreen(),
-    const EnhancedSearchScreen(),
-    const CartScreen(),
-    const ProfileScreen(),
+  final List<Widget> _screens = const [
+    UnifiedHomeContainer(),
+    ProductListScreen(),
+    EnhancedSearchScreen(),
+    CartScreen(),
+    ProfileScreen(),
   ];
 
   void _onNavigationChanged(int index) {

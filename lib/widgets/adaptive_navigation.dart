@@ -56,21 +56,26 @@ class _MobileNavigation extends StatelessWidget {
     final cartProvider = Provider.of<CartProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
 
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: themeProvider.surfaceColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
+    return Stack(
+      children: [
+        child,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: themeProvider.surfaceColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: SafeArea(
-          child: BottomNavigationBar(
+            child: SafeArea(
+              child: BottomNavigationBar(
             currentIndex: currentIndex,
             onTap: onNavigationChanged,
             type: BottomNavigationBarType.fixed,
@@ -135,9 +140,11 @@ class _MobileNavigation extends StatelessWidget {
                 label: 'Profile',
               ),
             ],
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -160,11 +167,10 @@ class _WebNavigation extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDesktop = Responsive.isDesktop(context);
 
-    return Scaffold(
-      body: Row(
-        children: [
-          // Side Navigation Rail
-          Container(
+    return Row(
+      children: [
+        // Side Navigation Rail
+        Container(
             width: isDesktop ? 250 : 80,
             decoration: BoxDecoration(
               color: themeProvider.surfaceColor,
@@ -285,7 +291,6 @@ class _WebNavigation extends StatelessWidget {
             child: child,
           ),
         ],
-      ),
     );
   }
 

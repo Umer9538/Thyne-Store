@@ -21,10 +21,10 @@ class UnifiedHomeContainer extends StatefulWidget {
   const UnifiedHomeContainer({super.key});
 
   @override
-  State<UnifiedHomeContainer> createState() => _UnifiedHomeContainerState();
+  State<UnifiedHomeContainer> createState() => UnifiedHomeContainerState();
 }
 
-class _UnifiedHomeContainerState extends State<UnifiedHomeContainer> {
+class UnifiedHomeContainerState extends State<UnifiedHomeContainer> {
   ContentType _currentContent = ContentType.home;
   String? _selectedCategory;
 
@@ -58,9 +58,9 @@ class _UnifiedHomeContainerState extends State<UnifiedHomeContainer> {
 
   @override
   Widget build(BuildContext context) {
-    final cartProvider = Provider.of<CartProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final guestSessionProvider = Provider.of<GuestSessionProvider>(context);
+    final cartProvider = Provider.of<CartProvider>(context);
     final wishlistProvider = Provider.of<WishlistProvider>(context);
 
     return Scaffold(
