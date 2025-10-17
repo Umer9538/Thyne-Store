@@ -11,10 +11,12 @@ import 'filter_bottom_sheet.dart';
 
 class ProductListScreen extends StatefulWidget {
   final String? category;
+  final bool isEmbedded;
 
   const ProductListScreen({
     super.key,
     this.category,
+    this.isEmbedded = false,
   });
 
   @override
@@ -99,21 +101,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.category ?? 'All Products'),
-        actions: [
-          IconButton(
-            icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
-            onPressed: () {
-              setState(() {
-                _isGridView = !_isGridView;
-              });
-            },
-          ),
-        ],
-      ),
-      body: Column(
+    final body = Column(
         children: [
           // Category Chips
           if (widget.category == null)
@@ -267,7 +255,29 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           ),
           ),
         ],
+      );
+
+    // If embedded, return body directly without Scaffold
+    if (widget.isEmbedded) {
+      return body;
+    }
+
+    // Otherwise, return with Scaffold and AppBar
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.category ?? 'All Products'),
+        actions: [
+          IconButton(
+            icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+            onPressed: () {
+              setState(() {
+                _isGridView = !_isGridView;
+              });
+            },
+          ),
+        ],
       ),
+      body: body,
     );
   }
 

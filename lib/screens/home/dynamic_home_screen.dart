@@ -19,12 +19,20 @@ import '../../widgets/recently_viewed_widget.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/showcase_360_widget.dart';
 import '../../widgets/bundle_deal_widget.dart';
+import '../../widgets/overlay_page.dart';
 import '../product/product_list_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../search/search_screen.dart';
 
 class DynamicHomeScreen extends StatefulWidget {
-  const DynamicHomeScreen({super.key});
+  final Function(String category)? onCategoryTap;
+  final VoidCallback? onViewAllProducts;
+
+  const DynamicHomeScreen({
+    super.key,
+    this.onCategoryTap,
+    this.onViewAllProducts,
+  });
 
   @override
   State<DynamicHomeScreen> createState() => _DynamicHomeScreenState();
@@ -593,7 +601,11 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
                     ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () {
+                  if (widget.onViewAllProducts != null) {
+                    widget.onViewAllProducts!();
+                  }
+                },
                 child: const Text('View All'),
               ),
             ],
@@ -621,13 +633,10 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
 
                 return GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ProductListScreen(category: category),
-                      ),
-                    );
+                    // Call callback to change content
+                    if (widget.onCategoryTap != null) {
+                      widget.onCategoryTap!(category);
+                    }
                   },
                   child: Container(
                     width: 100,
@@ -694,12 +703,9 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProductListScreen(),
-                    ),
-                  );
+                  if (widget.onViewAllProducts != null) {
+                    widget.onViewAllProducts!();
+                  }
                 },
                 child: const Text('See All'),
               ),

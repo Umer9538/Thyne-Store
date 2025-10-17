@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screens/home/dynamic_home_screen.dart';
+import '../screens/home/unified_home_container.dart';
 import '../screens/product/product_list_screen.dart';
 import '../screens/search/enhanced_search_screen.dart';
 import '../screens/cart/cart_screen.dart';
@@ -17,7 +17,7 @@ class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const DynamicHomeScreen(),
+    const UnifiedHomeContainer(),
     const ProductListScreen(),
     const EnhancedSearchScreen(),
     const CartScreen(),
