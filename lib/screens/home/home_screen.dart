@@ -13,6 +13,7 @@ import '../../utils/responsive.dart';
 import '../../services/api_service.dart';
 import '../../services/promotion_manager.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/overlay_page.dart';
 import '../product/product_list_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../search/search_screen.dart';
@@ -682,12 +683,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                 return GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProductListScreen(
-                          category: category,
-                        ),
+                    // Show overlay instead of navigating
+                    OverlayPage.show(
+                      context: context,
+                      title: category,
+                      child: OverlayProductList(
+                        category: category,
                       ),
                     );
                   },
@@ -763,11 +764,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProductListScreen(),
-                    ),
+                  OverlayPage.show(
+                    context: context,
+                    title: 'All Products',
+                    child: const OverlayProductList(),
                   );
                 },
                 child: const Text('See All'),

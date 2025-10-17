@@ -160,7 +160,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 const SizedBox(width: 8),
                 _buildQuickFilterChip('Women', 'Female', false, Icons.woman),
                 const SizedBox(width: 8),
-                _buildQuickFilterChip('Unisex', 'Unisex', false, Icons.people),
+                _buildQuickFilterChip('Child', 'Child', false, Icons.child_care),
               ],
             ),
           ),

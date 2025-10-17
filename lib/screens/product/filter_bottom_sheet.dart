@@ -40,7 +40,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   final List<String> _genders = [
     'Male',
     'Female',
-    'Unisex',
+    'Child',
   ];
 
   final List<String> _categories = [
@@ -169,7 +169,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                                       ? Icons.man
                                       : gender == 'Female'
                                           ? Icons.woman
-                                          : Icons.people,
+                                          : Icons.child_care,
                                   size: 16,
                                   color: isSelected ? Colors.white : AppTheme.primaryGold,
                                 ),
