@@ -15,7 +15,6 @@ import '../../models/homepage.dart';
 import '../../models/product.dart';
 import '../../widgets/deal_of_day_widget.dart';
 import '../../widgets/flash_sale_widget.dart';
-import '../../widgets/brand_showcase_widget.dart';
 import '../../widgets/recently_viewed_widget.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/showcase_360_widget.dart';
@@ -387,12 +386,6 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
                 bundle: bundle,
                 products: _bundleProductsCache[bundle.id]!,
               ),
-
-          // Brands
-          if (_homepageData?.brands.isNotEmpty ?? false)
-            BrandShowcaseWidget(
-              brands: _homepageData!.brands,
-            ),
 
           // Featured Products
           _buildFeaturedProducts(productProvider),
