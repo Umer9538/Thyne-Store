@@ -7,6 +7,8 @@ class ThemeConfig {
   final String primaryColor;
   final String secondaryColor;
   final String accentColor;
+  final String backgroundColor;
+  final String surfaceColor;
   final String? logoUrl;
   final String? backgroundImage;
   final DateTime? startDate;
@@ -22,6 +24,8 @@ class ThemeConfig {
     required this.primaryColor,
     required this.secondaryColor,
     required this.accentColor,
+    required this.backgroundColor,
+    required this.surfaceColor,
     this.logoUrl,
     this.backgroundImage,
     this.startDate,
@@ -36,9 +40,11 @@ class ThemeConfig {
       id: json['id'] ?? json['_id'] ?? '',
       name: json['name'] ?? '',
       type: json['type'] ?? 'custom',
-      primaryColor: json['primaryColor'] ?? '#1B5E20',
-      secondaryColor: json['secondaryColor'] ?? '#2E7D32',
-      accentColor: json['accentColor'] ?? '#4CAF50',
+      primaryColor: json['primaryColor'] ?? '#FFD700',
+      secondaryColor: json['secondaryColor'] ?? '#FFA500',
+      accentColor: json['accentColor'] ?? '#FF8C00',
+      backgroundColor: json['backgroundColor'] ?? '#FFFFFF',
+      surfaceColor: json['surfaceColor'] ?? '#F5F5F5',
       logoUrl: json['logoUrl'],
       backgroundImage: json['backgroundImage'],
       startDate: json['startDate'] != null
@@ -65,6 +71,8 @@ class ThemeConfig {
       'primaryColor': primaryColor,
       'secondaryColor': secondaryColor,
       'accentColor': accentColor,
+      'backgroundColor': backgroundColor,
+      'surfaceColor': surfaceColor,
       'logoUrl': logoUrl,
       'backgroundImage': backgroundImage,
       'startDate': startDate?.toIso8601String(),
@@ -87,6 +95,14 @@ class ThemeConfig {
     int.parse(accentColor.replaceFirst('#', '0xFF'))
   );
 
+  Color get backgroundColorValue => Color(
+    int.parse(backgroundColor.replaceFirst('#', '0xFF'))
+  );
+
+  Color get surfaceColorValue => Color(
+    int.parse(surfaceColor.replaceFirst('#', '0xFF'))
+  );
+
   // Predefined festival themes
   static ThemeConfig diwaliTheme() {
     return ThemeConfig(
@@ -96,6 +112,8 @@ class ThemeConfig {
       primaryColor: '#FF6F00', // Deep Orange
       secondaryColor: '#FFA726', // Orange
       accentColor: '#FFD54F', // Amber
+      backgroundColor: '#FFF8E1', // Light Amber
+      surfaceColor: '#FFECB3', // Pale Amber
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -109,6 +127,8 @@ class ThemeConfig {
       primaryColor: '#C62828', // Red
       secondaryColor: '#2E7D32', // Green
       accentColor: '#FFD700', // Gold
+      backgroundColor: '#FFEBEE', // Light Red
+      surfaceColor: '#E8F5E9', // Light Green
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -122,6 +142,8 @@ class ThemeConfig {
       primaryColor: '#D81B60', // Pink
       secondaryColor: '#EC407A', // Light Pink
       accentColor: '#F8BBD0', // Pale Pink
+      backgroundColor: '#FCE4EC', // Very Light Pink
+      surfaceColor: '#F8BBD0', // Pink Surface
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -135,6 +157,8 @@ class ThemeConfig {
       primaryColor: '#1565C0', // Blue
       secondaryColor: '#FFD700', // Gold
       accentColor: '#FFC107', // Amber
+      backgroundColor: '#E3F2FD', // Light Blue
+      surfaceColor: '#FFF9C4', // Light Yellow
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -145,9 +169,11 @@ class ThemeConfig {
       id: 'default',
       name: 'Default',
       type: 'custom',
-      primaryColor: '#1B5E20', // Dark Green
-      secondaryColor: '#2E7D32', // Medium Green
-      accentColor: '#4CAF50', // Light Green
+      primaryColor: '#FFD700', // Gold
+      secondaryColor: '#FFA500', // Orange
+      accentColor: '#FF8C00', // Dark Orange
+      backgroundColor: '#FFFFFF', // White
+      surfaceColor: '#F5F5F5', // Light Gray
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
