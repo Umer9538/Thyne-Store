@@ -396,6 +396,10 @@ func main() {
 				adminHomepage.GET("/config", homepageHandler.GetHomepageConfig)
 				adminHomepage.PUT("/config", homepageHandler.UpdateHomepageConfig)
 
+				// Layout management
+				adminHomepage.GET("/layout", homepageHandler.GetHomepageLayout)
+				adminHomepage.PUT("/layout", homepageHandler.UpdateHomepageLayout)
+
 				// Deal of Day management
 				adminHomepage.POST("/deal-of-day", homepageHandler.CreateDealOfDay)
 
