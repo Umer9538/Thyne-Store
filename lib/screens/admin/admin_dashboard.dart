@@ -357,6 +357,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'route': '/admin/banners',
       },
       {
+        'title': 'Homepage Layout',
+        'subtitle': 'Customize section order',
+        'icon': Icons.view_agenda,
+        'color': Colors.indigo,
+        'route': '/admin/homepage-layout',
+      },
+      {
         'title': 'Themes',
         'subtitle': 'App theme switcher',
         'icon': Icons.palette,
