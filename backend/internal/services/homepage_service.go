@@ -31,6 +31,12 @@ func NewHomepageService(
 func (s *HomepageService) GetHomepageData(ctx context.Context, userID *primitive.ObjectID, sessionID *string) (*models.HomepageResponse, error) {
 	response := &models.HomepageResponse{}
 
+	// Get homepage layout configuration
+	layout, err := s.homepageRepo.GetHomepageLayout(ctx)
+	if err == nil && layout != nil {
+		response.Layout = layout.Layout
+	}
+
 	// Get active sections
 	sections, err := s.homepageRepo.GetActiveSections(ctx)
 	if err != nil {
@@ -95,6 +101,43 @@ func (s *HomepageService) GetHomepageConfig(ctx context.Context) (*models.Homepa
 func (s *HomepageService) UpdateHomepageConfig(ctx context.Context, config *models.HomepageConfig, adminID primitive.ObjectID) error {
 	config.UpdatedBy = adminID
 	return s.homepageRepo.UpdateHomepageConfig(ctx, config)
+}
+
+// Homepage Layout
+
+func (s *HomepageService) GetHomepageLayout(ctx context.Context) (*models.HomepageLayout, error) {
+	return s.homepageRepo.GetHomepageLayout(ctx)
+}
+
+func (s *HomepageService) UpdateHomepageLayout(ctx context.Context, layout *models.HomepageLayout, adminID primitive.ObjectID) error {
+	// Validate that orders are unique and sequential
+	orderMap := make(map[int]bool)
+	for _, item := range layout.Layout {
+		if orderMap[item.Order] {
+			return fmt.Errorf("duplicate order value: %d", item.Order)
+		}
+		orderMap[item.Order] = true
+	}
+
+	// If no ID provided, get the existing layout's ID
+	if layout.ID.IsZero() {
+		existingLayout, err := s.homepageRepo.GetHomepageLayout(ctx)
+		if err == nil && existingLayout != nil {
+			layout.ID = existingLayout.ID
+		} else {
+			// If no existing layout, create a new ID
+			layout.ID = primitive.NewObjectID()
+			layout.CreatedAt = time.Now()
+		}
+	}
+
+	layout.UpdatedBy = adminID
+	layout.UpdatedAt = time.Now()
+	return s.homepageRepo.UpdateHomepageLayout(ctx, layout)
+}
+
+func (s *HomepageService) CreateDefaultLayout(ctx context.Context) error {
+	return s.homepageRepo.CreateDefaultLayout(ctx)
 }
 
 // Deal of Day
