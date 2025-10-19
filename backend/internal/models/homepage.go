@@ -50,6 +50,23 @@ type HomepageConfig struct {
 	UpdatedAt time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
 
+// SectionLayoutItem represents the order and visibility of a section
+type SectionLayoutItem struct {
+	SectionType SectionType `json:"sectionType" bson:"sectionType"`
+	Order       int         `json:"order" bson:"order"`           // Display order (0 = first, 1 = second, etc.)
+	IsVisible   bool        `json:"isVisible" bson:"isVisible"`   // Whether section is visible
+	Title       string      `json:"title,omitempty" bson:"title,omitempty"` // Optional custom title override
+}
+
+// HomepageLayout represents the display order configuration for homepage sections
+type HomepageLayout struct {
+	ID        primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
+	Layout    []SectionLayoutItem `json:"layout" bson:"layout"`
+	UpdatedBy primitive.ObjectID  `json:"updatedBy" bson:"updatedBy"`
+	UpdatedAt time.Time           `json:"updatedAt" bson:"updatedAt"`
+	CreatedAt time.Time           `json:"createdAt" bson:"createdAt"`
+}
+
 // DealOfDay represents a time-limited special deal
 type DealOfDay struct {
 	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
@@ -148,13 +165,14 @@ type BundleDeal struct {
 
 // HomepageResponse represents the complete homepage data response
 type HomepageResponse struct {
-	Sections         []HomepageSection `json:"sections"`
-	DealOfDay        *DealOfDay        `json:"dealOfDay,omitempty"`
-	ActiveFlashSales []FlashSale       `json:"activeFlashSales,omitempty"`
-	Brands           []Brand           `json:"brands,omitempty"`
-	RecentlyViewed   []Product         `json:"recentlyViewed,omitempty"`
-	Showcases360     []Showcase360     `json:"showcases360,omitempty"`
-	BundleDeals      []BundleDeal      `json:"bundleDeals,omitempty"`
+	Layout           []SectionLayoutItem `json:"layout,omitempty"`        // Section ordering configuration
+	Sections         []HomepageSection   `json:"sections"`
+	DealOfDay        *DealOfDay          `json:"dealOfDay,omitempty"`
+	ActiveFlashSales []FlashSale         `json:"activeFlashSales,omitempty"`
+	Brands           []Brand             `json:"brands,omitempty"`
+	RecentlyViewed   []Product           `json:"recentlyViewed,omitempty"`
+	Showcases360     []Showcase360       `json:"showcases360,omitempty"`
+	BundleDeals      []BundleDeal        `json:"bundleDeals,omitempty"`
 }
 
 // Helper methods
