@@ -14,6 +14,11 @@ type HomepageRepository interface {
 	UpdateHomepageConfig(ctx context.Context, config *models.HomepageConfig) error
 	GetActiveSections(ctx context.Context) ([]models.HomepageSection, error)
 
+	// Homepage Layout
+	GetHomepageLayout(ctx context.Context) (*models.HomepageLayout, error)
+	UpdateHomepageLayout(ctx context.Context, layout *models.HomepageLayout) error
+	CreateDefaultLayout(ctx context.Context) error
+
 	// Deal of Day
 	CreateDealOfDay(ctx context.Context, deal *models.DealOfDay) error
 	GetActiveDealOfDay(ctx context.Context) (*models.DealOfDay, error)

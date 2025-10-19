@@ -15,6 +15,7 @@ import (
 
 type homepageRepository struct {
 	configCollection         *mongo.Collection
+	layoutCollection         *mongo.Collection
 	dealCollection           *mongo.Collection
 	flashSaleCollection      *mongo.Collection
 	brandCollection          *mongo.Collection
@@ -27,6 +28,7 @@ type homepageRepository struct {
 func NewHomepageRepository(db *mongo.Database) repository.HomepageRepository {
 	return &homepageRepository{
 		configCollection:         db.Collection("homepage_config"),
+		layoutCollection:         db.Collection("homepage_layout"),
 		dealCollection:           db.Collection("deals_of_day"),
 		flashSaleCollection:      db.Collection("flash_sales"),
 		brandCollection:          db.Collection("brands"),
@@ -138,6 +140,72 @@ func (r *homepageRepository) GetActiveSections(ctx context.Context) ([]models.Ho
 	}
 
 	return activeSections, nil
+}
+
+// Homepage Layout
+
+func (r *homepageRepository) GetHomepageLayout(ctx context.Context) (*models.HomepageLayout, error) {
+	var layout models.HomepageLayout
+
+	// Get the first (and should be only) layout document
+	opts := options.FindOne().SetSort(bson.D{{Key: "updatedAt", Value: -1}})
+	err := r.layoutCollection.FindOne(ctx, bson.M{}, opts).Decode(&layout)
+
+	if err == mongo.ErrNoDocuments {
+		// Create default layout if none exists
+		return r.createDefaultLayoutInternal(ctx)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get homepage layout: %w", err)
+	}
+
+	return &layout, nil
+}
+
+func (r *homepageRepository) createDefaultLayoutInternal(ctx context.Context) (*models.HomepageLayout, error) {
+	layout := &models.HomepageLayout{
+		ID: primitive.NewObjectID(),
+		Layout: []models.SectionLayoutItem{
+			{SectionType: models.SectionBannerCarousel, Order: 0, IsVisible: true, Title: ""},
+			{SectionType: models.SectionDealOfDay, Order: 1, IsVisible: true, Title: ""},
+			{SectionType: models.SectionFlashSale, Order: 2, IsVisible: true, Title: ""},
+			{SectionType: models.SectionCategories, Order: 3, IsVisible: true, Title: ""},
+			{SectionType: models.SectionShowcase360, Order: 4, IsVisible: true, Title: ""},
+			{SectionType: models.SectionBundleDeals, Order: 5, IsVisible: true, Title: ""},
+			{SectionType: models.SectionFeatured, Order: 6, IsVisible: true, Title: ""},
+			{SectionType: models.SectionRecentlyViewed, Order: 7, IsVisible: true, Title: ""},
+			{SectionType: models.SectionNewArrivals, Order: 8, IsVisible: true, Title: ""},
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := r.layoutCollection.InsertOne(ctx, layout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create default layout: %w", err)
+	}
+
+	return layout, nil
+}
+
+func (r *homepageRepository) UpdateHomepageLayout(ctx context.Context, layout *models.HomepageLayout) error {
+	layout.UpdatedAt = time.Now()
+
+	filter := bson.M{"_id": layout.ID}
+	update := bson.M{"$set": layout}
+
+	_, err := r.layoutCollection.UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))
+	if err != nil {
+		return fmt.Errorf("failed to update homepage layout: %w", err)
+	}
+
+	return nil
+}
+
+func (r *homepageRepository) CreateDefaultLayout(ctx context.Context) error {
+	_, err := r.createDefaultLayoutInternal(ctx)
+	return err
 }
 
 // Deal of Day
