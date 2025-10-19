@@ -350,7 +350,40 @@ class BundleDeal {
   }
 }
 
+class SectionLayoutItem {
+  final SectionType sectionType;
+  final int order;
+  final bool isVisible;
+  final String? title; // Optional custom title override
+
+  SectionLayoutItem({
+    required this.sectionType,
+    required this.order,
+    required this.isVisible,
+    this.title,
+  });
+
+  factory SectionLayoutItem.fromJson(Map<String, dynamic> json) {
+    return SectionLayoutItem(
+      sectionType: SectionType.fromString(json['sectionType'] ?? ''),
+      order: json['order'] ?? 0,
+      isVisible: json['isVisible'] ?? true,
+      title: json['title'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'sectionType': sectionType.value,
+      'order': order,
+      'isVisible': isVisible,
+      if (title != null) 'title': title,
+    };
+  }
+}
+
 class HomepageData {
+  final List<SectionLayoutItem> layout;
   final List<HomepageSection> sections;
   final DealOfDay? dealOfDay;
   final List<FlashSale> activeFlashSales;
@@ -360,6 +393,7 @@ class HomepageData {
   final List<BundleDeal> bundleDeals;
 
   HomepageData({
+    this.layout = const [],
     required this.sections,
     this.dealOfDay,
     this.activeFlashSales = const [],
@@ -371,6 +405,9 @@ class HomepageData {
 
   factory HomepageData.fromJson(Map<String, dynamic> json) {
     return HomepageData(
+      layout: (json['layout'] as List?)
+          ?.map((item) => SectionLayoutItem.fromJson(item))
+          .toList() ?? [],
       sections: (json['sections'] as List?)
           ?.map((section) => HomepageSection.fromJson(section))
           .toList() ?? [],
