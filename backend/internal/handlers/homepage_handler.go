@@ -471,3 +471,68 @@ func (h *HomepageHandler) UpdateHomepageConfig(c *gin.Context) {
 		"data":    config,
 	})
 }
+
+// Homepage Layout Handlers
+
+// GetHomepageLayout returns the homepage layout configuration
+// @Summary Get homepage layout
+// @Description Get homepage section ordering configuration (Admin only)
+// @Tags admin-homepage
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} models.HomepageLayout
+// @Router /admin/homepage/layout [get]
+func (h *HomepageHandler) GetHomepageLayout(c *gin.Context) {
+	layout, err := h.homepageService.GetHomepageLayout(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    layout,
+	})
+}
+
+// UpdateHomepageLayout updates the homepage layout configuration
+// @Summary Update homepage layout
+// @Description Update homepage section ordering (Admin only)
+// @Tags admin-homepage
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body models.HomepageLayout true "Homepage layout"
+// @Success 200 {object} map[string]interface{}
+// @Router /admin/homepage/layout [put]
+func (h *HomepageHandler) UpdateHomepageLayout(c *gin.Context) {
+	userIDStr, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	userID, err := primitive.ObjectIDFromHex(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var layout models.HomepageLayout
+	if err := c.ShouldBindJSON(&layout); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.homepageService.UpdateHomepageLayout(c.Request.Context(), &layout, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Homepage layout updated successfully",
+		"data":    layout,
+	})
+}
