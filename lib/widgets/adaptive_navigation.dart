@@ -150,7 +150,7 @@ class _MobileNavigation extends StatelessWidget {
 }
 
 /// Web navigation with side rail/drawer
-class _WebNavigation extends StatelessWidget {
+class _WebNavigation extends StatefulWidget {
   final int currentIndex;
   final Function(int) onNavigationChanged;
   final Widget child;
@@ -162,6 +162,19 @@ class _WebNavigation extends StatelessWidget {
   });
 
   @override
+  State<_WebNavigation> createState() => _WebNavigationState();
+}
+
+class _WebNavigationState extends State<_WebNavigation> {
+  bool _isExpanded = true; // Sidebar is expanded by default
+
+  void _toggleSidebar() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -170,8 +183,10 @@ class _WebNavigation extends StatelessWidget {
     return Row(
       children: [
         // Side Navigation Rail
-        Container(
-            width: isDesktop ? 250 : 80,
+        AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            width: _isExpanded ? (isDesktop ? 250 : 80) : 60,
             decoration: BoxDecoration(
               color: themeProvider.surfaceColor,
               boxShadow: [
@@ -185,30 +200,71 @@ class _WebNavigation extends StatelessWidget {
             child: SafeArea(
               child: Column(
                 children: [
-                  // Logo/Brand
+                  // Logo/Brand with Collapse Button
                   Padding(
-                    padding: EdgeInsets.all(isDesktop ? 24 : 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.diamond,
-                          color: themeProvider.primaryColor,
-                          size: isDesktop ? 32 : 28,
-                        ),
-                        if (isDesktop) ...[
-                          const SizedBox(width: 12),
-                          Text(
-                            'Thyne Jewels',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: themeProvider.primaryColor,
+                    padding: EdgeInsets.all(_isExpanded ? (isDesktop ? 16 : 12) : 12),
+                    child: _isExpanded
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.diamond,
+                                      color: themeProvider.primaryColor,
+                                      size: isDesktop ? 28 : 24,
+                                    ),
+                                    if (isDesktop) ...[
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Thyne Jewels',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: themeProvider.primaryColor,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.menu_open,
+                                  color: themeProvider.primaryColor,
+                                  size: 20,
+                                ),
+                                onPressed: _toggleSidebar,
+                                tooltip: 'Collapse sidebar',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Center(
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.menu,
+                                color: themeProvider.primaryColor,
+                                size: 20,
+                              ),
+                              onPressed: _toggleSidebar,
+                              tooltip: 'Expand sidebar',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 36,
+                              ),
                             ),
                           ),
-                        ],
-                      ],
-                    ),
                   ),
                   const Divider(height: 1),
                   const SizedBox(height: 16),
@@ -225,8 +281,9 @@ class _WebNavigation extends StatelessWidget {
                           label: 'Home',
                           index: 0,
                           isDesktop: isDesktop,
-                          isSelected: currentIndex == 0,
-                          onTap: () => onNavigationChanged(0),
+                          isExpanded: _isExpanded,
+                          isSelected: widget.currentIndex == 0,
+                          onTap: () => widget.onNavigationChanged(0),
                         ),
                         _buildNavItem(
                           context,
@@ -235,8 +292,9 @@ class _WebNavigation extends StatelessWidget {
                           label: 'Products',
                           index: 1,
                           isDesktop: isDesktop,
-                          isSelected: currentIndex == 1,
-                          onTap: () => onNavigationChanged(1),
+                          isExpanded: _isExpanded,
+                          isSelected: widget.currentIndex == 1,
+                          onTap: () => widget.onNavigationChanged(1),
                         ),
                         _buildNavItem(
                           context,
@@ -245,8 +303,9 @@ class _WebNavigation extends StatelessWidget {
                           label: 'Search',
                           index: 2,
                           isDesktop: isDesktop,
-                          isSelected: currentIndex == 2,
-                          onTap: () => onNavigationChanged(2),
+                          isExpanded: _isExpanded,
+                          isSelected: widget.currentIndex == 2,
+                          onTap: () => widget.onNavigationChanged(2),
                         ),
                         _buildNavItem(
                           context,
@@ -255,11 +314,12 @@ class _WebNavigation extends StatelessWidget {
                           label: 'Cart',
                           index: 3,
                           isDesktop: isDesktop,
-                          isSelected: currentIndex == 3,
+                          isExpanded: _isExpanded,
+                          isSelected: widget.currentIndex == 3,
                           badge: cartProvider.itemCount > 0
                               ? cartProvider.itemCount.toString()
                               : null,
-                          onTap: () => onNavigationChanged(3),
+                          onTap: () => widget.onNavigationChanged(3),
                         ),
                         _buildNavItem(
                           context,
@@ -268,19 +328,22 @@ class _WebNavigation extends StatelessWidget {
                           label: 'Profile',
                           index: 4,
                           isDesktop: isDesktop,
-                          isSelected: currentIndex == 4,
-                          onTap: () => onNavigationChanged(4),
+                          isExpanded: _isExpanded,
+                          isSelected: widget.currentIndex == 4,
+                          onTap: () => widget.onNavigationChanged(4),
                         ),
                       ],
                     ),
                   ),
 
                   // Bottom section
-                  const Divider(height: 1),
-                  Padding(
-                    padding: EdgeInsets.all(isDesktop ? 16 : 12),
-                    child: _buildThemeIndicator(context, isDesktop),
-                  ),
+                  if (_isExpanded) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: EdgeInsets.all(isDesktop ? 16 : 12),
+                      child: _buildThemeIndicator(context, isDesktop),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -288,7 +351,7 @@ class _WebNavigation extends StatelessWidget {
 
           // Main Content
           Expanded(
-            child: child,
+            child: widget.child,
           ),
         ],
     );
@@ -301,6 +364,7 @@ class _WebNavigation extends StatelessWidget {
     required String label,
     required int index,
     required bool isDesktop,
+    required bool isExpanded,
     required bool isSelected,
     required VoidCallback onTap,
     String? badge,
@@ -319,11 +383,11 @@ class _WebNavigation extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: EdgeInsets.symmetric(
-              horizontal: isDesktop ? 16 : 12,
+              horizontal: isExpanded ? (isDesktop ? 16 : 12) : 8,
               vertical: 14,
             ),
             child: Row(
-              mainAxisAlignment: isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
+              mainAxisAlignment: (isDesktop && isExpanded) ? MainAxisAlignment.start : MainAxisAlignment.center,
               children: [
                 Stack(
                   clipBehavior: Clip.none,
@@ -362,7 +426,7 @@ class _WebNavigation extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (isDesktop) ...[
+                if (isDesktop && isExpanded) ...[
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
