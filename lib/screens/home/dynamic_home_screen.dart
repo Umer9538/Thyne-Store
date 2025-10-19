@@ -2,12 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:badges/badges.dart' as badges;
 import '../../providers/product_provider.dart';
-import '../../providers/cart_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/guest_session_provider.dart';
-import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
 import '../../utils/responsive.dart';
 import '../../services/api_service.dart';
@@ -19,10 +14,7 @@ import '../../widgets/recently_viewed_widget.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/showcase_360_widget.dart';
 import '../../widgets/bundle_deal_widget.dart';
-import '../../widgets/overlay_page.dart';
-import '../product/product_list_screen.dart';
 import '../product/product_detail_screen.dart';
-import '../search/search_screen.dart';
 
 class DynamicHomeScreen extends StatefulWidget {
   final Function(String category)? onCategoryTap;
@@ -255,76 +247,14 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cartProvider = Provider.of<CartProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    final guestSessionProvider = Provider.of<GuestSessionProvider>(context);
-    final wishlistProvider = Provider.of<WishlistProvider>(context);
     final productProvider = Provider.of<ProductProvider>(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.diamond_outlined,
-              color: AppTheme.primaryGold,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Thyne Jewels',
-                style: Theme.of(context).textTheme.headlineLarge,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        leading: _buildUserIndicator(authProvider, guestSessionProvider),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SearchScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: badges.Badge(
-              badgeContent: Text(
-                wishlistProvider.wishlistCount.toString(),
-                style: const TextStyle(color: Colors.white, fontSize: 10),
-              ),
-              showBadge: wishlistProvider.wishlistCount > 0,
-              child: const Icon(Icons.favorite_outline),
-            ),
-            onPressed: () => Navigator.pushNamed(context, '/wishlist'),
-          ),
-          IconButton(
-            icon: badges.Badge(
-              badgeContent: Text(
-                cartProvider.itemCount.toString(),
-                style: const TextStyle(color: Colors.white, fontSize: 10),
-              ),
-              showBadge: cartProvider.itemCount > 0,
-              child: const Icon(Icons.shopping_bag_outlined),
-            ),
-            onPressed: () => Navigator.pushNamed(context, '/cart'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadHomepageData();
-          await productProvider.loadProducts();
-        },
-        child: _buildBody(productProvider),
-      ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadHomepageData();
+        await productProvider.loadProducts();
+      },
+      child: _buildBody(productProvider),
     );
   }
 
@@ -353,64 +283,172 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
       );
     }
 
+    // If layout is configured, use it. Otherwise, fall back to default order
+    final layout = _homepageData?.layout ?? [];
+
+    // Debug: Print layout info
+    print('Layout items count: ${layout.length}');
+    if (layout.isNotEmpty) {
+      print('Using custom layout order');
+      for (var item in layout) {
+        print('  ${item.order}: ${item.sectionType.value} (visible: ${item.isVisible})');
+      }
+    } else {
+      print('Using default layout order');
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hero Carousel
-          _buildHeroCarousel(),
-
-          // Deal of Day
-          if (_homepageData?.dealOfDay != null &&
-              _productCache.containsKey(_homepageData!.dealOfDay!.productId))
-            DealOfDayWidget(
-              deal: _homepageData!.dealOfDay!,
-              product: _productCache[_homepageData!.dealOfDay!.productId],
-            ),
-
-          // Flash Sales
-          for (var sale in _homepageData?.activeFlashSales ?? [])
-            if (_flashSaleProductsCache.containsKey(sale.id))
-              FlashSaleWidget(
-                sale: sale,
-                products: _flashSaleProductsCache[sale.id]!,
-              ),
-
-          // Categories
-          _buildCategoriesSection(),
-
-          // 360° Showcases
-          for (var showcase in _homepageData?.showcases360 ?? [])
-            if (_showcase360ProductsCache.containsKey(showcase.id))
-              Showcase360Widget(
-                showcase: showcase,
-                product: _showcase360ProductsCache[showcase.id],
-              ),
-
-          // Bundle Deals
-          for (var bundle in _homepageData?.bundleDeals ?? [])
-            if (_bundleProductsCache.containsKey(bundle.id))
-              BundleDealWidget(
-                bundle: bundle,
-                products: _bundleProductsCache[bundle.id]!,
-              ),
-
-          // Featured Products
-          _buildFeaturedProducts(productProvider),
-
-          // Recently Viewed
-          if (_homepageData?.recentlyViewed.isNotEmpty ?? false)
-            RecentlyViewedWidget(
-              products: _homepageData!.recentlyViewed,
-            ),
-
-          // New Arrivals
-          _buildNewArrivals(productProvider),
+          // Build sections based on layout configuration
+          if (layout.isNotEmpty)
+            ..._buildSectionsFromLayout(layout, productProvider)
+          else
+            ..._buildDefaultSections(productProvider),
 
           const SizedBox(height: 24),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildSectionsFromLayout(List<SectionLayoutItem> layout, ProductProvider productProvider) {
+    // Sort by order
+    final sortedLayout = List<SectionLayoutItem>.from(layout)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    List<Widget> widgets = [];
+
+    for (var item in sortedLayout) {
+      if (!item.isVisible) continue;
+
+      final widget = _buildSectionByType(item.sectionType, productProvider);
+      if (widget != null) {
+        widgets.add(widget);
+      }
+    }
+
+    return widgets;
+  }
+
+  List<Widget> _buildDefaultSections(ProductProvider productProvider) {
+    return [
+      _buildHeroCarousel(),
+      if (_homepageData?.dealOfDay != null &&
+          _productCache.containsKey(_homepageData!.dealOfDay!.productId))
+        DealOfDayWidget(
+          deal: _homepageData!.dealOfDay!,
+          product: _productCache[_homepageData!.dealOfDay!.productId],
+        ),
+      for (var sale in _homepageData?.activeFlashSales ?? [])
+        if (_flashSaleProductsCache.containsKey(sale.id))
+          FlashSaleWidget(
+            sale: sale,
+            products: _flashSaleProductsCache[sale.id]!,
+          ),
+      _buildCategoriesSection(),
+      for (var showcase in _homepageData?.showcases360 ?? [])
+        if (_showcase360ProductsCache.containsKey(showcase.id))
+          Showcase360Widget(
+            showcase: showcase,
+            product: _showcase360ProductsCache[showcase.id],
+          ),
+      for (var bundle in _homepageData?.bundleDeals ?? [])
+        if (_bundleProductsCache.containsKey(bundle.id))
+          BundleDealWidget(
+            bundle: bundle,
+            products: _bundleProductsCache[bundle.id]!,
+          ),
+      _buildFeaturedProducts(productProvider),
+      if (_homepageData?.recentlyViewed.isNotEmpty ?? false)
+        RecentlyViewedWidget(
+          products: _homepageData!.recentlyViewed,
+        ),
+      _buildNewArrivals(productProvider),
+    ];
+  }
+
+  Widget? _buildSectionByType(SectionType sectionType, ProductProvider productProvider) {
+    switch (sectionType) {
+      case SectionType.bannerCarousel:
+        return _buildHeroCarousel();
+
+      case SectionType.dealOfDay:
+        if (_homepageData?.dealOfDay != null &&
+            _productCache.containsKey(_homepageData!.dealOfDay!.productId)) {
+          return DealOfDayWidget(
+            deal: _homepageData!.dealOfDay!,
+            product: _productCache[_homepageData!.dealOfDay!.productId],
+          );
+        }
+        return null;
+
+      case SectionType.flashSale:
+        final flashSaleWidgets = <Widget>[];
+        for (var sale in _homepageData?.activeFlashSales ?? []) {
+          if (_flashSaleProductsCache.containsKey(sale.id)) {
+            flashSaleWidgets.add(
+              FlashSaleWidget(
+                sale: sale,
+                products: _flashSaleProductsCache[sale.id]!,
+              ),
+            );
+          }
+        }
+        if (flashSaleWidgets.isEmpty) return null;
+        return Column(children: flashSaleWidgets);
+
+      case SectionType.categories:
+        return _buildCategoriesSection();
+
+      case SectionType.showcase360:
+        final showcaseWidgets = <Widget>[];
+        for (var showcase in _homepageData?.showcases360 ?? []) {
+          if (_showcase360ProductsCache.containsKey(showcase.id)) {
+            showcaseWidgets.add(
+              Showcase360Widget(
+                showcase: showcase,
+                product: _showcase360ProductsCache[showcase.id],
+              ),
+            );
+          }
+        }
+        if (showcaseWidgets.isEmpty) return null;
+        return Column(children: showcaseWidgets);
+
+      case SectionType.bundleDeals:
+        final bundleWidgets = <Widget>[];
+        for (var bundle in _homepageData?.bundleDeals ?? []) {
+          if (_bundleProductsCache.containsKey(bundle.id)) {
+            bundleWidgets.add(
+              BundleDealWidget(
+                bundle: bundle,
+                products: _bundleProductsCache[bundle.id]!,
+              ),
+            );
+          }
+        }
+        if (bundleWidgets.isEmpty) return null;
+        return Column(children: bundleWidgets);
+
+      case SectionType.featured:
+        return _buildFeaturedProducts(productProvider);
+
+      case SectionType.recentlyViewed:
+        if (_homepageData?.recentlyViewed.isNotEmpty ?? false) {
+          return RecentlyViewedWidget(
+            products: _homepageData!.recentlyViewed,
+          );
+        }
+        return null;
+
+      case SectionType.newArrivals:
+        return _buildNewArrivals(productProvider);
+
+      default:
+        return null;
+    }
   }
 
   Widget _buildHeroCarousel() {
@@ -793,47 +831,4 @@ class _DynamicHomeScreenState extends State<DynamicHomeScreen> {
     );
   }
 
-  Widget _buildUserIndicator(
-    AuthProvider authProvider,
-    GuestSessionProvider guestSessionProvider,
-  ) {
-    if (authProvider.isAuthenticated) {
-      return Container(
-        padding: const EdgeInsets.all(8),
-        child: CircleAvatar(
-          backgroundColor: AppTheme.primaryGold,
-          child: Text(
-            authProvider.user!.name[0].toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      );
-    } else if (guestSessionProvider.isActive) {
-      return IconButton(
-        icon: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.person_outline, size: 20, color: AppTheme.primaryGold),
-            Text(
-              'Guest',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontSize: 8, color: AppTheme.primaryGold),
-            ),
-          ],
-        ),
-        onPressed: () => Navigator.pushNamed(context, '/login'),
-      );
-    } else {
-      return IconButton(
-        icon: const Icon(Icons.person_outline),
-        onPressed: () => Navigator.pushNamed(context, '/login'),
-      );
-    }
-  }
 }
