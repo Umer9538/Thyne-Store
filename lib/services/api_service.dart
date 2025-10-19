@@ -1924,6 +1924,29 @@ class ApiService {
 
     return _handleResponse(response);
   }
+
+  /// Get homepage layout configuration (Admin only)
+  static Future<Map<String, dynamic>> getHomepageLayout() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/homepage/layout'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Update homepage layout configuration (Admin only)
+  static Future<Map<String, dynamic>> updateHomepageLayout(
+    Map<String, dynamic> layoutData,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/homepage/layout'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(layoutData),
+    );
+
+    return _handleResponse(response);
+  }
 }
 
 class ApiException implements Exception {

@@ -29,6 +29,7 @@ import 'screens/loyalty/loyalty_screen.dart';
 import 'screens/admin/storefront/storefront_management_screen.dart';
 import 'screens/admin/events/event_calendar_screen.dart';
 import 'screens/admin/homepage/homepage_manager_screen.dart';
+import 'screens/admin/homepage/layout_manager_screen.dart';
 import 'screens/admin/theme/theme_switcher_screen.dart';
 import 'screens/wishlist/wishlist_screen.dart';
 import 'screens/admin/dynamic_content/dynamic_content_dashboard.dart';
@@ -159,6 +160,7 @@ class MyApp extends StatelessWidget {
               '/admin/storefront': (context) => const StorefrontManagementScreen(),
               '/admin/events': (context) => const EventCalendarScreen(),
               '/admin/banners': (context) => const HomepageManagerScreen(),
+              '/admin/homepage-layout': (context) => const LayoutManagerScreen(),
               '/admin/themes': (context) => const ThemeSwitcherScreen(),
               '/admin/dynamic-content': (context) => const DynamicContentDashboard(),
               '/admin/deals-of-day': (context) => const DealsOfDayScreen(),
