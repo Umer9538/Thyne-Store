@@ -15,6 +15,7 @@ type Product struct {
 	Price          float64           `json:"price" bson:"price" validate:"required,min=0"`
 	OriginalPrice  *float64          `json:"originalPrice,omitempty" bson:"originalPrice,omitempty"`
 	Images         []string          `json:"images" bson:"images" validate:"required,min=1"`
+	Videos         []string          `json:"videos,omitempty" bson:"videos,omitempty"`
 	Category       string            `json:"category" bson:"category" validate:"required"`
 	Subcategory    string            `json:"subcategory" bson:"subcategory" validate:"required"`
 	MetalType      string            `json:"metalType" bson:"metalType" validate:"required"`
@@ -27,6 +28,11 @@ type Product struct {
 	Tags           []string          `json:"tags" bson:"tags"`
 	IsAvailable    bool              `json:"isAvailable" bson:"isAvailable"`
 	IsFeatured     bool              `json:"isFeatured" bson:"isFeatured"`
+	// Customization options
+	AvailableColors       []string `json:"availableColors,omitempty" bson:"availableColors,omitempty"`
+	AvailablePolishTypes  []string `json:"availablePolishTypes,omitempty" bson:"availablePolishTypes,omitempty"`
+	AvailableStoneColors  []string `json:"availableStoneColors,omitempty" bson:"availableStoneColors,omitempty"`
+	AvailableGemstones    []string `json:"availableGemstones,omitempty" bson:"availableGemstones,omitempty"`
 	CreatedAt      time.Time         `json:"createdAt" bson:"createdAt"`
 	UpdatedAt      time.Time         `json:"updatedAt" bson:"updatedAt"`
 }
@@ -52,6 +58,7 @@ type CreateProductRequest struct {
 	Price         float64   `json:"price" validate:"required,min=0"`
 	OriginalPrice *float64  `json:"originalPrice,omitempty"`
 	Images        []string  `json:"images" validate:"required,min=1"`
+	Videos        []string  `json:"videos,omitempty"`
 	Category      string    `json:"category" validate:"required"`
 	Subcategory   string    `json:"subcategory" validate:"required"`
 	MetalType     string    `json:"metalType" validate:"required"`
@@ -62,6 +69,11 @@ type CreateProductRequest struct {
 	Tags          []string  `json:"tags"`
 	IsAvailable   bool      `json:"isAvailable"`
 	IsFeatured    bool      `json:"isFeatured"`
+	// Customization options
+	AvailableColors       []string `json:"availableColors,omitempty"`
+	AvailablePolishTypes  []string `json:"availablePolishTypes,omitempty"`
+	AvailableStoneColors  []string `json:"availableStoneColors,omitempty"`
+	AvailableGemstones    []string `json:"availableGemstones,omitempty"`
 }
 
 // UpdateProductRequest represents the request to update a product
@@ -71,6 +83,7 @@ type UpdateProductRequest struct {
 	Price         *float64  `json:"price,omitempty" validate:"omitempty,min=0"`
 	OriginalPrice *float64  `json:"originalPrice,omitempty"`
 	Images        []string  `json:"images,omitempty" validate:"omitempty,min=1"`
+	Videos        []string  `json:"videos,omitempty"`
 	Category      *string   `json:"category,omitempty"`
 	Subcategory   *string   `json:"subcategory,omitempty"`
 	MetalType     *string   `json:"metalType,omitempty"`
@@ -81,6 +94,11 @@ type UpdateProductRequest struct {
 	Tags          []string  `json:"tags,omitempty"`
 	IsAvailable   *bool     `json:"isAvailable,omitempty"`
 	IsFeatured    *bool     `json:"isFeatured,omitempty"`
+	// Customization options
+	AvailableColors       []string `json:"availableColors,omitempty"`
+	AvailablePolishTypes  []string `json:"availablePolishTypes,omitempty"`
+	AvailableStoneColors  []string `json:"availableStoneColors,omitempty"`
+	AvailableGemstones    []string `json:"availableGemstones,omitempty"`
 }
 
 // CreateReviewRequest represents the request to create a product review
