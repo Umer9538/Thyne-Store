@@ -30,6 +30,67 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _isDescriptionExpanded = false;
   bool _isSpecificationsExpanded = true;
 
+  // Selected customization options
+  String? _selectedColor;
+  String? _selectedPolish;
+  String? _selectedStoneColor;
+  String? _selectedGemstone;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    // Show loading dialog
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading product details...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Simulate data loading (in real app, this would fetch from API)
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Initialize default selections
+    if (widget.product.availableColors.isNotEmpty) {
+      _selectedColor = widget.product.availableColors.first;
+    }
+    if (widget.product.availablePolishTypes.isNotEmpty) {
+      _selectedPolish = widget.product.availablePolishTypes.first;
+    }
+    if (widget.product.availableStoneColors.isNotEmpty) {
+      _selectedStoneColor = widget.product.availableStoneColors.first;
+    }
+    if (widget.product.availableGemstones.isNotEmpty) {
+      _selectedGemstone = widget.product.availableGemstones.first;
+    }
+
+    if (mounted) {
+      Navigator.of(context).pop(); // Close loading dialog
+      setState(() {
+        // Refresh UI with initialized data
+      });
+    }
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -37,17 +98,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   int _getMediaCount() {
-    int count = widget.product.images.length;
-    if (widget.product.videoUrl != null) count++;
-    return count;
+    return widget.product.images.length + widget.product.videos.length;
+  }
+
+  bool _isVideo(int index) {
+    return index < widget.product.videos.length;
   }
 
   Widget _buildMediaItem(int index) {
-    // If there's a video and it's the first item, show video
-    if (widget.product.videoUrl != null && index == 0) {
+    // Videos come first, then images
+    if (_isVideo(index)) {
       return Stack(
         children: [
-          VideoPlayerWidget(videoUrl: widget.product.videoUrl!),
+          VideoPlayerWidget(videoUrl: widget.product.videos[index]),
           const Positioned(
             top: 16,
             right: 16,
@@ -61,19 +124,102 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
     }
 
-    // Otherwise show image (adjust index if video is present)
-    int imageIndex = widget.product.videoUrl != null ? index - 1 : index;
+    // Show image with optimized loading
+    int imageIndex = index - widget.product.videos.length;
     return CachedNetworkImage(
       imageUrl: widget.product.images[imageIndex],
       fit: BoxFit.cover,
       width: double.infinity,
+      memCacheWidth: 1080, // Limit memory cache size
+      maxWidthDiskCache: 1080, // Limit disk cache size
+      fadeInDuration: const Duration(milliseconds: 300),
+      fadeOutDuration: const Duration(milliseconds: 100),
       placeholder: (context, url) => Container(
-        color: Colors.grey[300],
-        child: const Center(child: CircularProgressIndicator()),
+        color: Colors.grey[200],
+        child: const Center(
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
       ),
       errorWidget: (context, url, error) => Container(
         color: Colors.grey[300],
-        child: const Icon(Icons.error),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+            const SizedBox(height: 8),
+            Text(
+              'Failed to load image',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(int index) {
+    final isSelected = _currentImageIndex == index;
+    return GestureDetector(
+      onTap: () {
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      },
+      child: Container(
+        width: 60,
+        height: 60,
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryGold : Colors.grey.shade300,
+            width: isSelected ? 3 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: _isVideo(index)
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      color: Colors.black87,
+                      child: const Icon(
+                        Icons.play_circle_outline,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ],
+                )
+              : CachedNetworkImage(
+                  imageUrl: widget.product.images[index - widget.product.videos.length],
+                  fit: BoxFit.cover,
+                  memCacheWidth: 120, // Small thumbnail cache
+                  maxWidthDiskCache: 120,
+                  fadeInDuration: const Duration(milliseconds: 200),
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[200],
+                    child: const Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.broken_image, size: 16, color: Colors.grey),
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -265,6 +411,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Media Thumbnails Gallery
+                  if (_getMediaCount() > 1) ...[
+                    SizedBox(
+                      height: 60,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _getMediaCount(),
+                        itemBuilder: (context, index) => _buildThumbnail(index),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Rating and Reviews
                   if (widget.product.rating > 0)
                     InkWell(
@@ -313,6 +472,134 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   const SizedBox(height: 24),
+
+                  // Color Selector
+                  if (widget.product.availableColors.isNotEmpty) ...[
+                    Text(
+                      'Select Color',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.product.availableColors.map((color) {
+                        final isSelected = color == _selectedColor;
+                        return ChoiceChip(
+                          label: Text(color),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedColor = color;
+                            });
+                          },
+                          selectedColor: AppTheme.primaryGold,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Polish/Finish Selector
+                  if (widget.product.availablePolishTypes.isNotEmpty) ...[
+                    Text(
+                      'Polish Finish',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.product.availablePolishTypes.map((polish) {
+                        final isSelected = polish == _selectedPolish;
+                        return ChoiceChip(
+                          label: Text(polish),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedPolish = polish;
+                            });
+                          },
+                          selectedColor: AppTheme.primaryGold,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Stone Color Selector
+                  if (widget.product.availableStoneColors.isNotEmpty) ...[
+                    Text(
+                      'Stone Color',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.product.availableStoneColors.map((stoneColor) {
+                        final isSelected = stoneColor == _selectedStoneColor;
+                        return ChoiceChip(
+                          label: Text(stoneColor),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedStoneColor = stoneColor;
+                            });
+                          },
+                          selectedColor: AppTheme.primaryGold,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Gemstone Selector
+                  if (widget.product.availableGemstones.isNotEmpty) ...[
+                    Text(
+                      'Select Gemstone',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.product.availableGemstones.map((gemstone) {
+                        final isSelected = gemstone == _selectedGemstone;
+                        return ChoiceChip(
+                          label: Text(gemstone),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedGemstone = gemstone;
+                            });
+                          },
+                          selectedColor: AppTheme.primaryGold,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Size/Variation Selector (if applicable)
                   if (widget.product.size != null) ...[
@@ -436,6 +723,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         if (widget.product.weight != null)
                           _buildSpecificationRow(
                               'Weight', '${widget.product.weight} grams'),
+                        // Selected customizations
+                        if (_selectedColor != null)
+                          _buildSpecificationRow('Selected Color', _selectedColor!),
+                        if (_selectedPolish != null)
+                          _buildSpecificationRow('Polish Finish', _selectedPolish!),
+                        if (_selectedStoneColor != null)
+                          _buildSpecificationRow('Stone Color', _selectedStoneColor!),
+                        if (_selectedGemstone != null)
+                          _buildSpecificationRow('Gemstone', _selectedGemstone!),
                         _buildSpecificationRow('Category', widget.product.category),
                         _buildSpecificationRow('Subcategory', widget.product.subcategory),
                       ],
