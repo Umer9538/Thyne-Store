@@ -5,7 +5,7 @@ class Product {
   final double price;
   final double? originalPrice;
   final List<String> images;
-  final String? videoUrl;
+  final List<String> videos;
   final String category;
   final String subcategory;
   final String metalType;
@@ -21,6 +21,11 @@ class Product {
   final bool isAvailable;
   final bool isFeatured;
   final bool isNewArrival;
+  // Customization options
+  final List<String> availableColors;
+  final List<String> availablePolishTypes;
+  final List<String> availableStoneColors;
+  final List<String> availableGemstones;
   final DateTime createdAt;
 
   Product({
@@ -30,7 +35,7 @@ class Product {
     required this.price,
     this.originalPrice,
     required this.images,
-    this.videoUrl,
+    this.videos = const [],
     required this.category,
     required this.subcategory,
     required this.metalType,
@@ -45,6 +50,10 @@ class Product {
     this.tags = const [],
     this.isAvailable = true,
     this.isFeatured = false,
+    this.availableColors = const [],
+    this.availablePolishTypes = const [],
+    this.availableStoneColors = const [],
+    this.availableGemstones = const [],
     DateTime? createdAt,
     bool? isNewArrival,
   }) : stock = stock ?? stockQuantity,
@@ -67,7 +76,7 @@ class Product {
       price: (json['price'] ?? 0).toDouble(),
       originalPrice: json['originalPrice']?.toDouble(),
       images: List<String>.from(json['images'] ?? []),
-      videoUrl: json['videoUrl']?.toString(),
+      videos: List<String>.from(json['videos'] ?? []),
       category: json['category']?.toString() ?? '',
       subcategory: json['subcategory']?.toString() ?? '',
       metalType: json['metalType']?.toString() ?? '',
@@ -80,8 +89,12 @@ class Product {
       tags: List<String>.from(json['tags'] ?? []),
       isAvailable: json['isAvailable'] ?? true,
       isFeatured: json['isFeatured'] ?? false,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      availableColors: List<String>.from(json['availableColors'] ?? []),
+      availablePolishTypes: List<String>.from(json['availablePolishTypes'] ?? []),
+      availableStoneColors: List<String>.from(json['availableStoneColors'] ?? []),
+      availableGemstones: List<String>.from(json['availableGemstones'] ?? []),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
     );
   }
@@ -94,7 +107,7 @@ class Product {
       'price': price,
       'originalPrice': originalPrice,
       'images': images,
-      'videoUrl': videoUrl,
+      'videos': videos,
       'category': category,
       'subcategory': subcategory,
       'metalType': metalType,
@@ -107,6 +120,10 @@ class Product {
       'tags': tags,
       'isAvailable': isAvailable,
       'isFeatured': isFeatured,
+      'availableColors': availableColors,
+      'availablePolishTypes': availablePolishTypes,
+      'availableStoneColors': availableStoneColors,
+      'availableGemstones': availableGemstones,
       'createdAt': createdAt.toIso8601String(),
     };
   }
