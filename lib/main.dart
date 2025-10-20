@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/cart_provider.dart';
@@ -52,6 +53,13 @@ import 'services/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure image cache for better performance
+  DefaultCacheManager().emptyCache(); // Clear old cache on startup
+
+  // Set image cache limits
+  PaintingBinding.instance.imageCache.maximumSize = 100; // Max 100 images in memory
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024; // Max 50MB
 
   try {
     // Initialize storage service first
