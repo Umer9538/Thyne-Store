@@ -99,20 +99,33 @@ class _ProductCardState extends State<ProductCard> {
                           ? widget.product.images.first
                           : 'https://via.placeholder.com/300',
                       fit: BoxFit.cover,
+                      memCacheWidth: 400, // Optimize for product card size
+                      maxWidthDiskCache: 400,
+                      fadeInDuration: const Duration(milliseconds: 300),
                       placeholder: (context, url) => Container(
                         color: Colors.grey[200],
                         child: const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.primaryGold,
+                          child: SizedBox(
+                            width: 30,
+                            height: 30,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primaryGold,
+                            ),
                           ),
                         ),
                       ),
                       errorWidget: (context, url, error) => Container(
                         color: Colors.grey[200],
-                        child: const Icon(
-                          Icons.error_outline,
-                          color: Colors.grey,
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                              size: 40,
+                            ),
+                          ],
                         ),
                       ),
                     ),
