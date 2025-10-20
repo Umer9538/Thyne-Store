@@ -13,7 +13,9 @@ class MockData {
         'https://images.unsplash.com/photo-1605100804763-247f67b3557e',
         'https://images.unsplash.com/photo-1603561591411-07134e71a2a9',
       ],
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      videos: [
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      ],
       category: 'Rings',
       subcategory: 'Engagement',
       metalType: '18K White Gold',
@@ -25,6 +27,10 @@ class MockData {
       reviewCount: 124,
       tags: ['diamond', 'engagement', 'solitaire'],
       isFeatured: true,
+      availableColors: ['White Gold', 'Yellow Gold', 'Rose Gold'],
+      availablePolishTypes: ['High Polish', 'Matte', 'Brushed'],
+      availableStoneColors: ['Clear', 'Blue', 'Pink'],
+      availableGemstones: ['Diamond', 'Moissanite', 'White Sapphire'],
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
     ),
     Product(
