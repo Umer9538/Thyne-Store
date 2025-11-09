@@ -78,6 +78,7 @@ func main() {
 	invoiceRepo := mongo.NewInvoiceRepository(db)
     loyaltyRepo := mongo.NewLoyaltyRepository(db)
 	homepageRepo := mongo.NewHomepageRepository(db)
+	communityRepo := mongo.NewCommunityRepository(db)
     // notificationRepo := mongo.NewNotificationRepository(db)
 
 	// Initialize services
@@ -90,6 +91,7 @@ func main() {
 	orderService := services.NewOrderService(orderRepo, productRepo, cartRepo)
 	invoiceService := services.NewInvoiceService(invoiceRepo, orderRepo, userRepo)
 	homepageService := services.NewHomepageService(homepageRepo, productRepo)
+	communityService := services.NewCommunityService(communityRepo, userRepo)
 	
 	// Initialize notification service (without Firebase credentials for now)
     // notifications disabled for build-only profile
@@ -120,6 +122,7 @@ func main() {
 	invoiceHandler := handlers.NewInvoiceHandler(invoiceService)
 	loyaltyHandler := handlers.NewLoyaltyHandler(loyaltyService)
 	homepageHandler := handlers.NewHomepageHandler(homepageService)
+	communityHandler := handlers.NewCommunityHandler(communityService)
 
     // Initialize notification handler if service is available
     // var notificationHandler *handlers.NotificationHandler
@@ -303,6 +306,41 @@ func main() {
 			homepage.GET("/brands", homepageHandler.GetActiveBrands)
 			homepage.POST("/track/:productId", homepageHandler.TrackProductView)
 			homepage.GET("/recently-viewed", homepageHandler.GetRecentlyViewed)
+		}
+
+		// Community routes
+		community := api.Group("/community")
+		{
+			// Public endpoints - anyone can view
+			community.GET("/feed", communityHandler.GetCommunityFeed)
+			community.GET("/posts/:id", communityHandler.GetPost)
+			community.GET("/posts/:id/comments", communityHandler.GetPostComments)
+			community.GET("/posts/:id/engagement", communityHandler.GetPostEngagement)
+			community.GET("/users/:userId/posts", communityHandler.GetUserPosts)
+			community.GET("/instagram/:userId", communityHandler.GetInstagramProfile)
+
+			// Protected endpoints - require authentication
+			communityAuth := community.Group("")
+			communityAuth.Use(middleware.AuthRequired(authService))
+			{
+				// Post management
+				communityAuth.POST("/posts", communityHandler.CreatePost)
+				communityAuth.PUT("/posts/:id", communityHandler.UpdatePost)
+				communityAuth.DELETE("/posts/:id", communityHandler.DeletePost)
+
+				// Engagement
+				communityAuth.POST("/posts/:id/like", communityHandler.LikePost)
+				communityAuth.POST("/posts/:id/vote", communityHandler.VotePost)
+				communityAuth.POST("/comments", communityHandler.CreateComment)
+
+				// Instagram integration
+				communityAuth.POST("/instagram/link", communityHandler.LinkInstagram)
+				communityAuth.DELETE("/instagram/unlink", communityHandler.UnlinkInstagram)
+
+				// Admin moderation endpoints (require admin role)
+				communityAuth.PUT("/posts/:id/feature", communityHandler.ToggleFeaturePost)
+				communityAuth.PUT("/posts/:id/pin", communityHandler.TogglePinPost)
+			}
 		}
 
         // Admin routes
