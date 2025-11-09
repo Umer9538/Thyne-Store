@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/home/unified_home_container.dart';
 import '../screens/product/product_list_screen.dart';
 import '../screens/search/enhanced_search_screen.dart';
+import '../screens/community/community_feed_screen.dart';
 import '../screens/cart/cart_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import 'adaptive_navigation.dart';
@@ -20,6 +21,7 @@ class _MainNavigationState extends State<MainNavigation> {
     UnifiedHomeContainer(),
     ProductListScreen(),
     EnhancedSearchScreen(),
+    CommunityFeedScreen(),
     CartScreen(),
     ProfileScreen(),
   ];
