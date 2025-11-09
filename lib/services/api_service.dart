@@ -1947,6 +1947,203 @@ class ApiService {
 
     return _handleResponse(response);
   }
+  // ==================== Community API Methods ====================
+
+  // Get community feed
+  static Future<Map<String, dynamic>> getCommunityFeed({
+    int page = 1,
+    int limit = 20,
+    String sortBy = 'latest',
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/feed?page=$page&limit=$limit&sortBy=$sortBy'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get single post
+  static Future<Map<String, dynamic>> getPost(String postId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/posts/$postId'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get user posts
+  static Future<Map<String, dynamic>> getUserPosts(
+    String userId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/users/$userId/posts?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Create community post
+  static Future<Map<String, dynamic>> createCommunityPost({
+    required String content,
+    List<String>? images,
+    List<String>? videos,
+    List<String>? tags,
+    bool isFeatured = false,
+    bool isPinned = false,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode({
+        'content': content,
+        if (images != null && images.isNotEmpty) 'images': images,
+        if (videos != null && videos.isNotEmpty) 'videos': videos,
+        if (tags != null && tags.isNotEmpty) 'tags': tags,
+        'isFeatured': isFeatured,
+        'isPinned': isPinned,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  // Update post
+  static Future<Map<String, dynamic>> updatePost(
+    String postId,
+    Map<String, dynamic> updates,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/community/posts/$postId'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(updates),
+    );
+    return _handleResponse(response);
+  }
+
+  // Delete post
+  static Future<Map<String, dynamic>> deletePost(String postId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/community/posts/$postId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  // Like post
+  static Future<Map<String, dynamic>> likePost(String postId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/like'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  // Vote on post
+  static Future<Map<String, dynamic>> votePost(String postId, String voteType) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/posts/$postId/vote'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode({'voteType': voteType}),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get post engagement
+  static Future<Map<String, dynamic>> getPostEngagement(String postId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/posts/$postId/engagement'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get post comments
+  static Future<Map<String, dynamic>> getPostComments(
+    String postId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/posts/$postId/comments?page=$page&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Create comment
+  static Future<Map<String, dynamic>> createComment(
+    String postId,
+    String content,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/comments'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode({
+        'postId': postId,
+        'content': content,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  // Link Instagram
+  static Future<Map<String, dynamic>> linkInstagram({
+    required String instagramId,
+    required String username,
+    String? displayName,
+    String? profilePicUrl,
+    String? bio,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/community/instagram/link'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode({
+        'instagramId': instagramId,
+        'username': username,
+        if (displayName != null) 'displayName': displayName,
+        if (profilePicUrl != null) 'profilePicUrl': profilePicUrl,
+        if (bio != null) 'bio': bio,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get Instagram profile
+  static Future<Map<String, dynamic>> getInstagramProfile(String userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/community/instagram/$userId'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Unlink Instagram
+  static Future<Map<String, dynamic>> unlinkInstagram() async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/community/instagram/unlink'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  // Admin: Toggle feature post
+  static Future<Map<String, dynamic>> toggleFeaturePost(String postId) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/community/posts/$postId/feature'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  // Admin: Toggle pin post
+  static Future<Map<String, dynamic>> togglePinPost(String postId) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/community/posts/$postId/pin'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
 }
 
 class ApiException implements Exception {
