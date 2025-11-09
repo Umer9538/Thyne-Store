@@ -47,7 +47,11 @@ import 'screens/orders/order_history_screen.dart';
 import 'screens/orders/track_order_screen.dart';
 import 'screens/orders/my_orders_screen.dart';
 import 'screens/profile/addresses_screen.dart';
+import 'screens/community/community_feed_screen.dart';
+import 'screens/community/create_post_screen.dart';
+import 'screens/admin/community/admin_community_dashboard.dart';
 import 'providers/loyalty_provider.dart';
+import 'providers/community_provider.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 
@@ -111,6 +115,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LoyaltyProvider()),
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => AddressProvider()),
+        ChangeNotifierProvider(create: (_) => CommunityProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -185,6 +190,9 @@ class MyApp extends StatelessWidget {
               '/order-history': (context) => const OrderHistoryScreen(),
               '/track-order': (context) => const TrackOrderScreen(),
               '/addresses': (context) => const AddressesScreen(),
+              '/community': (context) => const CommunityFeedScreen(),
+              '/community/create': (context) => const CreatePostScreen(),
+              '/admin/community': (context) => const AdminCommunityDashboard(),
             },
               );
             },
