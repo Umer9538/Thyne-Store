@@ -101,6 +101,11 @@ class _MobileNavigation extends StatelessWidget {
                 activeIcon: Icon(Icons.search, size: 26),
                 label: 'Search',
               ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.people_outline, size: 24),
+                activeIcon: Icon(Icons.people, size: 26),
+                label: 'Community',
+              ),
               BottomNavigationBarItem(
                 icon: badges.Badge(
                   badgeContent: Text(
@@ -309,28 +314,39 @@ class _WebNavigationState extends State<_WebNavigation> {
                         ),
                         _buildNavItem(
                           context,
-                          icon: Icons.shopping_bag_outlined,
-                          selectedIcon: Icons.shopping_bag,
-                          label: 'Cart',
+                          icon: Icons.people_outline,
+                          selectedIcon: Icons.people,
+                          label: 'Community',
                           index: 3,
                           isDesktop: isDesktop,
                           isExpanded: _isExpanded,
                           isSelected: widget.currentIndex == 3,
+                          onTap: () => widget.onNavigationChanged(3),
+                        ),
+                        _buildNavItem(
+                          context,
+                          icon: Icons.shopping_bag_outlined,
+                          selectedIcon: Icons.shopping_bag,
+                          label: 'Cart',
+                          index: 4,
+                          isDesktop: isDesktop,
+                          isExpanded: _isExpanded,
+                          isSelected: widget.currentIndex == 4,
                           badge: cartProvider.itemCount > 0
                               ? cartProvider.itemCount.toString()
                               : null,
-                          onTap: () => widget.onNavigationChanged(3),
+                          onTap: () => widget.onNavigationChanged(4),
                         ),
                         _buildNavItem(
                           context,
                           icon: Icons.person_outline,
                           selectedIcon: Icons.person,
                           label: 'Profile',
-                          index: 4,
+                          index: 5,
                           isDesktop: isDesktop,
                           isExpanded: _isExpanded,
-                          isSelected: widget.currentIndex == 4,
-                          onTap: () => widget.onNavigationChanged(4),
+                          isSelected: widget.currentIndex == 5,
+                          onTap: () => widget.onNavigationChanged(5),
                         ),
                       ],
                     ),
