@@ -336,6 +336,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'route': '/admin/customers',
       },
       {
+        'title': 'Community',
+        'subtitle': 'Moderate posts & analytics',
+        'icon': Icons.groups,
+        'color': Colors.cyan,
+        'route': '/admin/community',
+      },
+      {
         'title': 'Storefront',
         'subtitle': 'Dynamic store config',
         'icon': Icons.storefront,
