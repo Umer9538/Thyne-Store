@@ -103,10 +103,12 @@ class _EventFormScreenState extends State<EventFormScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Convert to UTC and format with Z suffix for Go backend
+      final eventDateUtc = _eventDate.toUtc();
       final eventData = {
         'name': _nameController.text,
         'type': _selectedType,
-        'date': _eventDate.toIso8601String(),
+        'date': '${eventDateUtc.toIso8601String().split('.')[0]}Z',
         'description': _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,

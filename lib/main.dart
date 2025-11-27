@@ -12,9 +12,17 @@ import 'providers/guest_session_provider.dart';
 import 'providers/wishlist_provider.dart';
 import 'providers/address_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/recently_viewed_provider.dart';
 import 'utils/theme.dart';
-import 'screens/auth/login_screen.dart';
+import 'screens/auth/phone_login_screen.dart';
+import 'screens/auth/admin_login_screen.dart';
+// Navigation - Legacy implementations kept for reference/fallback
 import 'widgets/main_navigation.dart';
+import 'widgets/three_section_navigation.dart';
+// Home screens - ThyneHomeComplete is the main production screen
+import 'screens/home/thyne_home_figma.dart';
+import 'screens/home/thyne_home_complete.dart';
+import 'theme/thyne_theme.dart';
 import 'screens/cart/cart_screen.dart';
 import 'screens/checkout/checkout_screen.dart';
 import 'screens/checkout/guest_checkout_screen.dart';
@@ -28,6 +36,7 @@ import 'screens/admin/analytics/analytics_dashboard.dart';
 import 'screens/search/enhanced_search_screen.dart';
 import 'screens/loyalty/loyalty_screen.dart';
 import 'screens/admin/storefront/storefront_management_screen.dart';
+import 'screens/admin/storefront/storefront_data_management_screen.dart';
 import 'screens/admin/events/event_calendar_screen.dart';
 import 'screens/admin/homepage/homepage_manager_screen.dart';
 import 'screens/admin/homepage/layout_manager_screen.dart';
@@ -47,13 +56,19 @@ import 'screens/orders/order_history_screen.dart';
 import 'screens/orders/track_order_screen.dart';
 import 'screens/orders/my_orders_screen.dart';
 import 'screens/profile/addresses_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'screens/community/community_feed_screen.dart';
 import 'screens/community/create_post_screen.dart';
 import 'screens/admin/community/admin_community_dashboard.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'providers/loyalty_provider.dart';
 import 'providers/community_provider.dart';
+import 'providers/ai_provider.dart';
+import 'providers/store_settings_provider.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
+import 'screens/admin/settings/store_settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -116,6 +131,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => AddressProvider()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider(create: (_) => AIProvider()),
+        ChangeNotifierProvider(create: (_) => RecentlyViewedProvider()),
+        ChangeNotifierProvider(create: (_) => StoreSettingsProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -134,6 +152,10 @@ class MyApp extends StatelessWidget {
             if (authProvider.isAuthenticated) {
               wishlistProvider.loadWishlist();
             }
+
+            // Load store settings for cart calculations
+            final cartProvider = Provider.of<CartProvider>(context, listen: false);
+            cartProvider.loadStoreSettings();
           });
           
           return Consumer<ThemeProvider>(
@@ -141,7 +163,7 @@ class MyApp extends StatelessWidget {
               return MaterialApp(
                 title: 'Thyne Jewels',
                 debugShowCheckedModeBanner: false,
-                theme: themeProvider.createThemeData(),
+                theme: ThyneTheme.lightTheme(), // Use new Thyne theme
                 // Enable responsive behavior
                 builder: (context, child) {
                   return MediaQuery(
@@ -156,8 +178,16 @@ class MyApp extends StatelessWidget {
                 },
                 home: const AppWrapper(),
                 routes: {
-              '/login': (context) => const LoginScreen(),
-              '/home': (context) => const MainNavigation(),
+              // Auth routes
+              '/onboarding': (context) => const OnboardingScreen(),
+              '/login': (context) => const PhoneLoginScreen(),
+              '/admin-login': (context) => const AdminLoginScreen(),
+              // Main home - production screen
+              '/home': (context) => const ThyneHomeComplete(),
+              // Legacy routes - kept for testing/comparison only (can be removed in production)
+              '/home-figma': (context) => const ThyneHomeFigma(),
+              '/home-old': (context) => const ThreeSectionNavigation(),
+              '/home-legacy': (context) => const MainNavigation(),
               '/cart': (context) => const CartScreen(),
               '/checkout': (context) => const CheckoutScreen(),
               '/guest-checkout': (context) => const GuestCheckoutScreen(),
@@ -171,6 +201,7 @@ class MyApp extends StatelessWidget {
               '/search': (context) => const EnhancedSearchScreen(),
               '/loyalty': (context) => const LoyaltyScreen(),
               '/admin/storefront': (context) => const StorefrontManagementScreen(),
+              '/admin/storefront-data': (context) => const StorefrontDataManagementScreen(),
               '/admin/events': (context) => const EventCalendarScreen(),
               '/admin/banners': (context) => const HomepageManagerScreen(),
               '/admin/homepage-layout': (context) => const LayoutManagerScreen(),
@@ -189,10 +220,12 @@ class MyApp extends StatelessWidget {
               '/orders': (context) => const MyOrdersScreen(),
               '/order-history': (context) => const OrderHistoryScreen(),
               '/track-order': (context) => const TrackOrderScreen(),
+              '/profile': (context) => const ProfileScreen(),
               '/addresses': (context) => const AddressesScreen(),
               '/community': (context) => const CommunityFeedScreen(),
               '/community/create': (context) => const CreatePostScreen(),
               '/admin/community': (context) => const AdminCommunityDashboard(),
+              '/admin/store-settings': (context) => const StoreSettingsScreen(),
             },
               );
             },
@@ -211,31 +244,81 @@ class AppWrapper extends StatefulWidget {
 }
 
 class _AppWrapperState extends State<AppWrapper> {
+  bool _isLoading = true;
+  bool _onboardingComplete = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final guestSessionProvider = context.read<GuestSessionProvider>();
-      final authProvider = context.read<AuthProvider>();
-      final wishlistProvider = context.read<WishlistProvider>();
+    _checkOnboardingStatus();
+  }
 
-      // Initialize guest session if user is not authenticated
-      if (!authProvider.isAuthenticated && !guestSessionProvider.isActive) {
-        guestSessionProvider.startGuestSession();
+  Future<void> _checkOnboardingStatus() async {
+    try {
+      // Add timeout to prevent hanging
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
+      if (mounted) {
+        setState(() {
+          _onboardingComplete = onboardingComplete;
+          _isLoading = false;
+        });
       }
-      
-      // Load wishlist if user is authenticated
-      if (authProvider.isAuthenticated) {
-        wishlistProvider.loadWishlist();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        try {
+          final guestSessionProvider = context.read<GuestSessionProvider>();
+          final authProvider = context.read<AuthProvider>();
+          final wishlistProvider = context.read<WishlistProvider>();
+
+          // Initialize guest session if user is not authenticated
+          if (!authProvider.isAuthenticated && !guestSessionProvider.isActive) {
+            guestSessionProvider.startGuestSession();
+          }
+
+          // Load wishlist if user is authenticated
+          if (authProvider.isAuthenticated) {
+            wishlistProvider.loadWishlist();
+          }
+        } catch (e) {
+          debugPrint('Error initializing providers: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('Error checking onboarding status: $e');
+      // On error, assume onboarding not complete and stop loading
+      if (mounted) {
+        setState(() {
+          _onboardingComplete = false;
+          _isLoading = false;
+        });
       }
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3D1F1F)),
+          ),
+        ),
+      );
+    }
+
+    if (!_onboardingComplete) {
+      return const OnboardingScreen();
+    }
+
     return Consumer2<AuthProvider, GuestSessionProvider>(
       builder: (context, authProvider, guestSessionProvider, child) {
-        return const MainNavigation();
+        return const ThyneHomeComplete(); // Use complete design with all sections
       },
     );
   }
@@ -286,7 +369,7 @@ class _SplashScreenState extends State<SplashScreen>
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const MainNavigation(),
+            builder: (context) => const ThyneHomeComplete(),
           ),
         );
       }

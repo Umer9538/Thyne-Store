@@ -19,7 +19,7 @@ class GuestCheckoutScreen extends StatefulWidget {
 
 class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
   int _currentStep = 0;
-  String _selectedPaymentMethod = 'razorpay';
+  String _selectedPaymentMethod = 'cod';
   String _checkoutOption = 'guest'; // 'guest', 'login', 'register'
 
   // Guest info form
@@ -691,18 +691,6 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
         ),
         const SizedBox(height: 16),
         _buildPaymentOption(
-          'razorpay',
-          'Credit/Debit Card',
-          Icons.credit_card,
-          'Secure payment via Razorpay',
-        ),
-        _buildPaymentOption(
-          'upi',
-          'UPI Payment',
-          Icons.phone_android,
-          'Pay using UPI apps',
-        ),
-        _buildPaymentOption(
           'cod',
           'Cash on Delivery',
           Icons.local_shipping,
@@ -816,18 +804,55 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  'Qty: ${item.quantity}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  children: [
+                    Text(
+                      'Qty: ${item.quantity}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (item.hasSalePrice) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${item.discountPercent ?? 0}% OFF',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          Text(
-            '₹${item.totalPrice.toStringAsFixed(0)}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '₹${item.totalPrice.toStringAsFixed(0)}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: item.hasSalePrice ? Colors.green.shade700 : null,
+                    ),
+              ),
+              if (item.hasSalePrice)
+                Text(
+                  '₹${((item.originalPrice ?? item.product.price) * item.quantity).toStringAsFixed(0)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey,
+                        fontSize: 11,
+                      ),
                 ),
+            ],
           ),
         ],
       ),

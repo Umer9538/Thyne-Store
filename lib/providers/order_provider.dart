@@ -32,7 +32,10 @@ class OrderProvider extends ChangeNotifier {
         'items': items.map((item) => {
           'productId': item.product.id,
           'quantity': item.quantity,
-          'price': item.product.price,
+          'price': item.effectivePrice, // Use sale price if available
+          'originalPrice': item.originalPrice ?? item.product.price,
+          'salePrice': item.salePrice,
+          'discountPercent': item.discountPercent,
           'name': item.product.name,
           'image': item.product.images.isNotEmpty ? item.product.images.first : '',
         }).toList(),

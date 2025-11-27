@@ -44,22 +44,46 @@ class _CreateFlashSaleFormState extends State<CreateFlashSaleForm> {
   Future<void> _loadProducts() async {
     setState(() => _loadingProducts = true);
     try {
-      final response = await ApiService.getProducts();
+      // Get more products with higher limit
+      final response = await ApiService.getProducts(limit: 100);
+      debugPrint('🛒 Products API response: $response');
+
       if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        List<dynamic> productsList;
+
+        // Handle different response formats
+        if (data is List) {
+          productsList = data;
+        } else if (data is Map && data['products'] != null) {
+          productsList = data['products'] as List;
+        } else if (data is Map && data['items'] != null) {
+          productsList = data['items'] as List;
+        } else {
+          productsList = [];
+        }
+
         setState(() {
-          _availableProducts = (response['data'] as List)
-              .map((json) => Product.fromJson(json))
+          _availableProducts = productsList
+              .map((json) => Product.fromJson(json as Map<String, dynamic>))
               .toList();
         });
+        debugPrint('📦 Loaded ${_availableProducts.length} products');
+      } else {
+        debugPrint('⚠️ Products API returned: success=${response['success']}, data=${response['data']}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error loading products: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading products: $e')),
         );
       }
     }
-    setState(() => _loadingProducts = false);
+    if (mounted) {
+      setState(() => _loadingProducts = false);
+    }
   }
 
   Future<void> _saveSale() async {
@@ -75,38 +99,54 @@ class _CreateFlashSaleFormState extends State<CreateFlashSaleForm> {
     setState(() => _loading = true);
 
     try {
-      final saleData = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'bannerUrl': _bannerUrlController.text,
-        'productIds': _selectedProductIds.toList(),
-        'discount': _discountPercent,
-        'startTime': _startTime.toIso8601String(),
-        'endTime': _endTime.toIso8601String(),
-        'isActive': true,
-      };
+      // Debug: Log the request data
+      debugPrint('📤 Creating flash sale with:');
+      debugPrint('  Title: ${_titleController.text}');
+      debugPrint('  Description: ${_descriptionController.text}');
+      debugPrint('  Product IDs: $_selectedProductIds');
+      debugPrint('  Discount: $_discountPercent');
+      debugPrint('  Start: ${_startTime.toIso8601String()}');
+      debugPrint('  End: ${_endTime.toIso8601String()}');
 
-      // TODO: Add API call when backend endpoint is ready
-      // final response = await ApiService.createFlashSale(saleData);
+      final response = await ApiService.createFlashSale(
+        title: _titleController.text,
+        description: _descriptionController.text.isNotEmpty ? _descriptionController.text : null,
+        bannerImage: _bannerUrlController.text.isNotEmpty ? _bannerUrlController.text : null,
+        productIds: _selectedProductIds.toList(),
+        discount: _discountPercent,
+        startTime: _startTime,
+        endTime: _endTime,
+      );
+
+      debugPrint('📥 Flash sale API response: $response');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Flash Sale created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Flash Sale created successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        } else {
+          final errorMsg = response['error'] ?? response['message'] ?? 'Unknown error';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $errorMsg')),
+          );
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error creating flash sale: $e');
+      debugPrint('Stack: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error creating flash sale: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-
-    setState(() => _loading = false);
   }
 
   Future<void> _pickStartTime() async {
@@ -210,78 +250,120 @@ class _CreateFlashSaleFormState extends State<CreateFlashSaleForm> {
                 Expanded(
                   child: _loadingProducts
                       ? const Center(child: CircularProgressIndicator())
-                      : ListView.builder(
-                          controller: scrollController,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _availableProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = _availableProducts[index];
-                            final isSelected = _selectedProductIds.contains(product.id);
+                      : _availableProducts.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No products available',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Add products first or check your connection',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      _loadProducts();
+                                      setModalState(() {});
+                                    },
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('Retry'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryGold,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _availableProducts.length,
+                              itemBuilder: (context, index) {
+                                final product = _availableProducts[index];
+                                final isSelected = _selectedProductIds.contains(product.id);
 
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: CheckboxListTile(
-                                value: isSelected,
-                                onChanged: (checked) {
-                                  setState(() {
-                                    setModalState(() {
-                                      if (checked == true) {
-                                        _selectedProductIds.add(product.id);
-                                      } else {
-                                        _selectedProductIds.remove(product.id);
-                                      }
-                                    });
-                                  });
-                                },
-                                activeColor: AppTheme.primaryGold,
-                                title: Text(
-                                  product.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '\$${product.price.toStringAsFixed(2)}',
-                                      style: TextStyle(
-                                        color: AppTheme.primaryGold,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: CheckboxListTile(
+                                    value: isSelected,
+                                    onChanged: (checked) {
+                                      setState(() {
+                                        setModalState(() {
+                                          if (checked == true) {
+                                            _selectedProductIds.add(product.id);
+                                          } else {
+                                            _selectedProductIds.remove(product.id);
+                                          }
+                                        });
+                                      });
+                                    },
+                                    activeColor: AppTheme.primaryGold,
+                                    title: Text(
+                                      product.name,
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Stock: ${product.stock}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '₹${product.price.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryGold,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Stock: ${product.stock}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                secondary: product.images.isNotEmpty
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.network(
-                                          product.images.first,
-                                          width: 60,
-                                          height: 60,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Container(
+                                    secondary: product.images.isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.network(
+                                              product.images.first,
                                               width: 60,
                                               height: 60,
-                                              color: Colors.grey.shade200,
-                                              child: const Icon(Icons.image),
-                                            );
-                                          },
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                            );
-                          },
-                        ),
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Container(
+                                                  width: 60,
+                                                  height: 60,
+                                                  color: Colors.grey.shade200,
+                                                  child: const Icon(Icons.image),
+                                                );
+                                              },
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                );
+                              },
+                            ),
                 ),
 
                 // Done button

@@ -18,21 +18,84 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Jewllery E-commerece">
+  <meta name="description" content="THYNE - Premium Jewelry & Accessories">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="thyne_jewls">
+  <meta name="apple-mobile-web-app-title" content="THYNE">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/svg+xml" href="icons/thyne.svg"/>
 
-  <title>thyne_jewls</title>
+  <title>THYNE - etched by you</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- Loading splash screen -->
+  <div id="loading" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #FAF8F3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  ">
+    <img src="icons/thyne.svg" alt="Thyne Logo" style="
+      width: 120px;
+      height: 120px;
+      margin-bottom: 20px;
+    ">
+    <h1 style="
+      font-family: 'Inter', sans-serif;
+      font-size: 48px;
+      font-weight: 700;
+      color: #1A1A1A;
+      letter-spacing: 1.5px;
+      margin: 0;
+    ">THYNE</h1>
+    <p style="
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: #666666;
+      margin-top: 10px;
+    ">etched by you</p>
+    <div style="
+      margin-top: 30px;
+      width: 40px;
+      height: 40px;
+      border: 3px solid #E0E0E0;
+      border-top-color: #1A1A1A;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    "></div>
+  </div>
+
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+
+  <script>
+    // Hide loading screen when Flutter is ready
+    window.addEventListener('flutter-first-frame', function() {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.opacity = '0';
+        loading.style.transition = 'opacity 0.5s';
+        setTimeout(() => loading.remove(), 500);
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

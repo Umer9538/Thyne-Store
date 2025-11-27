@@ -78,7 +78,7 @@ func (s *HomepageService) GetHomepageData(ctx context.Context, userID *primitive
 	}
 
 	// Get active 360° showcases
-	showcases360, err := s.homepageRepo.GetActiveShowcases360(ctx)
+	showcases360, err := s.homepageRepo.GetActiveShowcases(ctx)
 	if err == nil {
 		response.Showcases360 = showcases360
 	}
@@ -170,6 +170,36 @@ func (s *HomepageService) GetActiveDealOfDay(ctx context.Context) (*models.DealO
 	return s.homepageRepo.GetActiveDealOfDay(ctx)
 }
 
+// GetActiveDealOfDayWithProduct returns the active deal with full product details
+func (s *HomepageService) GetActiveDealOfDayWithProduct(ctx context.Context) (*models.DealOfDayWithProduct, error) {
+	deal, err := s.homepageRepo.GetActiveDealOfDay(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if deal == nil {
+		return nil, nil
+	}
+
+	// Fetch the product
+	product, err := s.productRepo.GetByID(ctx, deal.ProductID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get product: %w", err)
+	}
+
+	return &models.DealOfDayWithProduct{
+		ID:              deal.ID,
+		Product:         *product,
+		OriginalPrice:   deal.OriginalPrice,
+		DealPrice:       deal.DealPrice,
+		DiscountPercent: deal.DiscountPercent,
+		StartTime:       deal.StartTime,
+		EndTime:         deal.EndTime,
+		Stock:           deal.Stock,
+		SoldCount:       deal.SoldCount,
+		IsActive:        deal.IsActive,
+	}, nil
+}
+
 func (s *HomepageService) UpdateDealOfDay(ctx context.Context, deal *models.DealOfDay) error {
 	existing, err := s.homepageRepo.GetDealByID(ctx, deal.ID)
 	if err != nil {
@@ -208,6 +238,51 @@ func (s *HomepageService) GetActiveFlashSales(ctx context.Context) ([]models.Fla
 	return s.homepageRepo.GetActiveFlashSales(ctx)
 }
 
+// GetActiveFlashSalesWithProducts returns active flash sales with full product details and discounted prices
+func (s *HomepageService) GetActiveFlashSalesWithProducts(ctx context.Context) ([]models.FlashSaleWithProducts, error) {
+	sales, err := s.homepageRepo.GetActiveFlashSales(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []models.FlashSaleWithProducts
+	for _, sale := range sales {
+		saleWithProducts := models.FlashSaleWithProducts{
+			ID:          sale.ID,
+			Title:       sale.Title,
+			Description: sale.Description,
+			BannerImage: sale.BannerImage,
+			StartTime:   sale.StartTime,
+			EndTime:     sale.EndTime,
+			Discount:    sale.Discount,
+			IsActive:    sale.IsActive,
+			Products:    []models.FlashSaleProduct{},
+		}
+
+		// Fetch each product and calculate discounted price
+		for _, productID := range sale.ProductIDs {
+			product, err := s.productRepo.GetByID(ctx, productID)
+			if err != nil {
+				continue // Skip products that can't be found
+			}
+
+			originalPrice := product.Price
+			salePrice := originalPrice * (1 - float64(sale.Discount)/100)
+
+			saleWithProducts.Products = append(saleWithProducts.Products, models.FlashSaleProduct{
+				Product:       *product,
+				OriginalPrice: originalPrice,
+				SalePrice:     salePrice,
+				Discount:      sale.Discount,
+			})
+		}
+
+		result = append(result, saleWithProducts)
+	}
+
+	return result, nil
+}
+
 func (s *HomepageService) GetAllFlashSales(ctx context.Context) ([]models.FlashSale, error) {
 	return s.homepageRepo.GetAllFlashSales(ctx)
 }
@@ -228,6 +303,10 @@ func (s *HomepageService) UpdateFlashSale(ctx context.Context, sale *models.Flas
 	existing.IsActive = sale.IsActive
 
 	return s.homepageRepo.UpdateFlashSale(ctx, existing)
+}
+
+func (s *HomepageService) DeleteFlashSale(ctx context.Context, saleID string) error {
+	return s.homepageRepo.DeleteFlashSale(ctx, saleID)
 }
 
 // Brands
@@ -342,7 +421,7 @@ func (s *HomepageService) GetNewArrivals(ctx context.Context, limit int) ([]mode
 
 // 360° Showcase
 
-func (s *HomepageService) CreateShowcase360(ctx context.Context, showcase *models.Showcase360) error {
+func (s *HomepageService) CreateShowcase(ctx context.Context, showcase *models.Showcase360) error {
 	// Verify product exists
 	_, err := s.productRepo.GetByID(ctx, showcase.ProductID)
 	if err != nil {
@@ -350,19 +429,23 @@ func (s *HomepageService) CreateShowcase360(ctx context.Context, showcase *model
 	}
 
 	showcase.IsActive = true
-	return s.homepageRepo.CreateShowcase360(ctx, showcase)
+	return s.homepageRepo.CreateShowcase(ctx, showcase)
 }
 
-func (s *HomepageService) GetActiveShowcases360(ctx context.Context) ([]models.Showcase360, error) {
-	return s.homepageRepo.GetActiveShowcases360(ctx)
+func (s *HomepageService) GetActiveShowcases(ctx context.Context) ([]models.Showcase360, error) {
+	return s.homepageRepo.GetActiveShowcases(ctx)
 }
 
-func (s *HomepageService) GetShowcase360ByID(ctx context.Context, showcaseID primitive.ObjectID) (*models.Showcase360, error) {
-	return s.homepageRepo.GetShowcase360ByID(ctx, showcaseID)
+func (s *HomepageService) GetAllShowcases(ctx context.Context) ([]models.Showcase360, error) {
+	return s.homepageRepo.GetAllShowcases(ctx)
 }
 
-func (s *HomepageService) UpdateShowcase360(ctx context.Context, showcase *models.Showcase360) error {
-	existing, err := s.homepageRepo.GetShowcase360ByID(ctx, showcase.ID)
+func (s *HomepageService) GetShowcaseByID(ctx context.Context, showcaseID primitive.ObjectID) (*models.Showcase360, error) {
+	return s.homepageRepo.GetShowcaseByID(ctx, showcaseID)
+}
+
+func (s *HomepageService) UpdateShowcase(ctx context.Context, showcase *models.Showcase360) error {
+	existing, err := s.homepageRepo.GetShowcaseByID(ctx, showcase.ID)
 	if err != nil {
 		return err
 	}
@@ -378,11 +461,11 @@ func (s *HomepageService) UpdateShowcase360(ctx context.Context, showcase *model
 	existing.StartTime = showcase.StartTime
 	existing.EndTime = showcase.EndTime
 
-	return s.homepageRepo.UpdateShowcase360(ctx, existing)
+	return s.homepageRepo.UpdateShowcase(ctx, existing)
 }
 
-func (s *HomepageService) DeleteShowcase360(ctx context.Context, showcaseID primitive.ObjectID) error {
-	return s.homepageRepo.DeleteShowcase360(ctx, showcaseID)
+func (s *HomepageService) DeleteShowcase(ctx context.Context, showcaseID primitive.ObjectID) error {
+	return s.homepageRepo.DeleteShowcase(ctx, showcaseID)
 }
 
 // Bundle Deals
@@ -453,3 +536,4 @@ func (s *HomepageService) UpdateBundleDeal(ctx context.Context, bundle *models.B
 func (s *HomepageService) DeleteBundleDeal(ctx context.Context, bundleID primitive.ObjectID) error {
 	return s.homepageRepo.DeleteBundleDeal(ctx, bundleID)
 }
+

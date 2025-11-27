@@ -211,6 +211,20 @@ func (d *DealOfDay) TimeRemaining() time.Duration {
 	return time.Until(d.EndTime)
 }
 
+// DealOfDayWithProduct represents a deal with full product details
+type DealOfDayWithProduct struct {
+	ID              primitive.ObjectID `json:"id"`
+	Product         Product            `json:"product"`
+	OriginalPrice   float64            `json:"originalPrice"`
+	DealPrice       float64            `json:"dealPrice"`
+	DiscountPercent int                `json:"discountPercent"`
+	StartTime       time.Time          `json:"startTime"`
+	EndTime         time.Time          `json:"endTime"`
+	Stock           int                `json:"stock"`
+	SoldCount       int                `json:"soldCount"`
+	IsActive        bool               `json:"isActive"`
+}
+
 // IsLive checks if flash sale is currently live
 func (f *FlashSale) IsLive() bool {
 	if !f.IsActive {
@@ -224,6 +238,27 @@ func (f *FlashSale) IsLive() bool {
 // TimeRemaining returns the time remaining for the flash sale
 func (f *FlashSale) TimeRemaining() time.Duration {
 	return time.Until(f.EndTime)
+}
+
+// FlashSaleProduct represents a product in a flash sale with discounted price
+type FlashSaleProduct struct {
+	Product       Product `json:"product"`
+	OriginalPrice float64 `json:"originalPrice"`
+	SalePrice     float64 `json:"salePrice"`
+	Discount      int     `json:"discount"`
+}
+
+// FlashSaleWithProducts represents a flash sale with full product details
+type FlashSaleWithProducts struct {
+	ID          primitive.ObjectID `json:"id"`
+	Title       string             `json:"title"`
+	Description string             `json:"description"`
+	BannerImage string             `json:"bannerImage"`
+	Products    []FlashSaleProduct `json:"products"`
+	StartTime   time.Time          `json:"startTime"`
+	EndTime     time.Time          `json:"endTime"`
+	Discount    int                `json:"discount"`
+	IsActive    bool               `json:"isActive"`
 }
 
 // IsLive checks if showcase is currently active

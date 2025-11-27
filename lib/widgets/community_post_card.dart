@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/community.dart';
 import '../utils/theme.dart';
+import 'glass/glass_ui.dart';
 
 class CommunityPostCard extends StatelessWidget {
   final CommunityPost post;
@@ -28,20 +29,15 @@ class CommunityPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return GlassCard(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      blur: GlassConfig.softBlur,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
               // Header: User info
               _buildHeader(context),
               const SizedBox(height: 12),
@@ -77,9 +73,7 @@ class CommunityPostCard extends StatelessWidget {
 
               // Action buttons
               _buildActionButtons(context),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -164,12 +158,12 @@ class CommunityPostCard extends StatelessWidget {
   }
 
   Widget _buildTag(String tag) {
-    return Container(
+    return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryGold.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      blur: GlassConfig.softBlur,
+      borderRadius: BorderRadius.circular(8),
+      tintColor: AppTheme.primaryGold,
+      showGlow: true,
       child: Text(
         '#$tag',
         style: const TextStyle(

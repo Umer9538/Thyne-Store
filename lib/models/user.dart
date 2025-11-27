@@ -4,9 +4,12 @@ class User {
   final String email;
   final String phone;
   final String? profileImage;
+  final String? profilePicture; // Alias for profileImage
   final DateTime createdAt;
   final List<Address> addresses;
+  final Address? defaultAddress;
   final bool isAdmin;
+  final String? role;
 
   User({
     required this.id,
@@ -14,26 +17,34 @@ class User {
     required this.email,
     required this.phone,
     this.profileImage,
+    this.profilePicture,
     required this.createdAt,
     this.addresses = const [],
+    this.defaultAddress,
     this.isAdmin = false,
+    this.role,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    final addressesList = (json['addresses'] as List?)
+            ?.map((a) => Address.fromJson(a))
+            .toList() ??
+        [];
+
     return User(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       profileImage: json['profileImage']?.toString(),
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      profilePicture: json['profilePicture']?.toString() ?? json['profileImage']?.toString(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
-      addresses: (json['addresses'] as List?)
-              ?.map((a) => Address.fromJson(a))
-              .toList() ??
-          [],
+      addresses: addressesList,
+      defaultAddress: addressesList.isNotEmpty ? addressesList.first : null,
       isAdmin: json['isAdmin'] ?? false,
+      role: json['role']?.toString(),
     );
   }
 
@@ -47,6 +58,7 @@ class User {
       'createdAt': createdAt.toIso8601String(),
       'addresses': addresses.map((a) => a.toJson()).toList(),
       'isAdmin': isAdmin,
+      'role': role,
     };
   }
 }

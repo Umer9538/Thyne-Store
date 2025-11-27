@@ -124,6 +124,13 @@ func main() {
 	homepageHandler := handlers.NewHomepageHandler(homepageService)
 	communityHandler := handlers.NewCommunityHandler(communityService)
 
+	// Initialize storefront repository and handler
+	storefrontDataRepo := repository.NewStorefrontDataRepository(db)
+	storefrontDataHandler := handlers.NewStorefrontDataHandler(storefrontDataRepo)
+
+	// Initialize upload handler
+	uploadHandler := handlers.NewUploadHandler()
+
     // Initialize notification handler if service is available
     // var notificationHandler *handlers.NotificationHandler
 
@@ -159,6 +166,9 @@ func main() {
 		c.Redirect(http.StatusMovedPermanently, "/docs/index.html")
 	})
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Serve uploaded files
+	router.Static("/uploads", "./uploads")
 
 	// API routes
 	api := router.Group("/api/v1")
@@ -304,8 +314,28 @@ func main() {
 			homepage.GET("/deal-of-day", homepageHandler.GetActiveDealOfDay)
 			homepage.GET("/flash-sales", homepageHandler.GetActiveFlashSales)
 			homepage.GET("/brands", homepageHandler.GetActiveBrands)
+			homepage.GET("/showcases", homepageHandler.GetActiveShowcases)
+			homepage.GET("/bundle-deals", homepageHandler.GetActiveBundleDeals)
 			homepage.POST("/track/:productId", homepageHandler.TrackProductView)
 			homepage.GET("/recently-viewed", homepageHandler.GetRecentlyViewed)
+		}
+
+		// Storefront data routes
+		storefront := api.Group("/storefront")
+		{
+			storefront.GET("/occasions", storefrontDataHandler.GetOccasions)
+			storefront.GET("/budget-ranges", storefrontDataHandler.GetBudgetRanges)
+			storefront.GET("/collections", storefrontDataHandler.GetCollections)
+			storefront.GET("/collections/:id/products", storefrontDataHandler.GetCollectionProducts)
+			storefront.GET("/settings", storefrontDataHandler.GetStoreSettings)
+		}
+
+		// Upload routes (protected)
+		upload := api.Group("/upload")
+		upload.Use(middleware.AuthRequired(authService))
+		{
+			upload.POST("/image", uploadHandler.UploadImage)
+			upload.POST("/image-base64", uploadHandler.UploadImageBase64)
 		}
 
 		// Community routes
@@ -411,7 +441,28 @@ func main() {
 			admin.POST("/promotions", eventHandler.CreatePromotion)
 			admin.DELETE("/promotions/:id", eventHandler.DeletePromotion)
 
-            // Storefront admin disabled in build-only profile
+			// Storefront management
+			// Occasions
+			admin.GET("/storefront/occasions", storefrontDataHandler.GetAllOccasions)
+			admin.POST("/storefront/occasions", storefrontDataHandler.CreateOccasion)
+			admin.PUT("/storefront/occasions/:id", storefrontDataHandler.UpdateOccasion)
+			admin.DELETE("/storefront/occasions/:id", storefrontDataHandler.DeleteOccasion)
+
+			// Budget Ranges
+			admin.GET("/storefront/budget-ranges", storefrontDataHandler.GetAllBudgetRanges)
+			admin.POST("/storefront/budget-ranges", storefrontDataHandler.CreateBudgetRange)
+			admin.PUT("/storefront/budget-ranges/:id", storefrontDataHandler.UpdateBudgetRange)
+			admin.DELETE("/storefront/budget-ranges/:id", storefrontDataHandler.DeleteBudgetRange)
+
+			// Collections
+			admin.GET("/storefront/collections", storefrontDataHandler.GetAllCollections)
+			admin.POST("/storefront/collections", storefrontDataHandler.CreateCollection)
+			admin.PUT("/storefront/collections/:id", storefrontDataHandler.UpdateCollection)
+			admin.DELETE("/storefront/collections/:id", storefrontDataHandler.DeleteCollection)
+
+			// Store Settings (GST, Shipping, etc.)
+			admin.GET("/store-settings", storefrontDataHandler.GetStoreSettings)
+			admin.PUT("/store-settings", storefrontDataHandler.UpdateStoreSettings)
 
             // Admin notification endpoints disabled in build-only profile
 
@@ -444,10 +495,24 @@ func main() {
 				// Flash Sale management
 				adminHomepage.POST("/flash-sale", homepageHandler.CreateFlashSale)
 				adminHomepage.GET("/flash-sales", homepageHandler.GetAllFlashSales)
+				adminHomepage.PUT("/flash-sale/:id", homepageHandler.UpdateFlashSale)
+				adminHomepage.DELETE("/flash-sale/:id", homepageHandler.DeleteFlashSale)
 
 				// Brand management
 				adminHomepage.POST("/brands", homepageHandler.CreateBrand)
 				adminHomepage.GET("/brands", homepageHandler.GetAllBrands)
+
+				// 360° Showcase management
+				adminHomepage.GET("/showcases", homepageHandler.GetAllShowcases)
+				adminHomepage.POST("/showcases", homepageHandler.CreateShowcase)
+				adminHomepage.PUT("/showcases/:id", homepageHandler.UpdateShowcase)
+				adminHomepage.DELETE("/showcases/:id", homepageHandler.DeleteShowcase)
+
+				// Bundle Deals management
+				adminHomepage.GET("/bundle-deals", homepageHandler.GetAllBundleDeals)
+				adminHomepage.POST("/bundle-deals", homepageHandler.CreateBundleDeal)
+				adminHomepage.PUT("/bundle-deals/:id", homepageHandler.UpdateBundleDeal)
+				adminHomepage.DELETE("/bundle-deals/:id", homepageHandler.DeleteBundleDeal)
 			}
 
 			// Placeholder endpoints for future implementation

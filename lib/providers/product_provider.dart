@@ -12,6 +12,8 @@ class ProductProvider extends ChangeNotifier {
   String? _selectedGender;
   String _sortBy = 'popularity';
   Map<String, dynamic> _filters = {};
+  double? _minPrice;
+  double? _maxPrice;
 
   List<Product> get products => _filteredProducts.isEmpty ? _products : _filteredProducts;
   List<Product> get featuredProducts => _products.where((p) => p.isFeatured).toList();
@@ -71,6 +73,18 @@ class ProductProvider extends ChangeNotifier {
     _applyFiltersAndSort();
   }
 
+  void filterByPriceRange({double? minPrice, double? maxPrice}) {
+    _minPrice = minPrice;
+    _maxPrice = maxPrice;
+    _applyFiltersAndSort();
+  }
+
+  void clearPriceFilter() {
+    _minPrice = null;
+    _maxPrice = null;
+    _applyFiltersAndSort();
+  }
+
   void _applyFiltersAndSort() {
     _filteredProducts = _products.where((product) {
       // Category filter
@@ -99,6 +113,14 @@ class ProductProvider extends ChangeNotifier {
             tag.contains('unisex') || tag.contains('neutral'))) {
           return false;
         }
+      }
+
+      // Price range filter
+      if (_minPrice != null && product.price < _minPrice!) {
+        return false;
+      }
+      if (_maxPrice != null && product.price > _maxPrice!) {
+        return false;
       }
 
       return true;

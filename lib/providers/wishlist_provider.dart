@@ -8,6 +8,7 @@ class WishlistProvider extends ChangeNotifier {
   String? _error;
 
   List<Product> get wishlist => _wishlist;
+  List<Product> get items => _wishlist; // Alias for wishlist
   bool get isLoading => _isLoading;
   String? get error => _error;
   int get wishlistCount => _wishlist.length;

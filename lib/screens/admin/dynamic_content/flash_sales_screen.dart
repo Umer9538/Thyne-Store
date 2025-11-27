@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:thyne_jewls/utils/theme.dart';
 import 'package:thyne_jewls/services/api_service.dart';
 import 'package:thyne_jewls/models/homepage.dart';
+import 'package:thyne_jewls/screens/admin/dynamic_content/edit_flash_sale_form.dart';
 
 class FlashSalesScreen extends StatefulWidget {
   const FlashSalesScreen({super.key});
@@ -250,10 +251,14 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
     }
   }
 
-  void _editSale(FlashSale sale) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit ${sale.title} - Coming Soon')),
+  void _editSale(FlashSale sale) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditFlashSaleForm(sale: sale)),
     );
+    if (result == true && mounted) {
+      _loadFlashSales();
+    }
   }
 
   void _endSale(FlashSale sale) async {
@@ -276,11 +281,43 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
       ),
     );
 
-    if (confirm == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${sale.title} ended')),
-      );
-      _loadFlashSales();
+    if (confirm == true && mounted) {
+      try {
+        final response = await ApiService.updateFlashSale(
+          id: sale.id,
+          title: sale.title,
+          description: sale.description,
+          bannerImage: sale.bannerImage,
+          productIds: sale.productIds,
+          discount: sale.discount,
+          startTime: sale.startTime,
+          endTime: DateTime.now(), // End the sale now
+          isActive: false,
+        );
+
+        if (mounted) {
+          if (response['success'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${sale.title} ended successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            _loadFlashSales();
+          } else {
+            final errorMsg = response['error'] ?? response['message'] ?? 'Unknown error';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $errorMsg')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error ending sale: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -289,7 +326,7 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Sale?'),
-        content: Text('Are you sure you want to delete "${sale.title}"?'),
+        content: Text('Are you sure you want to delete "${sale.title}"? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -304,11 +341,33 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
       ),
     );
 
-    if (confirm == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${sale.title} deleted')),
-      );
-      _loadFlashSales();
+    if (confirm == true && mounted) {
+      try {
+        final response = await ApiService.deleteFlashSale(sale.id);
+
+        if (mounted) {
+          if (response['success'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${sale.title} deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            _loadFlashSales();
+          } else {
+            final errorMsg = response['error'] ?? response['message'] ?? 'Unknown error';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $errorMsg')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting sale: $e')),
+          );
+        }
+      }
     }
   }
 }

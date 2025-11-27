@@ -377,6 +377,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'color': Colors.pink,
         'route': '/admin/themes',
       },
+      {
+        'title': 'Store Settings',
+        'subtitle': 'GST, Shipping & more',
+        'icon': Icons.settings,
+        'color': Colors.blueGrey,
+        'route': '/admin/store-settings',
+      },
     ];
 
     return GridView.builder(

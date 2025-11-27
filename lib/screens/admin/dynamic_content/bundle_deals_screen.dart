@@ -24,17 +24,24 @@ class _BundleDealsScreenState extends State<BundleDealsScreen> {
     setState(() => _loading = true);
 
     try {
-      final response = await ApiService.getHomepage();
+      // Use admin endpoint to get all bundle deals (including inactive)
+      final response = await ApiService.getAllBundleDeals();
       if (response['success'] == true && response['data'] != null) {
-        final homepage = response['data'] as Map<String, dynamic>;
-        if (homepage['bundleDeals'] != null) {
-          _bundles = (homepage['bundleDeals'] as List)
-              .map((b) => BundleDeal.fromJson(b))
-              .toList();
-        }
+        final bundlesData = response['data'] as List;
+        _bundles = bundlesData
+            .map((b) => BundleDeal.fromJson(b as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       print('Error loading bundles: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading bundles: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
 
     setState(() => _loading = false);
@@ -318,20 +325,58 @@ class _BundleDealsScreenState extends State<BundleDealsScreen> {
   }
 
   void _editBundle(BundleDeal bundle) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit ${bundle.title} - Coming Soon')),
-    );
-  }
-
-  void _toggleBundle(BundleDeal bundle) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${bundle.title} ${bundle.isActive ? "deactivated" : "activated"}'),
+    showDialog(
+      context: context,
+      builder: (context) => EditBundleDealForm(
+        bundle: bundle,
+        onSave: () {
+          _loadBundles();
+        },
       ),
     );
   }
 
-  void _deleteBundle(BundleDeal bundle) async {
+  Future<void> _toggleBundle(BundleDeal bundle) async {
+    try {
+      final response = await ApiService.updateBundleDeal(
+        id: bundle.id,
+        title: bundle.title,
+        description: bundle.description,
+        items: bundle.items.map((item) => {
+          'productId': item.productId,
+          'quantity': item.quantity,
+        }).toList(),
+        bundlePrice: bundle.bundlePrice,
+        stock: bundle.stock,
+        isActive: !bundle.isActive,
+      );
+
+      if (response['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${bundle.title} ${bundle.isActive ? "deactivated" : "activated"}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadBundles();
+        }
+      } else {
+        throw Exception(response['error'] ?? 'Failed to toggle bundle');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error toggling bundle: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteBundle(BundleDeal bundle) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -352,10 +397,251 @@ class _BundleDealsScreenState extends State<BundleDealsScreen> {
     );
 
     if (confirm == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${bundle.title} deleted')),
-      );
-      _loadBundles();
+      try {
+        final response = await ApiService.deleteBundleDeal(bundle.id);
+
+        if (response['success'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${bundle.title} deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            _loadBundles();
+          }
+        } else {
+          throw Exception(response['error'] ?? 'Failed to delete bundle');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting bundle: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
+  }
+}
+
+// Edit Bundle Deal Form Widget
+class EditBundleDealForm extends StatefulWidget {
+  final BundleDeal bundle;
+  final VoidCallback onSave;
+
+  const EditBundleDealForm({
+    super.key,
+    required this.bundle,
+    required this.onSave,
+  });
+
+  @override
+  State<EditBundleDealForm> createState() => _EditBundleDealFormState();
+}
+
+class _EditBundleDealFormState extends State<EditBundleDealForm> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _priceController;
+  late TextEditingController _stockController;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.bundle.title);
+    _descriptionController = TextEditingController(text: widget.bundle.description);
+    _priceController = TextEditingController(text: widget.bundle.bundlePrice.toString());
+    _stockController = TextEditingController(text: widget.bundle.stock.toString());
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _priceController.dispose();
+    _stockController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+
+    try {
+      final response = await ApiService.updateBundleDeal(
+        id: widget.bundle.id,
+        title: _titleController.text,
+        description: _descriptionController.text,
+        items: widget.bundle.items.map((item) => {
+          'productId': item.productId,
+          'quantity': item.quantity,
+        }).toList(),
+        bundlePrice: double.parse(_priceController.text),
+        stock: int.parse(_stockController.text),
+        isActive: widget.bundle.isActive,
+      );
+
+      if (response['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bundle Deal updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+          widget.onSave();
+        }
+      } else {
+        throw Exception(response['error'] ?? 'Failed to update bundle');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating bundle: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
+    setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Edit Bundle Deal',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _priceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Bundle Price',
+                        border: OutlineInputBorder(),
+                        prefixText: '\$',
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a price';
+                        }
+                        if (double.tryParse(value) == null) {
+                          return 'Invalid price';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stockController,
+                      decoration: const InputDecoration(
+                        labelText: 'Stock',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter stock';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Invalid stock';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: _loading ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGold,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Save Changes'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -69,8 +69,11 @@ class ApiService {
 
     if (requireAuth) {
       final token = await _getAuthToken();
-      if (token != null) {
+      if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
+      } else {
+        // Debug: Log when token is missing
+        print('⚠️ Auth required but no token found in storage');
       }
     }
 
@@ -98,14 +101,18 @@ class ApiService {
         return {'success': false, 'error': 'Invalid JSON response: $e'};
       }
     } else {
+      print('❌ API Error - Status: ${response.statusCode}');
+      print('❌ API Error - Body: ${response.body}');
       try {
         final errorData = json.decode(response.body);
+        final errorMessage = errorData['error'] ?? errorData['message'] ?? 'An error occurred';
         throw ApiException(
-          message: errorData['error'] ?? 'An error occurred',
+          message: errorMessage,
           code: errorData['code'] ?? 'UNKNOWN_ERROR',
           statusCode: response.statusCode,
         );
       } catch (e) {
+        if (e is ApiException) rethrow;
         throw ApiException(
           message: 'Server error: ${response.statusCode}',
           code: 'HTTP_ERROR',
@@ -1947,6 +1954,179 @@ class ApiService {
 
     return _handleResponse(response);
   }
+
+  // ==================== Storefront Data API Methods ====================
+
+  /// Get shop by occasion data
+  static Future<Map<String, dynamic>> getOccasions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/storefront/occasions'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get shop by budget ranges
+  static Future<Map<String, dynamic>> getBudgetRanges() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/storefront/budget-ranges'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get curated collections
+  static Future<Map<String, dynamic>> getCollections() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/storefront/collections'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get products in a specific collection
+  static Future<Map<String, dynamic>> getCollectionProducts(String collectionId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/storefront/collections/$collectionId/products'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // ==================== Store Settings API Methods ====================
+
+  /// Get store settings (GST, shipping, etc.) - Public endpoint
+  static Future<Map<String, dynamic>> getStoreSettings() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/storefront/settings'),
+      headers: await _getHeaders(),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Update store settings (Admin only)
+  static Future<Map<String, dynamic>> updateStoreSettings(Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/store-settings'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // ==================== Admin Storefront Data API Methods ====================
+
+  // Occasions
+  static Future<Map<String, dynamic>> adminGetAllOccasions() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/storefront/occasions'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminCreateOccasion(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/storefront/occasions'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminUpdateOccasion(String id, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/storefront/occasions/$id'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminDeleteOccasion(String id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/storefront/occasions/$id'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  // Budget Ranges
+  static Future<Map<String, dynamic>> adminGetAllBudgetRanges() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/storefront/budget-ranges'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminCreateBudgetRange(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/storefront/budget-ranges'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminUpdateBudgetRange(String id, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/storefront/budget-ranges/$id'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminDeleteBudgetRange(String id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/storefront/budget-ranges/$id'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  // Collections
+  static Future<Map<String, dynamic>> adminGetAllCollections() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/storefront/collections'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminCreateCollection(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/storefront/collections'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminUpdateCollection(String id, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/storefront/collections/$id'),
+      headers: await _getHeaders(requireAuth: true),
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> adminDeleteCollection(String id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/storefront/collections/$id'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+    return _handleResponse(response);
+  }
+
   // ==================== Community API Methods ====================
 
   // Get community feed
@@ -1982,6 +2162,53 @@ class ApiService {
       headers: await _getHeaders(),
     );
     return _handleResponse(response);
+  }
+
+  // Upload image for community post
+  static Future<Map<String, dynamic>> uploadCommunityImage(List<int> imageBytes, String fileName) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/upload/image'),
+      );
+
+      // Add headers
+      final headers = await _getHeaders(requireAuth: true);
+      request.headers.addAll(headers);
+
+      // Add file
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          imageBytes,
+          filename: fileName,
+        ),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Upload image as base64 (fallback for web)
+  static Future<Map<String, dynamic>> uploadCommunityImageBase64(String base64Image, String fileName) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/upload/image-base64'),
+        headers: await _getHeaders(requireAuth: true),
+        body: jsonEncode({
+          'image': base64Image,
+          'filename': fileName,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
   }
 
   // Create community post
@@ -2142,6 +2369,421 @@ class ApiService {
       Uri.parse('$baseUrl/community/posts/$postId/pin'),
       headers: await _getHeaders(requireAuth: true),
     );
+    return _handleResponse(response);
+  }
+
+  // Dynamic Dashboard APIs
+
+  // Get Flash Sales
+  static Future<Map<String, dynamic>> getFlashSales() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/flash-sales'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get Deals of the Day
+  static Future<Map<String, dynamic>> getDealsOfDay() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/deal-of-day'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get Bundle Deals
+  static Future<Map<String, dynamic>> getBundleDeals() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/bundle-deals'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get 360 Showcases (public)
+  static Future<Map<String, dynamic>> getShowcases() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/homepage/showcases'),
+      headers: await _getHeaders(),
+    );
+    return _handleResponse(response);
+  }
+
+  // Get all 360 Showcases (Admin only)
+  static Future<Map<String, dynamic>> getAllShowcases() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/homepage/showcases'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // Create a new 360 Showcase (Admin only)
+  static Future<Map<String, dynamic>> createShowcase360({
+    required String productId,
+    required String title,
+    String? description,
+    required List<String> images,
+    String? videoUrl,
+    int priority = 0,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/homepage/showcases'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'productId': productId,
+          'title': title,
+          if (description != null) 'description': description,
+          'images360': images, // Backend expects images360
+          if (videoUrl != null) 'videoUrl': videoUrl,
+          'priority': priority,
+          'isActive': true,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // Update a 360 Showcase (Admin only)
+  static Future<Map<String, dynamic>> updateShowcase360({
+    required String id,
+    required String productId,
+    required String title,
+    String? description,
+    required List<String> images,
+    String? videoUrl,
+    int priority = 0,
+    bool? isActive,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/homepage/showcases/$id'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'productId': productId,
+          'title': title,
+          if (description != null) 'description': description,
+          'images360': images, // Backend expects images360
+          if (videoUrl != null) 'videoUrl': videoUrl,
+          'priority': priority,
+          if (isActive != null) 'isActive': isActive,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // Delete a 360 Showcase (Admin only)
+  static Future<Map<String, dynamic>> deleteShowcase360(String id) async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/admin/homepage/showcases/$id'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // ==================== Admin Homepage Content APIs ====================
+
+  /// Create a new Deal of the Day (Admin only)
+  static Future<Map<String, dynamic>> createDealOfDay({
+    required String productId,
+    required int discountPercent,
+    required int stock,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
+    // Convert to UTC and format with Z suffix for Go backend
+    final startTimeUtc = startTime.toUtc();
+    final endTimeUtc = endTime.toUtc();
+
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/homepage/deal-of-day'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'productId': productId,
+          'discountPercent': discountPercent,
+          'stock': stock,
+          'startTime': '${startTimeUtc.toIso8601String().split('.')[0]}Z',
+          'endTime': '${endTimeUtc.toIso8601String().split('.')[0]}Z',
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Create a new Flash Sale (Admin only)
+  static Future<Map<String, dynamic>> createFlashSale({
+    required String title,
+    String? description,
+    String? bannerImage,
+    required List<String> productIds,
+    required DateTime startTime,
+    required DateTime endTime,
+    required int discount,
+  }) async {
+    // Convert to UTC and format with Z suffix for Go backend
+    final startTimeUtc = startTime.toUtc();
+    final endTimeUtc = endTime.toUtc();
+
+    final requestBody = {
+      'title': title,
+      'description': description ?? '',
+      'bannerImage': bannerImage ?? '',
+      'productIds': productIds,
+      'startTime': '${startTimeUtc.toIso8601String().split('.')[0]}Z',
+      'endTime': '${endTimeUtc.toIso8601String().split('.')[0]}Z',
+      'discount': discount,
+    };
+    print('📤 Flash Sale Request: ${json.encode(requestBody)}');
+
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/homepage/flash-sale'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(requestBody),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get all Flash Sales for admin
+  static Future<Map<String, dynamic>> getAllFlashSales() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/homepage/flash-sales'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Update an existing Flash Sale (Admin only)
+  static Future<Map<String, dynamic>> updateFlashSale({
+    required String id,
+    required String title,
+    String? description,
+    String? bannerImage,
+    required List<String> productIds,
+    required DateTime startTime,
+    required DateTime endTime,
+    required int discount,
+    bool? isActive,
+  }) async {
+    // Convert to UTC and format with Z suffix for Go backend
+    final startTimeUtc = startTime.toUtc();
+    final endTimeUtc = endTime.toUtc();
+
+    final requestBody = {
+      'title': title,
+      'description': description ?? '',
+      'bannerImage': bannerImage ?? '',
+      'productIds': productIds,
+      'startTime': '${startTimeUtc.toIso8601String().split('.')[0]}Z',
+      'endTime': '${endTimeUtc.toIso8601String().split('.')[0]}Z',
+      'discount': discount,
+      if (isActive != null) 'isActive': isActive,
+    };
+
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/homepage/flash-sale/$id'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(requestBody),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Delete a Flash Sale (Admin only)
+  static Future<Map<String, dynamic>> deleteFlashSale(String id) async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/admin/homepage/flash-sale/$id'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Create a new Brand (Admin only)
+  static Future<Map<String, dynamic>> createBrand({
+    required String name,
+    required String logo,
+    String? description,
+    int priority = 0,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/homepage/brands'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'name': name,
+          'logo': logo,
+          if (description != null) 'description': description,
+          'priority': priority,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get all Brands for admin
+  static Future<Map<String, dynamic>> getAllBrands() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/homepage/brands'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get Homepage Layout configuration (Admin only)
+  static Future<Map<String, dynamic>> getAdminHomepageLayout() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/homepage/layout'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Update Homepage Layout configuration (Admin only)
+  static Future<Map<String, dynamic>> updateAdminHomepageLayout(Map<String, dynamic> layout) async {
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/homepage/layout'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(layout),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // ==================== Bundle Deals Admin APIs ====================
+
+  /// Get all Bundle Deals for admin
+  static Future<Map<String, dynamic>> getAllBundleDeals() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/homepage/bundle-deals'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Create a new Bundle Deal (Admin only)
+  static Future<Map<String, dynamic>> createBundleDeal({
+    required String title,
+    String? description,
+    required List<Map<String, dynamic>> items,
+    required double bundlePrice,
+    required int stock,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? bannerImage,
+    int priority = 0,
+  }) async {
+    final requestBody = {
+      'title': title,
+      'description': description ?? '',
+      'items': items,
+      'bundlePrice': bundlePrice,
+      'stock': stock,
+      'bannerImage': bannerImage ?? '',
+      'priority': priority,
+    };
+
+    // Add times if provided
+    if (startTime != null) {
+      final startTimeUtc = startTime.toUtc();
+      requestBody['startTime'] = '${startTimeUtc.toIso8601String().split('.')[0]}Z';
+    }
+    if (endTime != null) {
+      final endTimeUtc = endTime.toUtc();
+      requestBody['endTime'] = '${endTimeUtc.toIso8601String().split('.')[0]}Z';
+    }
+
+    print('📤 Bundle Deal Request: ${json.encode(requestBody)}');
+
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/homepage/bundle-deals'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(requestBody),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Update an existing Bundle Deal (Admin only)
+  static Future<Map<String, dynamic>> updateBundleDeal({
+    required String id,
+    required String title,
+    String? description,
+    required List<Map<String, dynamic>> items,
+    required double bundlePrice,
+    required int stock,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? bannerImage,
+    int? priority,
+    bool? isActive,
+  }) async {
+    final requestBody = {
+      'title': title,
+      'description': description ?? '',
+      'items': items,
+      'bundlePrice': bundlePrice,
+      'stock': stock,
+      'bannerImage': bannerImage ?? '',
+    };
+
+    // Add times if provided
+    if (startTime != null) {
+      final startTimeUtc = startTime.toUtc();
+      requestBody['startTime'] = '${startTimeUtc.toIso8601String().split('.')[0]}Z';
+    }
+    if (endTime != null) {
+      final endTimeUtc = endTime.toUtc();
+      requestBody['endTime'] = '${endTimeUtc.toIso8601String().split('.')[0]}Z';
+    }
+    if (priority != null) {
+      requestBody['priority'] = priority;
+    }
+    if (isActive != null) {
+      requestBody['isActive'] = isActive;
+    }
+
+    print('📤 Update Bundle Deal Request: ${json.encode(requestBody)}');
+
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/homepage/bundle-deals/$id'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode(requestBody),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Delete a Bundle Deal (Admin only)
+  static Future<Map<String, dynamic>> deleteBundleDeal(String id) async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/admin/homepage/bundle-deals/$id'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
     return _handleResponse(response);
   }
 }

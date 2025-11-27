@@ -4,20 +4,35 @@ class CartItem {
   final String id;
   final Product product;
   int quantity;
+  final double? salePrice; // Optional sale price for deals/flash sales
+  final double? originalPrice; // Optional original price for display
+  final int? discountPercent; // Optional discount percentage for display
 
   CartItem({
     required this.id,
     required this.product,
     this.quantity = 1,
+    this.salePrice,
+    this.originalPrice,
+    this.discountPercent,
   });
 
-  double get totalPrice => product.price * quantity;
+  // Use sale price if available, otherwise use product price
+  double get effectivePrice => salePrice ?? product.price;
+
+  double get totalPrice => effectivePrice * quantity;
+
+  // Check if this item has a special sale price
+  bool get hasSalePrice => salePrice != null && salePrice! < (originalPrice ?? product.price);
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
       id: json['id']?.toString() ?? '',
       product: Product.fromJson(json['product'] ?? {}),
       quantity: json['quantity'] ?? 1,
+      salePrice: (json['salePrice'] as num?)?.toDouble(),
+      originalPrice: (json['originalPrice'] as num?)?.toDouble(),
+      discountPercent: json['discountPercent'] as int?,
     );
   }
 
@@ -26,6 +41,9 @@ class CartItem {
       'id': id,
       'product': product.toJson(),
       'quantity': quantity,
+      if (salePrice != null) 'salePrice': salePrice,
+      if (originalPrice != null) 'originalPrice': originalPrice,
+      if (discountPercent != null) 'discountPercent': discountPercent,
     };
   }
 }

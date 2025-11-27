@@ -59,25 +59,32 @@ class _CreateBundleFormState extends State<CreateBundleForm> {
   Future<void> _loadProducts() async {
     setState(() => _loadingProducts = true);
     try {
-      print('Loading products for bundle form...');
-      final response = await ApiService.getProducts();
-      print('Products response: ${response['success']}, data type: ${response['data']?.runtimeType}');
+      final response = await ApiService.getProducts(limit: 100);
 
       if (response['success'] == true && response['data'] != null) {
-        final productList = (response['data'] as List)
-            .map((json) => Product.fromJson(json))
+        final data = response['data'];
+        List<dynamic> productsList;
+
+        // Handle different response formats
+        if (data is List) {
+          productsList = data;
+        } else if (data is Map && data['products'] != null) {
+          productsList = data['products'] as List;
+        } else if (data is Map && data['items'] != null) {
+          productsList = data['items'] as List;
+        } else {
+          productsList = [];
+        }
+
+        final productList = productsList
+            .map((json) => Product.fromJson(json as Map<String, dynamic>))
             .toList();
-        print('Loaded ${productList.length} products');
 
         setState(() {
           _availableProducts = productList;
         });
-      } else {
-        print('Failed to load products: success=${response['success']}, data=${response['data']}');
       }
-    } catch (e, stackTrace) {
-      print('Error loading products: $e');
-      print('Stack trace: $stackTrace');
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -122,37 +129,42 @@ class _CreateBundleFormState extends State<CreateBundleForm> {
     setState(() => _loading = true);
 
     try {
-      final bundleData = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'items': _bundleItems.map((item) => {
-          'productId': item.product.id,
-          'quantity': item.quantity,
-        }).toList(),
-        'originalPrice': _originalPrice,
-        'bundlePrice': _bundlePrice,
-        'discountPercent': _discountPercent,
-        'category': _selectedCategory,
-        'stock': _stock,
-        'isActive': true,
-      };
+      // Prepare items for API
+      final items = _bundleItems.map((item) => {
+        'productId': item.product.id,
+        'quantity': item.quantity,
+      }).toList();
 
-      // TODO: Add API call when backend endpoint is ready
-      // final response = await ApiService.createBundleDeal(bundleData);
+      // Call the API to create bundle deal
+      final response = await ApiService.createBundleDeal(
+        title: _titleController.text,
+        description: _descriptionController.text,
+        items: items,
+        bundlePrice: _bundlePrice,
+        stock: _stock,
+        priority: 0,
+      );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bundle Deal created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
+      if (response['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bundle Deal created successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        throw Exception(response['error'] ?? 'Failed to create bundle deal');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating bundle: $e')),
+          SnackBar(
+            content: Text('Error creating bundle: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

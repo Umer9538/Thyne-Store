@@ -32,14 +32,30 @@ class _CreateDealFormState extends State<CreateDealForm> {
 
   Future<void> _loadProducts() async {
     try {
-      final response = await ApiService.getProducts();
+      final response = await ApiService.getProducts(limit: 100);
       if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        List<dynamic> productsList;
+
+        // Handle different response formats
+        if (data is List) {
+          productsList = data;
+        } else if (data is Map && data['products'] != null) {
+          productsList = data['products'] as List;
+        } else if (data is Map && data['items'] != null) {
+          productsList = data['items'] as List;
+        } else {
+          productsList = [];
+        }
+
         setState(() {
-          _products = (response['data'] as List)
-              .map((p) => Product.fromJson(p))
+          _products = productsList
+              .map((p) => Product.fromJson(p as Map<String, dynamic>))
               .toList();
           _loadingProducts = false;
         });
+      } else {
+        setState(() => _loadingProducts = false);
       }
     } catch (e) {
       setState(() => _loadingProducts = false);
@@ -115,28 +131,28 @@ class _CreateDealFormState extends State<CreateDealForm> {
     setState(() => _loading = true);
 
     try {
-      final dealData = {
-        'productId': _selectedProduct!.id,
-        'discountPercent': _discountPercent,
-        'stock': _stock,
-        'startTime': _startTime.toIso8601String(),
-        'endTime': _endTime.toIso8601String(),
-      };
-
-      // TODO: Add API call to create deal
-      // final response = await ApiService.createDealOfDay(dealData);
-
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
+      final response = await ApiService.createDealOfDay(
+        productId: _selectedProduct!.id,
+        discountPercent: _discountPercent,
+        stock: _stock,
+        startTime: _startTime,
+        endTime: _endTime,
+      );
 
       if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Deal of Day created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (response['success'] == true) {
+          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Deal of Day created successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${response['error'] ?? 'Unknown error'}')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

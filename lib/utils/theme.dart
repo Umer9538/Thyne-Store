@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Dark Green Theme Colors
-  static const Color primaryGold = Color(0xFF1B5E20); // Dark Green - Main theme color
-  static const Color secondaryRoseGold = Color(0xFF2E7D32); // Medium Green - Secondary
-  static const Color accentPurple = Color(0xFF4CAF50); // Light Green - Accent
+  // Primary Theme Colors (aligned with ThyneTheme)
+  // Note: This class is being phased out. Use ThyneTheme for new code.
+  static const Color primaryGold = Color(0xFF094010); // Commerce Green (matches ThyneTheme.commerceGreen)
+  static const Color secondaryRoseGold = Color(0xFF401010); // Community Ruby (matches ThyneTheme.communityRuby)
+  static const Color accentPurple = Color(0xFF0a1a40); // Create Blue (matches ThyneTheme.createBlue)
 
-  // Additional Green Shades
-  static const Color darkGreen = Color(0xFF1B5E20); // Primary dark green
-  static const Color mediumGreen = Color(0xFF2E7D32); // Secondary green
-  static const Color lightGreen = Color(0xFF4CAF50); // Accent green
+  // Gold accent for special elements
+  static const Color goldAccent = Color(0xFFd4af37); // Gold (matches ThyneTheme.primaryGold)
+
+  // Green shades (keeping for backward compatibility)
+  static const Color darkGreen = Color(0xFF094010); // Commerce green
+  static const Color mediumGreen = Color(0xFF0d5a18);
+  static const Color lightGreen = Color(0xFF10B981); // Success green
 
   static const Color backgroundWhite = Color(0xFFFFFFFF);
   static const Color surfaceGray = Color(0xFFF5F5F5);

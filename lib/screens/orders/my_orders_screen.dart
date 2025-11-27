@@ -4,6 +4,7 @@ import '../../providers/order_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/order.dart';
 import '../../utils/theme.dart';
+import '../../services/api_service.dart';
 import 'order_tracking_screen.dart';
 
 class MyOrdersScreen extends StatefulWidget {
@@ -343,45 +344,65 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
               
               const SizedBox(height: 12),
               
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OrderTrackingScreen(order: order),
-                          ),
-                        );
-                      },
-                      child: const Text('Track Order'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (order.status.canCancel)
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => _showCancelDialog(context, order),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
+              // Action buttons - different based on order status
+              if (order.status == OrderStatus.cancelled)
+                // Cancelled orders - just show View Details
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OrderTrackingScreen(order: order),
                         ),
-                        child: const Text('Cancel'),
-                      ),
-                    )
-                  else if (order.status == OrderStatus.delivered)
+                      );
+                    },
+                    child: const Text('View Details'),
+                  ),
+                )
+              else
+                Row(
+                  children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          // Navigate to reorder or review
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OrderTrackingScreen(order: order),
+                            ),
+                          );
                         },
-                        child: const Text('Reorder'),
+                        child: const Text('Track Order'),
                       ),
                     ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    if (order.status.canCancel)
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _showCancelDialog(context, order),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      )
+                    else if (order.status == OrderStatus.delivered)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showRateOrderDialog(context, order),
+                          icon: const Icon(Icons.star, size: 18),
+                          label: const Text('Rate'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGold,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -481,6 +502,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     );
   }
 
+  void _showRateOrderDialog(BuildContext context, Order order) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _RateOrderSheet(order: order),
+    );
+  }
+
   void _onSearchChanged(String query) {
     if (query.isEmpty) {
       _clearSearch();
@@ -577,6 +609,235 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         final order = _searchResults[index];
         return _buildOrderCard(context, order);
       },
+    );
+  }
+}
+
+/// Bottom sheet widget for rating order items
+class _RateOrderSheet extends StatefulWidget {
+  final Order order;
+
+  const _RateOrderSheet({required this.order});
+
+  @override
+  State<_RateOrderSheet> createState() => _RateOrderSheetState();
+}
+
+class _RateOrderSheetState extends State<_RateOrderSheet> {
+  final Map<String, int> _ratings = {};
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize all products with 5 stars
+    for (final item in widget.order.items) {
+      _ratings[item.product.id] = 5;
+    }
+  }
+
+  Future<void> _submitRatings() async {
+    setState(() => _isSubmitting = true);
+
+    int successCount = 0;
+    int failCount = 0;
+
+    for (final item in widget.order.items) {
+      final rating = _ratings[item.product.id] ?? 5;
+      try {
+        final response = await ApiService.createReview(
+          productId: item.product.id,
+          rating: rating.toDouble(),
+          comment: 'Rated $rating stars', // Simple comment for rating-only
+        );
+        if (response['success'] == true) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (e) {
+        failCount++;
+        debugPrint('Failed to rate product ${item.product.id}: $e');
+      }
+    }
+
+    setState(() => _isSubmitting = false);
+
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failCount == 0
+                ? 'Thank you for rating!'
+                : 'Rated $successCount items ($failCount failed)',
+          ),
+          backgroundColor: failCount == 0 ? Colors.green : Colors.orange,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.star, color: AppTheme.primaryGold),
+                const SizedBox(width: 8),
+                Text(
+                  'Rate Your Order',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the stars to rate each item',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+
+            // Product list with ratings
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: widget.order.items.length,
+                itemBuilder: (context, index) {
+                  final item = widget.order.items[index];
+                  final currentRating = _ratings[item.product.id] ?? 5;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Product image
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            item.product.images.isNotEmpty
+                                ? item.product.images.first
+                                : '',
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 50,
+                                height: 50,
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.image, size: 24),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+
+                        // Product name
+                        Expanded(
+                          child: Text(
+                            item.product.name,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Star rating
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(5, (starIndex) {
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _ratings[item.product.id] = starIndex + 1;
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: Icon(
+                                  starIndex < currentRating
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  color: AppTheme.warningAmber,
+                                  size: 28,
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+
+            // Submit button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : _submitRatings,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGold,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Submit Rating',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
