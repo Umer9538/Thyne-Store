@@ -247,6 +247,90 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Send OTP to phone number
+  Future<bool> sendPhoneOTP(String phoneNumber) async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      // In production, this would call the actual API
+      // For now, we'll simulate the OTP sending
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Store phone number temporarily
+      await _storage.write(key: 'temp_phone', value: phoneNumber);
+
+      // In development, we can use a fixed OTP for testing
+      if (kDebugMode) {
+        debugPrint('OTP sent to $phoneNumber: 123456');
+      }
+
+      return true;
+    } catch (e) {
+      _error = 'Failed to send OTP. Please try again.';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verify phone OTP and login/register user
+  Future<bool> verifyPhoneOTP(
+    String phoneNumber,
+    String otp, {
+    bool notifyOrders = true,
+    bool subscribeNewsletter = false,
+  }) async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      // In development, accept '123456' as valid OTP
+      if (kDebugMode && otp == '123456') {
+        // Check if user exists with this phone number
+        // If not, create new user
+        final userData = {
+          'id': DateTime.now().millisecondsSinceEpoch.toString(),
+          'phone': phoneNumber,
+          'name': 'User',
+          'email': null,
+          'isAdmin': false,
+          'role': 'customer',
+          'notifyOrders': notifyOrders,
+          'subscribeNewsletter': subscribeNewsletter,
+        };
+
+        _user = User.fromJson(userData);
+
+        // Generate mock tokens
+        await _storage.write(key: 'auth_token', value: 'mock_token_${phoneNumber}');
+        await _storage.write(key: 'refresh_token', value: 'mock_refresh_${phoneNumber}');
+        await _storage.write(key: 'user_id', value: _user!.id);
+
+        // Save user session
+        await StorageService.saveCurrentUser(userData);
+
+        // Trigger loyalty program loading
+        _onLoginSuccess?.call(_user!.id);
+
+        notifyListeners();
+        return true;
+      }
+
+      // In production, verify OTP with backend
+      _error = 'Invalid OTP';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Verification failed. Please try again.';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();

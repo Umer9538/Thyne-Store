@@ -259,3 +259,216 @@ type PopupInteractionStats struct {
 	Clicked int `json:"clicked" bson:"clicked"`
 	Closed  int `json:"closed" bson:"closed"`
 }
+
+// Occasion represents shopping occasions (engagement, wedding, etc.)
+type Occasion struct {
+	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	Name        string             `json:"name" bson:"name"`
+	Icon        string             `json:"icon" bson:"icon"` // Emoji or icon name
+	Description string             `json:"description" bson:"description"`
+	ItemCount   int                `json:"itemCount" bson:"itemCount"`
+	Tags        []string           `json:"tags" bson:"tags"` // Product tags for this occasion
+	IsActive    bool               `json:"isActive" bson:"isActive"`
+	Priority    int                `json:"priority" bson:"priority"` // Display order
+	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
+	UpdatedAt   time.Time          `json:"updatedAt" bson:"updatedAt"`
+}
+
+// BudgetRange represents price range categories
+type BudgetRange struct {
+	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	Label       string             `json:"label" bson:"label"`       // "₹0k-10k"
+	MinPrice    float64            `json:"minPrice" bson:"minPrice"` // 0
+	MaxPrice    float64            `json:"maxPrice" bson:"maxPrice"` // 10000
+	ItemCount   int                `json:"itemCount" bson:"itemCount"`
+	IsPopular   bool               `json:"isPopular" bson:"isPopular"`
+	Priority    int                `json:"priority" bson:"priority"` // Display order
+	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
+	UpdatedAt   time.Time          `json:"updatedAt" bson:"updatedAt"`
+}
+
+// Collection represents curated product collections
+type Collection struct {
+	ID          primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
+	Title       string               `json:"title" bson:"title"`
+	Subtitle    string               `json:"subtitle" bson:"subtitle"`
+	Description string               `json:"description" bson:"description"`
+	ImageURLs   []string             `json:"imageUrls" bson:"imageUrls"` // Collection preview images
+	ProductIDs  []primitive.ObjectID `json:"productIds" bson:"productIds"`
+	ItemCount   int                  `json:"itemCount" bson:"itemCount"`
+	Tags        []string             `json:"tags" bson:"tags"`
+	IsActive    bool                 `json:"isActive" bson:"isActive"`
+	IsFeatured  bool                 `json:"isFeatured" bson:"isFeatured"`
+	Priority    int                  `json:"priority" bson:"priority"`
+	CreatedAt   time.Time            `json:"createdAt" bson:"createdAt"`
+	UpdatedAt   time.Time            `json:"updatedAt" bson:"updatedAt"`
+}
+
+// OccasionResponse for API
+type OccasionResponse struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Icon        string   `json:"icon"`
+	Description string   `json:"description"`
+	ItemCount   int      `json:"itemCount"`
+	Tags        []string `json:"tags"`
+	Priority    int      `json:"priority"`
+}
+
+// BudgetRangeResponse for API
+type BudgetRangeResponse struct {
+	ID        string  `json:"id"`
+	Label     string  `json:"label"`
+	MinPrice  float64 `json:"minPrice"`
+	MaxPrice  float64 `json:"maxPrice"`
+	ItemCount int     `json:"itemCount"`
+	IsPopular bool    `json:"isPopular"`
+	Priority  int     `json:"priority"`
+}
+
+// CollectionResponse for API
+type CollectionResponse struct {
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Subtitle    string   `json:"subtitle"`
+	Description string   `json:"description"`
+	ImageURLs   []string `json:"imageUrls"`
+	ItemCount   int      `json:"itemCount"`
+	Tags        []string `json:"tags"`
+	IsFeatured  bool     `json:"isFeatured"`
+	Priority    int      `json:"priority"`
+}
+
+// ToResponse converts Occasion to OccasionResponse
+func (o *Occasion) ToResponse() OccasionResponse {
+	return OccasionResponse{
+		ID:          o.ID.Hex(),
+		Name:        o.Name,
+		Icon:        o.Icon,
+		Description: o.Description,
+		ItemCount:   o.ItemCount,
+		Tags:        o.Tags,
+		Priority:    o.Priority,
+	}
+}
+
+// ToResponse converts BudgetRange to BudgetRangeResponse
+func (b *BudgetRange) ToResponse() BudgetRangeResponse {
+	return BudgetRangeResponse{
+		ID:        b.ID.Hex(),
+		Label:     b.Label,
+		MinPrice:  b.MinPrice,
+		MaxPrice:  b.MaxPrice,
+		ItemCount: b.ItemCount,
+		IsPopular: b.IsPopular,
+		Priority:  b.Priority,
+	}
+}
+
+// ToResponse converts Collection to CollectionResponse
+func (c *Collection) ToResponse() CollectionResponse {
+	return CollectionResponse{
+		ID:          c.ID.Hex(),
+		Title:       c.Title,
+		Subtitle:    c.Subtitle,
+		Description: c.Description,
+		ImageURLs:   c.ImageURLs,
+		ItemCount:   c.ItemCount,
+		Tags:        c.Tags,
+		IsFeatured:  c.IsFeatured,
+		Priority:    c.Priority,
+	}
+}
+
+// StoreSettings represents configurable store settings (GST, shipping, etc.)
+type StoreSettings struct {
+	ID                    primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	// Tax Settings
+	GSTRate               float64            `json:"gstRate" bson:"gstRate"`                           // GST percentage (e.g., 18 for 18%)
+	GSTNumber             string             `json:"gstNumber" bson:"gstNumber"`                       // Store GST number
+	EnableGST             bool               `json:"enableGst" bson:"enableGst"`                       // Enable/disable GST
+	// Shipping Settings
+	FreeShippingThreshold float64            `json:"freeShippingThreshold" bson:"freeShippingThreshold"` // Minimum order for free shipping
+	ShippingCost          float64            `json:"shippingCost" bson:"shippingCost"`                   // Standard shipping cost
+	EnableFreeShipping    bool               `json:"enableFreeShipping" bson:"enableFreeShipping"`       // Enable free shipping above threshold
+	// COD Settings
+	EnableCOD             bool               `json:"enableCod" bson:"enableCod"`                         // Enable Cash on Delivery
+	CODCharge             float64            `json:"codCharge" bson:"codCharge"`                         // Extra charge for COD
+	CODMaxAmount          float64            `json:"codMaxAmount" bson:"codMaxAmount"`                   // Maximum order value for COD
+	// Store Info
+	StoreName             string             `json:"storeName" bson:"storeName"`
+	StoreEmail            string             `json:"storeEmail" bson:"storeEmail"`
+	StorePhone            string             `json:"storePhone" bson:"storePhone"`
+	StoreAddress          string             `json:"storeAddress" bson:"storeAddress"`
+	Currency              string             `json:"currency" bson:"currency"`                           // INR, USD, etc.
+	CurrencySymbol        string             `json:"currencySymbol" bson:"currencySymbol"`               // ₹, $, etc.
+	// Metadata
+	UpdatedAt             time.Time          `json:"updatedAt" bson:"updatedAt"`
+	UpdatedBy             primitive.ObjectID `json:"updatedBy" bson:"updatedBy"`
+}
+
+// StoreSettingsResponse for API
+type StoreSettingsResponse struct {
+	ID                    string  `json:"id"`
+	GSTRate               float64 `json:"gstRate"`
+	GSTNumber             string  `json:"gstNumber"`
+	EnableGST             bool    `json:"enableGst"`
+	FreeShippingThreshold float64 `json:"freeShippingThreshold"`
+	ShippingCost          float64 `json:"shippingCost"`
+	EnableFreeShipping    bool    `json:"enableFreeShipping"`
+	EnableCOD             bool    `json:"enableCod"`
+	CODCharge             float64 `json:"codCharge"`
+	CODMaxAmount          float64 `json:"codMaxAmount"`
+	StoreName             string  `json:"storeName"`
+	StoreEmail            string  `json:"storeEmail"`
+	StorePhone            string  `json:"storePhone"`
+	StoreAddress          string  `json:"storeAddress"`
+	Currency              string  `json:"currency"`
+	CurrencySymbol        string  `json:"currencySymbol"`
+	UpdatedAt             string  `json:"updatedAt"`
+}
+
+// ToResponse converts StoreSettings to StoreSettingsResponse
+func (s *StoreSettings) ToResponse() StoreSettingsResponse {
+	return StoreSettingsResponse{
+		ID:                    s.ID.Hex(),
+		GSTRate:               s.GSTRate,
+		GSTNumber:             s.GSTNumber,
+		EnableGST:             s.EnableGST,
+		FreeShippingThreshold: s.FreeShippingThreshold,
+		ShippingCost:          s.ShippingCost,
+		EnableFreeShipping:    s.EnableFreeShipping,
+		EnableCOD:             s.EnableCOD,
+		CODCharge:             s.CODCharge,
+		CODMaxAmount:          s.CODMaxAmount,
+		StoreName:             s.StoreName,
+		StoreEmail:            s.StoreEmail,
+		StorePhone:            s.StorePhone,
+		StoreAddress:          s.StoreAddress,
+		Currency:              s.Currency,
+		CurrencySymbol:        s.CurrencySymbol,
+		UpdatedAt:             s.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+// DefaultStoreSettings returns default store settings
+func DefaultStoreSettings() *StoreSettings {
+	return &StoreSettings{
+		GSTRate:               18.0,
+		GSTNumber:             "",
+		EnableGST:             true,
+		FreeShippingThreshold: 1000.0,
+		ShippingCost:          99.0,
+		EnableFreeShipping:    true,
+		EnableCOD:             true,
+		CODCharge:             0.0,
+		CODMaxAmount:          50000.0,
+		StoreName:             "Thyne Jewels",
+		StoreEmail:            "support@thynejewels.com",
+		StorePhone:            "+91 9876543210",
+		StoreAddress:          "Mumbai, India",
+		Currency:              "INR",
+		CurrencySymbol:        "₹",
+		UpdatedAt:             time.Now(),
+	}
+}

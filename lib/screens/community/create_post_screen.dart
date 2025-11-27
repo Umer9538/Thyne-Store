@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 import 'dart:io';
 import '../../providers/community_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import '../../utils/theme.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -19,6 +24,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<String> _tags = [];
   final List<XFile> _selectedImages = [];
   bool _isSubmitting = false;
+  String _uploadStatus = '';
 
   final ImagePicker _picker = ImagePicker();
 
@@ -47,9 +53,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick images: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick images: $e')),
+        );
+      }
     }
   }
 
@@ -68,9 +76,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to capture image: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to capture image: $e')),
+        );
+      }
     }
   }
 
@@ -96,6 +106,48 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
   }
 
+  Future<List<String>> _uploadImages() async {
+    final List<String> uploadedUrls = [];
+
+    for (int i = 0; i < _selectedImages.length; i++) {
+      setState(() {
+        _uploadStatus = 'Uploading image ${i + 1} of ${_selectedImages.length}...';
+      });
+
+      try {
+        final image = _selectedImages[i];
+        final bytes = await image.readAsBytes();
+        final fileName = image.name;
+
+        Map<String, dynamic> response;
+
+        if (kIsWeb) {
+          // For web, use base64 encoding
+          final base64Image = base64Encode(bytes);
+          response = await ApiService.uploadCommunityImageBase64(base64Image, fileName);
+        } else {
+          // For mobile, use multipart upload
+          response = await ApiService.uploadCommunityImage(bytes, fileName);
+        }
+
+        if (response['success'] == true && response['data'] != null) {
+          final url = response['data']['url'] ?? response['data']['imageUrl'];
+          if (url != null) {
+            uploadedUrls.add(url);
+          }
+        } else {
+          // If upload fails, use a placeholder URL for now
+          // TODO: Remove this when backend image upload is implemented
+          debugPrint('Upload failed for $fileName, upload endpoint may not exist yet');
+        }
+      } catch (e) {
+        debugPrint('Error uploading image: $e');
+      }
+    }
+
+    return uploadedUrls;
+  }
+
   Future<void> _submitPost() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -108,21 +160,50 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
+    // Check if user is authenticated
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in to create a post'),
+            duration: Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
+      _uploadStatus = 'Preparing...';
     });
 
     try {
       final provider = Provider.of<CommunityProvider>(context, listen: false);
 
-      // TODO: Upload images to storage and get URLs
-      // For now, we'll use placeholder URLs
-      final List<String> imageUrls = [];
-      // In production, you would upload images here:
-      // for (var image in _selectedImages) {
-      //   String url = await uploadImage(image);
-      //   imageUrls.add(url);
-      // }
+      // Upload images first
+      List<String> imageUrls = [];
+      if (_selectedImages.isNotEmpty) {
+        imageUrls = await _uploadImages();
+
+        // If some images failed to upload, show warning
+        if (imageUrls.length < _selectedImages.length) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${_selectedImages.length - imageUrls.length} images failed to upload'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      }
+
+      setState(() {
+        _uploadStatus = 'Creating post...';
+      });
 
       final success = await provider.createPost(
         content: _contentController.text.trim(),
@@ -134,11 +215,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (success) {
           Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Post created successfully!')),
+            const SnackBar(
+              content: Text('Post created successfully!'),
+              backgroundColor: Colors.green,
+            ),
           );
         } else {
+          // Show actual error from provider if available
+          final errorMessage = provider.error ?? 'Failed to create post. Please make sure you are logged in.';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to create post')),
+            SnackBar(
+              content: Text(errorMessage),
+              duration: const Duration(seconds: 4),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -152,6 +242,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
+          _uploadStatus = '';
         });
       }
     }
@@ -159,18 +250,30 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: const Text('Create Post'),
         actions: [
           if (_isSubmitting)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    if (_uploadStatus.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        _uploadStatus,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             )
@@ -233,29 +336,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            image: DecorationImage(
-                              image: FileImage(File(_selectedImages[index].path)),
-                              fit: BoxFit.cover,
-                            ),
+                            color: Colors.grey[200],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: _buildImagePreview(_selectedImages[index]),
                           ),
                         ),
                         Positioned(
                           top: 4,
                           right: 12,
-                          child: GestureDetector(
-                            onTap: () => _removeImage(index),
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
+                          child: GlassIconButton(
+                            icon: Icons.close,
+                            onPressed: () => _removeImage(index),
+                            size: 28,
+                            tintColor: AppTheme.errorRed,
                           ),
                         ),
                       ],
@@ -270,18 +365,38 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: GlassButton(
+                    text: '',
                     onPressed: _selectedImages.length < 10 ? _pickImages : null,
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Gallery'),
+                    enabled: _selectedImages.length < 10,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    blur: GlassConfig.softBlur,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.photo_library, size: 20),
+                        SizedBox(width: 8),
+                        Text('Gallery'),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: GlassButton(
+                    text: '',
                     onPressed: _selectedImages.length < 10 ? _pickCamera : null,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Camera'),
+                    enabled: _selectedImages.length < 10,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    blur: GlassConfig.softBlur,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt, size: 20),
+                        SizedBox(width: 8),
+                        Text('Camera'),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -326,13 +441,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
+                GlassIconButton(
+                  icon: Icons.add,
                   onPressed: _addTag,
-                  icon: const Icon(Icons.add),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppTheme.primaryGold,
-                    foregroundColor: Colors.white,
-                  ),
+                  size: 40,
+                  tintColor: AppTheme.primaryGold,
                 ),
               ],
             ),
@@ -343,14 +456,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: _tags.map((tag) {
-                  return Chip(
-                    label: Text('#$tag'),
-                    deleteIcon: const Icon(Icons.close, size: 16),
-                    onDeleted: () => _removeTag(tag),
-                    backgroundColor: AppTheme.primaryGold.withOpacity(0.1),
-                    labelStyle: const TextStyle(
-                      color: AppTheme.primaryGold,
-                      fontWeight: FontWeight.w500,
+                  return GlassContainer(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    blur: GlassConfig.softBlur,
+                    borderRadius: BorderRadius.circular(16),
+                    tintColor: AppTheme.primaryGold,
+                    showGlow: true,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '#$tag',
+                          style: const TextStyle(
+                            color: AppTheme.primaryGold,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => _removeTag(tag),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: AppTheme.primaryGold,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
@@ -362,29 +494,45 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             // Submit button
             SizedBox(
               height: 50,
-              child: ElevatedButton(
+              child: GlassPrimaryButton(
+                text: 'CREATE POST',
                 onPressed: _isSubmitting ? null : _submitPost,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Text(
-                        'CREATE POST',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                enabled: !_isSubmitting,
+                isLoading: _isSubmitting,
+                width: double.infinity,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildImagePreview(XFile image) {
+    if (kIsWeb) {
+      // For web, use FutureBuilder to load bytes
+      return FutureBuilder<List<int>>(
+        future: image.readAsBytes(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Image.memory(
+              snapshot.data! as dynamic,
+              fit: BoxFit.cover,
+              width: 120,
+              height: 120,
+            );
+          }
+          return const Center(child: CircularProgressIndicator());
+        },
+      );
+    } else {
+      // For mobile, use File
+      return Image.file(
+        File(image.path),
+        fit: BoxFit.cover,
+        width: 120,
+        height: 120,
+      );
+    }
   }
 }

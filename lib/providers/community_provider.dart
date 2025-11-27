@@ -14,13 +14,54 @@ class CommunityProvider with ChangeNotifier {
   final Map<String, PostEngagement> _engagementCache = {};
   final Map<String, List<PostComment>> _commentsCache = {};
 
+  // Track liked posts
+  final Set<String> _likedPosts = {};
+
+  // Track saved/bookmarked posts
+  final Set<String> _savedPosts = {};
+
   List<CommunityPost> get posts => _posts;
+  Set<String> get savedPosts => _savedPosts;
   bool get isLoading => _isLoading;
   String? get error => _error;
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   String get sortBy => _sortBy;
   bool get hasMore => _currentPage < _totalPages;
+
+  // Load more posts (pagination)
+  Future<void> loadMore() async {
+    if (!hasMore || _isLoading) return;
+    await fetchFeed();
+  }
+
+  // Get cached engagement for a post
+  PostEngagement? getEngagement(String postId) {
+    return _engagementCache[postId];
+  }
+
+  // Check if user has liked a post
+  bool hasLikedPost(String postId) {
+    return _likedPosts.contains(postId);
+  }
+
+  // Check if user has saved a post
+  bool hasSavedPost(String postId) {
+    return _savedPosts.contains(postId);
+  }
+
+  // Toggle save/bookmark a post (local only for now)
+  Future<void> toggleSave(String postId) async {
+    if (_savedPosts.contains(postId)) {
+      _savedPosts.remove(postId);
+    } else {
+      _savedPosts.add(postId);
+    }
+    notifyListeners();
+  }
+
+  // Alias for toggleLike for consistency
+  Future<void> likePost(String postId) => toggleLike(postId);
 
   // Fetch community feed
   Future<void> fetchFeed({bool refresh = false}) async {
@@ -77,6 +118,9 @@ class CommunityProvider with ChangeNotifier {
     List<String>? tags,
   }) async {
     try {
+      debugPrint('Creating post with content: ${content.substring(0, content.length > 50 ? 50 : content.length)}...');
+      debugPrint('Images: ${images?.length ?? 0}, Videos: ${videos?.length ?? 0}, Tags: ${tags?.length ?? 0}');
+
       final response = await ApiService.createCommunityPost(
         content: content,
         images: images,
@@ -84,14 +128,22 @@ class CommunityProvider with ChangeNotifier {
         tags: tags,
       );
 
+      debugPrint('Create post response: $response');
+
       if (response['success'] == true) {
         // Refresh feed to show new post
         await fetchFeed(refresh: true);
         return true;
       }
+
+      // Set error from response if available
+      _error = response['error']?.toString() ?? 'Failed to create post';
+      debugPrint('Create post failed: $_error');
+      notifyListeners();
       return false;
     } catch (e) {
       _error = e.toString();
+      debugPrint('Create post error: $e');
       notifyListeners();
       return false;
     }
@@ -104,6 +156,13 @@ class CommunityProvider with ChangeNotifier {
 
       if (response['success'] == true) {
         final liked = response['liked'] ?? false;
+
+        // Update liked posts set
+        if (liked) {
+          _likedPosts.add(postId);
+        } else {
+          _likedPosts.remove(postId);
+        }
 
         // Update post in list
         final index = _posts.indexWhere((p) => p.id == postId);

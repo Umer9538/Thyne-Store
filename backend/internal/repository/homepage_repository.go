@@ -31,6 +31,7 @@ type HomepageRepository interface {
 	GetActiveFlashSales(ctx context.Context) ([]models.FlashSale, error)
 	GetFlashSaleByID(ctx context.Context, saleID primitive.ObjectID) (*models.FlashSale, error)
 	UpdateFlashSale(ctx context.Context, sale *models.FlashSale) error
+	DeleteFlashSale(ctx context.Context, saleID string) error
 	GetAllFlashSales(ctx context.Context) ([]models.FlashSale, error)
 
 	// Brands
@@ -46,11 +47,12 @@ type HomepageRepository interface {
 	GetRecentlyViewed(ctx context.Context, userID *primitive.ObjectID, sessionID *string, limit int) ([]primitive.ObjectID, error)
 
 	// 360° Showcase
-	CreateShowcase360(ctx context.Context, showcase *models.Showcase360) error
-	GetActiveShowcases360(ctx context.Context) ([]models.Showcase360, error)
-	GetShowcase360ByID(ctx context.Context, showcaseID primitive.ObjectID) (*models.Showcase360, error)
-	UpdateShowcase360(ctx context.Context, showcase *models.Showcase360) error
-	DeleteShowcase360(ctx context.Context, showcaseID primitive.ObjectID) error
+	CreateShowcase(ctx context.Context, showcase *models.Showcase360) error
+	GetActiveShowcases(ctx context.Context) ([]models.Showcase360, error)
+	GetAllShowcases(ctx context.Context) ([]models.Showcase360, error)
+	GetShowcaseByID(ctx context.Context, showcaseID primitive.ObjectID) (*models.Showcase360, error)
+	UpdateShowcase(ctx context.Context, showcase *models.Showcase360) error
+	DeleteShowcase(ctx context.Context, showcaseID primitive.ObjectID) error
 
 	// Bundle Deals
 	CreateBundleDeal(ctx context.Context, bundle *models.BundleDeal) error

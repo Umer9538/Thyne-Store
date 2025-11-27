@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../../services/api_service.dart';
 import '../../../models/invoice.dart';
 import '../../../utils/theme.dart';
+
+// Conditional imports for platform-specific code
+import '../../../services/csv_export_stub.dart'
+    if (dart.library.io) '../../../services/csv_export_io.dart'
+    if (dart.library.html) '../../../services/csv_export_web.dart' as csvExport;
 
 class InvoiceManagementScreen extends StatefulWidget {
   const InvoiceManagementScreen({super.key});
@@ -63,17 +66,12 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
       );
 
       if (response.statusCode == 200) {
-        // Get the downloads directory
-        final directory = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
         final fileName = 'invoices_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
-        final file = File('${directory.path}/$fileName');
-
-        // Write the CSV data
-        await file.writeAsBytes(response.bodyBytes);
+        final result = await csvExport.saveFile(response.bodyBytes, fileName, 'text/csv');
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('CSV exported to ${file.path}')),
+            SnackBar(content: Text(result)),
           );
         }
       } else {

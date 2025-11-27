@@ -371,6 +371,24 @@ func (r *homepageRepository) GetAllFlashSales(ctx context.Context) ([]models.Fla
 	return sales, nil
 }
 
+func (r *homepageRepository) DeleteFlashSale(ctx context.Context, saleID string) error {
+	objectID, err := primitive.ObjectIDFromHex(saleID)
+	if err != nil {
+		return fmt.Errorf("invalid flash sale ID: %w", err)
+	}
+
+	result, err := r.flashSaleCollection.DeleteOne(ctx, bson.M{"_id": objectID})
+	if err != nil {
+		return fmt.Errorf("failed to delete flash sale: %w", err)
+	}
+
+	if result.DeletedCount == 0 {
+		return fmt.Errorf("flash sale not found")
+	}
+
+	return nil
+}
+
 // Brands
 
 func (r *homepageRepository) CreateBrand(ctx context.Context, brand *models.Brand) error {
@@ -529,7 +547,7 @@ func (r *homepageRepository) GetRecentlyViewed(ctx context.Context, userID *prim
 
 // 360° Showcase
 
-func (r *homepageRepository) CreateShowcase360(ctx context.Context, showcase *models.Showcase360) error {
+func (r *homepageRepository) CreateShowcase(ctx context.Context, showcase *models.Showcase360) error {
 	showcase.ID = primitive.NewObjectID()
 	showcase.CreatedAt = time.Now()
 	showcase.UpdatedAt = time.Now()
@@ -542,10 +560,10 @@ func (r *homepageRepository) CreateShowcase360(ctx context.Context, showcase *mo
 	return nil
 }
 
-func (r *homepageRepository) GetActiveShowcases360(ctx context.Context) ([]models.Showcase360, error) {
+func (r *homepageRepository) GetActiveShowcases(ctx context.Context) ([]models.Showcase360, error) {
 	filter := bson.M{"isActive": true}
 
-	opts := options.Find().SetSort(bson.D{{Key: "priority", Value: 1}})
+	opts := options.Find().SetSort(bson.D{{Key: "priority", Value: -1}})
 	cursor, err := r.showcase360Collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active showcases: %w", err)
@@ -568,7 +586,23 @@ func (r *homepageRepository) GetActiveShowcases360(ctx context.Context) ([]model
 	return activeShowcases, nil
 }
 
-func (r *homepageRepository) GetShowcase360ByID(ctx context.Context, showcaseID primitive.ObjectID) (*models.Showcase360, error) {
+func (r *homepageRepository) GetAllShowcases(ctx context.Context) ([]models.Showcase360, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}})
+	cursor, err := r.showcase360Collection.Find(ctx, bson.M{}, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all showcases: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var showcases []models.Showcase360
+	if err := cursor.All(ctx, &showcases); err != nil {
+		return nil, fmt.Errorf("failed to decode showcases: %w", err)
+	}
+
+	return showcases, nil
+}
+
+func (r *homepageRepository) GetShowcaseByID(ctx context.Context, showcaseID primitive.ObjectID) (*models.Showcase360, error) {
 	var showcase models.Showcase360
 	err := r.showcase360Collection.FindOne(ctx, bson.M{"_id": showcaseID}).Decode(&showcase)
 
@@ -583,7 +617,7 @@ func (r *homepageRepository) GetShowcase360ByID(ctx context.Context, showcaseID 
 	return &showcase, nil
 }
 
-func (r *homepageRepository) UpdateShowcase360(ctx context.Context, showcase *models.Showcase360) error {
+func (r *homepageRepository) UpdateShowcase(ctx context.Context, showcase *models.Showcase360) error {
 	showcase.UpdatedAt = time.Now()
 
 	filter := bson.M{"_id": showcase.ID}
@@ -597,7 +631,7 @@ func (r *homepageRepository) UpdateShowcase360(ctx context.Context, showcase *mo
 	return nil
 }
 
-func (r *homepageRepository) DeleteShowcase360(ctx context.Context, showcaseID primitive.ObjectID) error {
+func (r *homepageRepository) DeleteShowcase(ctx context.Context, showcaseID primitive.ObjectID) error {
 	_, err := r.showcase360Collection.DeleteOne(ctx, bson.M{"_id": showcaseID})
 	if err != nil {
 		return fmt.Errorf("failed to delete showcase: %w", err)

@@ -52,11 +52,25 @@ class _CreateShowcaseFormState extends State<CreateShowcaseForm> {
   Future<void> _loadProducts() async {
     setState(() => _loadingProducts = true);
     try {
-      final response = await ApiService.getProducts();
+      final response = await ApiService.getProducts(limit: 100);
       if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        List<dynamic> productsList;
+
+        // Handle different response formats
+        if (data is List) {
+          productsList = data;
+        } else if (data is Map && data['products'] != null) {
+          productsList = data['products'] as List;
+        } else if (data is Map && data['items'] != null) {
+          productsList = data['items'] as List;
+        } else {
+          productsList = [];
+        }
+
         setState(() {
-          _availableProducts = (response['data'] as List)
-              .map((json) => Product.fromJson(json))
+          _availableProducts = productsList
+              .map((json) => Product.fromJson(json as Map<String, dynamic>))
               .toList();
         });
       }
@@ -95,33 +109,42 @@ class _CreateShowcaseFormState extends State<CreateShowcaseForm> {
     setState(() => _loading = true);
 
     try {
-      final showcaseData = {
-        'productId': _selectedProduct!.id,
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'images360': images360,
-        'videoUrl': _videoUrlController.text.trim(),
-        'thumbnailUrl': _thumbnailUrlController.text.trim(),
-        'priority': _priority,
-        'isActive': true,
-      };
-
-      // TODO: Add API call when backend endpoint is ready
-      // final response = await ApiService.createShowcase360(showcaseData);
+      final response = await ApiService.createShowcase360(
+        productId: _selectedProduct!.id,
+        title: _titleController.text,
+        description: _descriptionController.text,
+        images: images360,
+        videoUrl: _videoUrlController.text.trim().isNotEmpty
+            ? _videoUrlController.text.trim()
+            : null,
+        priority: _priority,
+      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('360° Showcase created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('360° Showcase created successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${response['error'] ?? 'Failed to create showcase'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating showcase: $e')),
+          SnackBar(
+            content: Text('Error creating showcase: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

@@ -193,15 +193,15 @@ func (h *HomepageHandler) CreateDealOfDay(c *gin.Context) {
 	})
 }
 
-// GetActiveDealOfDay returns the current active deal
+// GetActiveDealOfDay returns the current active deal with product details
 // @Summary Get active deal of day
-// @Description Get currently active deal of the day
+// @Description Get currently active deal of the day with full product details
 // @Tags homepage
 // @Produce json
-// @Success 200 {object} models.DealOfDay
+// @Success 200 {object} models.DealOfDayWithProduct
 // @Router /homepage/deal-of-day [get]
 func (h *HomepageHandler) GetActiveDealOfDay(c *gin.Context) {
-	deal, err := h.homepageService.GetActiveDealOfDay(c.Request.Context())
+	deal, err := h.homepageService.GetActiveDealOfDayWithProduct(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -285,15 +285,15 @@ func (h *HomepageHandler) CreateFlashSale(c *gin.Context) {
 	})
 }
 
-// GetActiveFlashSales returns all active flash sales
+// GetActiveFlashSales returns all active flash sales with full product details
 // @Summary Get active flash sales
-// @Description Get all currently active flash sales
+// @Description Get all currently active flash sales with products and discounted prices
 // @Tags homepage
 // @Produce json
-// @Success 200 {array} models.FlashSale
+// @Success 200 {array} models.FlashSaleWithProducts
 // @Router /homepage/flash-sales [get]
 func (h *HomepageHandler) GetActiveFlashSales(c *gin.Context) {
-	sales, err := h.homepageService.GetActiveFlashSales(c.Request.Context())
+	sales, err := h.homepageService.GetActiveFlashSalesWithProducts(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -323,6 +323,115 @@ func (h *HomepageHandler) GetAllFlashSales(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    sales,
+	})
+}
+
+// UpdateFlashSaleRequest defines the request body for updating a flash sale
+type UpdateFlashSaleRequest struct {
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	BannerImage string    `json:"bannerImage"`
+	ProductIDs  []string  `json:"productIds"`
+	StartTime   time.Time `json:"startTime"`
+	EndTime     time.Time `json:"endTime"`
+	Discount    int       `json:"discount"`
+	IsActive    *bool     `json:"isActive"`
+}
+
+// UpdateFlashSale updates an existing flash sale
+// @Summary Update flash sale
+// @Description Update an existing flash sale (Admin only)
+// @Tags admin-homepage
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Flash Sale ID"
+// @Param request body UpdateFlashSaleRequest true "Flash sale update request"
+// @Success 200 {object} map[string]interface{}
+// @Router /admin/homepage/flash-sale/{id} [put]
+func (h *HomepageHandler) UpdateFlashSale(c *gin.Context) {
+	saleID := c.Param("id")
+	if saleID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Flash sale ID is required"})
+		return
+	}
+
+	var req UpdateFlashSaleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Convert sale ID to ObjectID
+	objectID, err := primitive.ObjectIDFromHex(saleID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid flash sale ID"})
+		return
+	}
+
+	// Convert product IDs
+	var productIDs []primitive.ObjectID
+	for _, idStr := range req.ProductIDs {
+		id, err := primitive.ObjectIDFromHex(idStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID: " + idStr})
+			return
+		}
+		productIDs = append(productIDs, id)
+	}
+
+	sale := &models.FlashSale{
+		ID:          objectID,
+		Title:       req.Title,
+		Description: req.Description,
+		BannerImage: req.BannerImage,
+		ProductIDs:  productIDs,
+		StartTime:   req.StartTime,
+		EndTime:     req.EndTime,
+		Discount:    req.Discount,
+	}
+
+	if req.IsActive != nil {
+		sale.IsActive = *req.IsActive
+	}
+
+	err = h.homepageService.UpdateFlashSale(c.Request.Context(), sale)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Flash sale updated successfully",
+		"data":    sale,
+	})
+}
+
+// DeleteFlashSale deletes a flash sale
+// @Summary Delete flash sale
+// @Description Delete an existing flash sale (Admin only)
+// @Tags admin-homepage
+// @Security BearerAuth
+// @Param id path string true "Flash Sale ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /admin/homepage/flash-sale/{id} [delete]
+func (h *HomepageHandler) DeleteFlashSale(c *gin.Context) {
+	saleID := c.Param("id")
+	if saleID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Flash sale ID is required"})
+		return
+	}
+
+	err := h.homepageService.DeleteFlashSale(c.Request.Context(), saleID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Flash sale deleted successfully",
 	})
 }
 
@@ -534,5 +643,426 @@ func (h *HomepageHandler) UpdateHomepageLayout(c *gin.Context) {
 		"success": true,
 		"message": "Homepage layout updated successfully",
 		"data":    layout,
+	})
+}
+
+// ==================== 360° Showcase Handlers ====================
+
+// GetActiveShowcases returns all active 360° showcases for public display
+func (h *HomepageHandler) GetActiveShowcases(c *gin.Context) {
+	showcases, err := h.homepageService.GetActiveShowcases(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    showcases,
+	})
+}
+
+// GetAllShowcases returns all 360° showcases for admin
+func (h *HomepageHandler) GetAllShowcases(c *gin.Context) {
+	showcases, err := h.homepageService.GetAllShowcases(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    showcases,
+	})
+}
+
+// CreateShowcase creates a new 360° showcase
+func (h *HomepageHandler) CreateShowcase(c *gin.Context) {
+	var req struct {
+		ProductID    string   `json:"productId" binding:"required"`
+		Title        string   `json:"title" binding:"required"`
+		Description  string   `json:"description"`
+		Images360    []string `json:"images360" binding:"required,min=4"`
+		VideoURL     string   `json:"videoUrl"`
+		ThumbnailURL string   `json:"thumbnailUrl"`
+		Priority     int      `json:"priority"`
+		IsActive     bool     `json:"isActive"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	productID, err := primitive.ObjectIDFromHex(req.ProductID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid product ID",
+		})
+		return
+	}
+
+	showcase := &models.Showcase360{
+		ProductID:    productID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Images360:    req.Images360,
+		VideoURL:     req.VideoURL,
+		ThumbnailURL: req.ThumbnailURL,
+		Priority:     req.Priority,
+		IsActive:     req.IsActive,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	err = h.homepageService.CreateShowcase(c.Request.Context(), showcase)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "360° Showcase created successfully",
+		"data":    showcase,
+	})
+}
+
+// UpdateShowcase updates an existing 360° showcase
+func (h *HomepageHandler) UpdateShowcase(c *gin.Context) {
+	showcaseID := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(showcaseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid showcase ID",
+		})
+		return
+	}
+
+	var req struct {
+		ProductID    string   `json:"productId"`
+		Title        string   `json:"title"`
+		Description  string   `json:"description"`
+		Images360    []string `json:"images360"`
+		VideoURL     string   `json:"videoUrl"`
+		ThumbnailURL string   `json:"thumbnailUrl"`
+		Priority     *int     `json:"priority"`
+		IsActive     *bool    `json:"isActive"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	showcase := &models.Showcase360{
+		ID:           objID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Images360:    req.Images360,
+		VideoURL:     req.VideoURL,
+		ThumbnailURL: req.ThumbnailURL,
+		UpdatedAt:    time.Now(),
+	}
+
+	if req.ProductID != "" {
+		productID, err := primitive.ObjectIDFromHex(req.ProductID)
+		if err == nil {
+			showcase.ProductID = productID
+		}
+	}
+
+	if req.Priority != nil {
+		showcase.Priority = *req.Priority
+	}
+
+	if req.IsActive != nil {
+		showcase.IsActive = *req.IsActive
+	}
+
+	err = h.homepageService.UpdateShowcase(c.Request.Context(), showcase)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "360° Showcase updated successfully",
+		"data":    showcase,
+	})
+}
+
+// DeleteShowcase deletes a 360° showcase
+func (h *HomepageHandler) DeleteShowcase(c *gin.Context) {
+	showcaseID := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(showcaseID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid showcase ID",
+		})
+		return
+	}
+
+	err = h.homepageService.DeleteShowcase(c.Request.Context(), objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "360° Showcase deleted successfully",
+	})
+}
+
+// ==================== Bundle Deals Handlers ====================
+
+// GetActiveBundleDeals returns all active bundle deals for public display
+func (h *HomepageHandler) GetActiveBundleDeals(c *gin.Context) {
+	bundles, err := h.homepageService.GetActiveBundleDeals(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    bundles,
+	})
+}
+
+// GetAllBundleDeals returns all bundle deals for admin
+func (h *HomepageHandler) GetAllBundleDeals(c *gin.Context) {
+	bundles, err := h.homepageService.GetActiveBundleDeals(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    bundles,
+	})
+}
+
+// CreateBundleDeal creates a new bundle deal
+func (h *HomepageHandler) CreateBundleDeal(c *gin.Context) {
+	var req struct {
+		Title       string `json:"title" binding:"required"`
+		Description string `json:"description"`
+		Items       []struct {
+			ProductID string `json:"productId" binding:"required"`
+			Quantity  int    `json:"quantity" binding:"required,min=1"`
+		} `json:"items" binding:"required,min=1"`
+		BundlePrice float64    `json:"bundlePrice" binding:"required"`
+		Stock       int        `json:"stock" binding:"required,min=1"`
+		StartTime   *time.Time `json:"startTime"`
+		EndTime     *time.Time `json:"endTime"`
+		BannerImage string     `json:"bannerImage"`
+		Priority    int        `json:"priority"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	// Convert items
+	var items []models.BundleItem
+	for _, item := range req.Items {
+		productID, err := primitive.ObjectIDFromHex(item.ProductID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "Invalid product ID: " + item.ProductID,
+			})
+			return
+		}
+		items = append(items, models.BundleItem{
+			ProductID: productID,
+			Quantity:  item.Quantity,
+		})
+	}
+
+	bundle := &models.BundleDeal{
+		Title:       req.Title,
+		Description: req.Description,
+		Items:       items,
+		BundlePrice: req.BundlePrice,
+		Stock:       req.Stock,
+		StartTime:   req.StartTime,
+		EndTime:     req.EndTime,
+		BannerImage: req.BannerImage,
+		Priority:    req.Priority,
+		IsActive:    true,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	err := h.homepageService.CreateBundleDeal(c.Request.Context(), bundle)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Bundle Deal created successfully",
+		"data":    bundle,
+	})
+}
+
+// UpdateBundleDeal updates an existing bundle deal
+func (h *HomepageHandler) UpdateBundleDeal(c *gin.Context) {
+	bundleID := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(bundleID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid bundle ID",
+		})
+		return
+	}
+
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Items       []struct {
+			ProductID string `json:"productId"`
+			Quantity  int    `json:"quantity"`
+		} `json:"items"`
+		BundlePrice float64    `json:"bundlePrice"`
+		Stock       int        `json:"stock"`
+		StartTime   *time.Time `json:"startTime"`
+		EndTime     *time.Time `json:"endTime"`
+		BannerImage string     `json:"bannerImage"`
+		Priority    *int       `json:"priority"`
+		IsActive    *bool      `json:"isActive"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	bundle := &models.BundleDeal{
+		ID:          objID,
+		Title:       req.Title,
+		Description: req.Description,
+		BundlePrice: req.BundlePrice,
+		Stock:       req.Stock,
+		BannerImage: req.BannerImage,
+		UpdatedAt:   time.Now(),
+	}
+
+	// Convert items if provided
+	if len(req.Items) > 0 {
+		var items []models.BundleItem
+		for _, item := range req.Items {
+			productID, err := primitive.ObjectIDFromHex(item.ProductID)
+			if err != nil {
+				continue
+			}
+			items = append(items, models.BundleItem{
+				ProductID: productID,
+				Quantity:  item.Quantity,
+			})
+		}
+		bundle.Items = items
+	}
+
+	if req.StartTime != nil {
+		bundle.StartTime = req.StartTime
+	}
+	if req.EndTime != nil {
+		bundle.EndTime = req.EndTime
+	}
+	if req.Priority != nil {
+		bundle.Priority = *req.Priority
+	}
+	if req.IsActive != nil {
+		bundle.IsActive = *req.IsActive
+	}
+
+	err = h.homepageService.UpdateBundleDeal(c.Request.Context(), bundle)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Bundle Deal updated successfully",
+		"data":    bundle,
+	})
+}
+
+// DeleteBundleDeal deletes a bundle deal
+func (h *HomepageHandler) DeleteBundleDeal(c *gin.Context) {
+	bundleID := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(bundleID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Invalid bundle ID",
+		})
+		return
+	}
+
+	err = h.homepageService.DeleteBundleDeal(c.Request.Context(), objID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Bundle Deal deleted successfully",
 	})
 }

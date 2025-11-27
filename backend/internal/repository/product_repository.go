@@ -79,6 +79,9 @@ func (r *productRepository) GetAll(ctx context.Context, filter models.ProductFil
 	if len(filter.Tags) > 0 {
 		mongoFilter["tags"] = bson.M{"$in": filter.Tags}
 	}
+	if len(filter.Gender) > 0 {
+		mongoFilter["gender"] = bson.M{"$in": filter.Gender}
+	}
 	if filter.Search != "" {
 		mongoFilter["$text"] = bson.M{"$search": filter.Search}
 	}

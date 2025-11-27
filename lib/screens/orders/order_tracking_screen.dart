@@ -505,10 +505,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
       switch (action) {
         case 'invoice':
-          final file = await PdfService.savePdfToFile(pdfData, 'invoice_${widget.order.id}.pdf');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Invoice saved to ${file.path}')),
-          );
+          final result = await PdfService.savePdfToFile(pdfData, 'invoice_${widget.order.id}.pdf');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(result)),
+            );
+          }
           break;
         case 'share':
           await PdfService.sharePdf(pdfData, 'invoice_${widget.order.id}.pdf');

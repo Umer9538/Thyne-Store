@@ -24,17 +24,27 @@ class _Showcases360ScreenState extends State<Showcases360Screen> {
     setState(() => _loading = true);
 
     try {
-      final response = await ApiService.getHomepage();
+      // Use admin endpoint to get all showcases (including inactive)
+      final response = await ApiService.getAllShowcases();
       if (response['success'] == true && response['data'] != null) {
-        final homepage = response['data'] as Map<String, dynamic>;
-        if (homepage['showcases360'] != null) {
-          _showcases = (homepage['showcases360'] as List)
-              .map((s) => Showcase360.fromJson(s))
-              .toList();
-        }
+        _showcases = (response['data'] as List)
+            .map((s) => Showcase360.fromJson(s))
+            .toList();
       }
     } catch (e) {
       print('Error loading showcases: $e');
+      // Fallback to homepage endpoint
+      try {
+        final response = await ApiService.getHomepage();
+        if (response['success'] == true && response['data'] != null) {
+          final homepage = response['data'] as Map<String, dynamic>;
+          if (homepage['showcases360'] != null) {
+            _showcases = (homepage['showcases360'] as List)
+                .map((s) => Showcase360.fromJson(s))
+                .toList();
+          }
+        }
+      } catch (_) {}
     }
 
     setState(() => _loading = false);
@@ -231,18 +241,55 @@ class _Showcases360ScreenState extends State<Showcases360Screen> {
     }
   }
 
-  void _editShowcase(Showcase360 showcase) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit ${showcase.title} - Coming Soon')),
-    );
-  }
-
-  void _toggleShowcase(Showcase360 showcase) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${showcase.title} ${showcase.isActive ? "deactivated" : "activated"}'),
+  void _editShowcase(Showcase360 showcase) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditShowcaseForm(showcase: showcase),
       ),
     );
+    if (result == true && mounted) {
+      _loadShowcases();
+    }
+  }
+
+  void _toggleShowcase(Showcase360 showcase) async {
+    try {
+      final response = await ApiService.updateShowcase360(
+        id: showcase.id,
+        productId: showcase.productId,
+        title: showcase.title,
+        description: showcase.description,
+        images: showcase.images360,
+        videoUrl: showcase.videoUrl,
+        priority: showcase.priority,
+        isActive: !showcase.isActive,
+      );
+
+      if (response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${showcase.title} ${showcase.isActive ? "deactivated" : "activated"}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadShowcases();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${response['error'] ?? 'Failed to update'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _deleteShowcase(Showcase360 showcase) async {
@@ -266,10 +313,390 @@ class _Showcases360ScreenState extends State<Showcases360Screen> {
     );
 
     if (confirm == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${showcase.title} deleted')),
-      );
-      _loadShowcases();
+      try {
+        final response = await ApiService.deleteShowcase360(showcase.id);
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${showcase.title} deleted'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadShowcases();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${response['error'] ?? 'Failed to delete'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+}
+
+// Edit Showcase Form
+class EditShowcaseForm extends StatefulWidget {
+  final Showcase360 showcase;
+
+  const EditShowcaseForm({super.key, required this.showcase});
+
+  @override
+  State<EditShowcaseForm> createState() => _EditShowcaseFormState();
+}
+
+class _EditShowcaseFormState extends State<EditShowcaseForm> {
+  final _formKey = GlobalKey<FormState>();
+  bool _loading = false;
+
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _videoUrlController;
+  late List<TextEditingController> _imageControllers;
+  late int _priority;
+  late bool _isActive;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.showcase.title);
+    _descriptionController = TextEditingController(text: widget.showcase.description);
+    _videoUrlController = TextEditingController(text: widget.showcase.videoUrl);
+    _imageControllers = widget.showcase.images360.isNotEmpty
+        ? widget.showcase.images360.map((url) => TextEditingController(text: url)).toList()
+        : [
+            TextEditingController(),
+            TextEditingController(),
+            TextEditingController(),
+            TextEditingController(),
+          ];
+    // Ensure at least 4 image fields
+    while (_imageControllers.length < 4) {
+      _imageControllers.add(TextEditingController());
+    }
+    _priority = widget.showcase.priority;
+    _isActive = widget.showcase.isActive;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _videoUrlController.dispose();
+    for (var controller in _imageControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _saveShowcase() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final images360 = _imageControllers
+        .map((c) => c.text.trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+
+    if (images360.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please provide at least 4 images for 360° rotation')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final response = await ApiService.updateShowcase360(
+        id: widget.showcase.id,
+        productId: widget.showcase.productId,
+        title: _titleController.text,
+        description: _descriptionController.text,
+        images: images360,
+        videoUrl: _videoUrlController.text.trim().isNotEmpty
+            ? _videoUrlController.text.trim()
+            : null,
+        priority: _priority,
+        isActive: _isActive,
+      );
+
+      if (mounted) {
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('360° Showcase updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${response['error'] ?? 'Failed to update showcase'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating showcase: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
+    setState(() => _loading = false);
+  }
+
+  void _addImageField() {
+    setState(() {
+      _imageControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeImageField(int index) {
+    if (_imageControllers.length > 4) {
+      setState(() {
+        _imageControllers[index].dispose();
+        _imageControllers.removeAt(index);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Edit 360° Showcase'),
+        backgroundColor: AppTheme.primaryGold,
+        foregroundColor: Colors.white,
+        actions: [
+          if (_loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: _saveShowcase,
+              tooltip: 'Save',
+            ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Active Toggle
+              SwitchListTile(
+                title: const Text('Active'),
+                subtitle: const Text('Show this showcase on homepage'),
+                value: _isActive,
+                onChanged: (value) => setState(() => _isActive = value),
+                activeColor: AppTheme.primaryGold,
+              ),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Basic Info
+              Text(
+                'Showcase Details',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  hintText: 'e.g., Stunning Diamond Ring 360° View',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.title),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'Describe the showcase',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.description),
+                ),
+                maxLines: 3,
+              ),
+
+              const SizedBox(height: 32),
+
+              // 360° Images
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '360° Images',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addImageField,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Image'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'At least 4 images taken from different angles',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              ...List.generate(_imageControllers.length, (index) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _imageControllers[index],
+                          decoration: InputDecoration(
+                            labelText: 'Image ${index + 1} URL',
+                            hintText: 'https://example.com/image${index + 1}.jpg',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.image),
+                          ),
+                          validator: (value) {
+                            if (index < 4 && (value == null || value.isEmpty)) {
+                              return 'Required';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      if (_imageControllers.length > 4)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _removeImageField(index),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 32),
+
+              // Video
+              Text(
+                'Additional Media',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _videoUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Video URL (Optional)',
+                  hintText: 'https://example.com/video.mp4',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.videocam),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // Priority
+              Text(
+                'Display Priority',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Higher priority showcases appear first',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Slider(
+                      value: _priority.toDouble(),
+                      min: 1,
+                      max: 10,
+                      divisions: 9,
+                      label: _priority.toString(),
+                      activeColor: AppTheme.primaryGold,
+                      onChanged: (value) {
+                        setState(() => _priority = value.toInt());
+                      },
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGold,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _priority.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

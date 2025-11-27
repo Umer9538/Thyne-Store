@@ -7,6 +7,7 @@ import '../../providers/guest_session_provider.dart';
 import '../../utils/theme.dart';
 import '../product/product_detail_screen.dart';
 import '../checkout/checkout_screen.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -30,8 +31,8 @@ class _CartScreenState extends State<CartScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final guestSessionProvider = Provider.of<GuestSessionProvider>(context);
 
-    return Scaffold(
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: const Text('Shopping Cart'),
         actions: [
           if (cartProvider.items.isNotEmpty)
@@ -179,14 +180,41 @@ class _CartScreenState extends State<CartScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
+                      // Use effectivePrice (sale price if available)
                       Text(
-                        '₹${item.product.price.toStringAsFixed(0)}',
+                        '₹${item.effectivePrice.toStringAsFixed(0)}',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryGold,
+                              color: item.hasSalePrice ? Colors.green.shade700 : AppTheme.primaryGold,
                             ),
                       ),
-                      if (item.product.originalPrice != null) ...[
+                      // Show original price if there's a sale price
+                      if (item.hasSalePrice) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '₹${(item.originalPrice ?? item.product.price).toStringAsFixed(0)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                decoration: TextDecoration.lineThrough,
+                                color: AppTheme.textSecondary,
+                              ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${item.discountPercent ?? 0}% OFF',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ] else if (item.product.originalPrice != null) ...[
                         const SizedBox(width: 8),
                         Text(
                           '₹${item.product.originalPrice!.toStringAsFixed(0)}',
@@ -265,6 +293,8 @@ class _CartScreenState extends State<CartScreen> {
             IconButton(
               icon: const Icon(Icons.delete_outline, color: AppTheme.errorRed),
               onPressed: () {
+                // Store item details before removing for undo
+                final removedItem = item;
                 cartProvider.removeFromCart(item.product.id);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -272,7 +302,13 @@ class _CartScreenState extends State<CartScreen> {
                     action: SnackBarAction(
                       label: 'Undo',
                       onPressed: () {
-                        cartProvider.addToCart(item.product, quantity: item.quantity);
+                        cartProvider.addToCart(
+                          removedItem.product,
+                          quantity: removedItem.quantity,
+                          salePrice: removedItem.salePrice,
+                          originalPrice: removedItem.originalPrice,
+                          discountPercent: removedItem.discountPercent,
+                        );
                       },
                     ),
                   ),

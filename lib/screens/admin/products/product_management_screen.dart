@@ -35,13 +35,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Add Product',
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const AddEditProductScreen(),
                 ),
               );
+              // Refresh if product was added
+              if (result == true && mounted) {
+                Provider.of<ProductProvider>(context, listen: false).loadProducts();
+              }
             },
           ),
         ],
@@ -211,20 +215,27 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             // Product Image
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                product.images.first,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 60,
-                    height: 60,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.image_not_supported),
-                  );
-                },
-              ),
+              child: product.images.isNotEmpty
+                  ? Image.network(
+                      product.images.first,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 60,
+                          height: 60,
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.image_not_supported),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 60,
+                      height: 60,
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.image_not_supported),
+                    ),
             ),
             const SizedBox(width: 12),
             // Product Details
@@ -282,13 +293,17 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit, color: AppTheme.primaryGold),
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => AddEditProductScreen(product: product),
                       ),
                     );
+                    // Refresh if product was updated
+                    if (result == true && mounted) {
+                      Provider.of<ProductProvider>(context, listen: false).loadProducts();
+                    }
                   },
                 ),
                 IconButton(
@@ -306,28 +321,28 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   void _showDeleteDialog(Product product) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Product'),
         content: Text('Are you sure you want to delete "${product.name}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
+              Navigator.pop(dialogContext);
               try {
-                Navigator.pop(context);
                 await ApiService.deleteProduct(productId: product.id);
                 if (mounted) {
+                  // Refresh the products list from provider
+                  await Provider.of<ProductProvider>(context, listen: false).loadProducts();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${product.name} deleted successfully'),
                       backgroundColor: AppTheme.successGreen,
                     ),
                   );
-                  // Refresh the products list
-                  setState(() {});
                 }
               } catch (e) {
                 if (mounted) {

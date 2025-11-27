@@ -165,9 +165,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 16),
               _buildTextField(
                 controller: _descriptionController,
-                label: 'Description',
+                label: 'Description (min 10 characters)',
                 maxLines: 3,
-                validator: (value) => value?.isEmpty == true ? 'Description is required' : null,
+                validator: (value) {
+                  if (value?.isEmpty == true) return 'Description is required';
+                  if (value!.length < 10) return 'Description must be at least 10 characters';
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
@@ -178,10 +182,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     child: DropdownButtonFormField<String>(
                       value: _selectedCategory,
                       decoration: _inputDecoration('Category'),
+                      isExpanded: true,
                       items: ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants']
                           .map((category) => DropdownMenuItem(
                                 value: category,
-                                child: Text(category),
+                                child: Text(category, overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (value) {
@@ -197,10 +202,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     child: DropdownButtonFormField<String>(
                       value: _selectedSubcategory,
                       decoration: _inputDecoration('Subcategory'),
+                      isExpanded: true,
                       items: _getSubcategories(_selectedCategory)
                           .map((subcategory) => DropdownMenuItem(
                                 value: subcategory,
-                                child: Text(subcategory),
+                                child: Text(subcategory, overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (value) {

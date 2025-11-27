@@ -12,11 +12,19 @@ import 'filter_bottom_sheet.dart';
 class ProductListScreen extends StatefulWidget {
   final String? category;
   final bool isEmbedded;
+  final int? minPrice;
+  final int? maxPrice;
+  final String? gender;
+  final String? searchQuery;
 
   const ProductListScreen({
     super.key,
     this.category,
     this.isEmbedded = false,
+    this.minPrice,
+    this.maxPrice,
+    this.gender,
+    this.searchQuery,
   });
 
   @override
@@ -33,8 +41,30 @@ class _ProductListScreenState extends State<ProductListScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
+
+      // Apply search query filter (takes priority)
+      if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
+        productProvider.searchProducts(widget.searchQuery!);
+        return; // Don't apply other filters when searching
+      }
+
+      // Apply category filter
       if (widget.category != null) {
         productProvider.filterByCategory(widget.category!);
+      }
+
+      // Apply gender filter
+      if (widget.gender != null) {
+        setState(() => _selectedGender = widget.gender);
+        productProvider.filterByGender(widget.gender!);
+      }
+
+      // Apply price range filter
+      if (widget.minPrice != null || widget.maxPrice != null) {
+        productProvider.filterByPriceRange(
+          minPrice: widget.minPrice?.toDouble(),
+          maxPrice: widget.maxPrice?.toDouble(),
+        );
       }
     });
   }
@@ -263,9 +293,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
 
     // Otherwise, return with Scaffold and AppBar
+    // Determine title based on context
+    String appBarTitle;
+    if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
+      appBarTitle = 'Results for "${widget.searchQuery}"';
+    } else if (widget.category != null) {
+      appBarTitle = widget.category!;
+    } else {
+      appBarTitle = 'All Products';
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.category ?? 'All Products'),
+        title: Text(appBarTitle),
         actions: [
           IconButton(
             icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),

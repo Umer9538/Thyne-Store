@@ -7,6 +7,7 @@ import '../settings/notification_settings_screen.dart';
 import '../settings/privacy_policy_screen.dart';
 import '../settings/terms_conditions_screen.dart';
 import 'edit_profile_screen.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -16,7 +17,7 @@ class ProfileScreen extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
 
     if (!authProvider.isAuthenticated) {
-      return Scaffold(
+      return GlassScaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -39,7 +40,8 @@ class ProfileScreen extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
+              GlassPrimaryButton(
+                text: 'Login',
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -48,7 +50,6 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('Login'),
               ),
             ],
           ),
@@ -58,8 +59,8 @@ class ProfileScreen extends StatelessWidget {
 
     final user = authProvider.user!;
 
-    return Scaffold(
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: const Text('Profile'),
         automaticallyImplyLeading: false,
       ),
@@ -68,16 +69,17 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           children: [
             // Profile Header
-            Container(
+            GlassContainer(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primaryGold.withOpacity(0.1),
-                    AppTheme.secondaryRoseGold.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
+              blur: GlassConfig.mediumBlur,
+              showGlow: true,
+              tintColor: AppTheme.primaryGold,
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryGold.withOpacity(0.1),
+                  AppTheme.secondaryRoseGold.withOpacity(0.1),
+                ],
               ),
               child: Row(
                 children: [
@@ -126,8 +128,8 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit),
+                  GlassIconButton(
+                    icon: Icons.edit,
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -136,6 +138,8 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       );
                     },
+                    size: 40,
+                    tintColor: AppTheme.primaryGold,
                   ),
                 ],
               ),
@@ -301,40 +305,46 @@ class ProfileScreen extends StatelessWidget {
             // Logout Button
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
+              child: GlassButton(
+                text: '',
                 onPressed: () {
                   showDialog(
                     context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Logout'),
-                      content: const Text('Are you sure you want to logout?'),
+                    builder: (context) => GlassDialog(
+                      title: 'Logout',
+                      message: 'Are you sure you want to logout?',
                       actions: [
-                        TextButton(
+                        GlassButton(
+                          text: 'Cancel',
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
+                          blur: GlassConfig.softBlur,
                         ),
-                        TextButton(
+                        GlassButton(
+                          text: 'Logout',
                           onPressed: () {
                             authProvider.logout();
                             Navigator.pop(context);
                           },
-                          child: const Text(
-                            'Logout',
-                            style: TextStyle(color: AppTheme.errorRed),
-                          ),
+                          tintColor: AppTheme.errorRed,
+                          blur: GlassConfig.mediumBlur,
                         ),
                       ],
                     ),
                   );
                 },
-                icon: const Icon(Icons.logout, color: AppTheme.errorRed),
-                label: const Text(
-                  'Logout',
-                  style: TextStyle(color: AppTheme.errorRed),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.errorRed),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                blur: GlassConfig.softBlur,
+                tintColor: AppTheme.errorRed,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout, color: AppTheme.errorRed),
+                    SizedBox(width: 8),
+                    Text(
+                      'Logout',
+                      style: TextStyle(color: AppTheme.errorRed),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -359,12 +369,10 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         ),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
-          ),
+        GlassCard(
+          padding: EdgeInsets.zero,
+          elevation: 2,
+          blur: GlassConfig.softBlur,
           child: Column(
             children: items,
           ),

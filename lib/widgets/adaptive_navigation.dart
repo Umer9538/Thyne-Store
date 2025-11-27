@@ -5,6 +5,8 @@ import '../providers/cart_provider.dart';
 import '../providers/theme_provider.dart';
 import '../utils/theme.dart';
 import '../utils/responsive.dart';
+import 'glass/glass_ui.dart';
+import 'dart:ui';
 
 /// Adaptive navigation that switches between mobile bottom nav and web sidebar
 class AdaptiveNavigation extends StatelessWidget {
@@ -63,19 +65,32 @@ class _MobileNavigation extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              color: themeProvider.surfaceColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
+          child: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: GlassConfig.strongBlur,
+                sigmaY: GlassConfig.strongBlur,
+                tileMode: TileMode.clamp,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: themeProvider.surfaceColor.withOpacity(0.8),
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 0.5,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: SafeArea(
-              child: BottomNavigationBar(
+                child: SafeArea(
+                  child: BottomNavigationBar(
             currentIndex: currentIndex,
             onTap: onNavigationChanged,
             type: BottomNavigationBarType.fixed,
@@ -145,6 +160,8 @@ class _MobileNavigation extends StatelessWidget {
                 label: 'Profile',
               ),
             ],
+              ),
+            ),
               ),
             ),
           ),

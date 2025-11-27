@@ -132,6 +132,10 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Convert to UTC and format with Z suffix for Go backend
+      final startDateUtc = _startDate.toUtc();
+      final endDateUtc = _endDate?.toUtc();
+
       final bannerData = {
         'title': _titleController.text,
         'description': _descriptionController.text.isEmpty
@@ -142,8 +146,8 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
         'targetUrl': _targetUrlController.text.isEmpty
             ? null
             : _targetUrlController.text,
-        'startDate': _startDate.toIso8601String(),
-        'endDate': _endDate?.toIso8601String(),
+        'startDate': '${startDateUtc.toIso8601String().split('.')[0]}Z',
+        'endDate': endDateUtc != null ? '${endDateUtc.toIso8601String().split('.')[0]}Z' : null,
         'isActive': _isActive,
         'priority': _priority,
         'festivalTag': _selectedFestival,

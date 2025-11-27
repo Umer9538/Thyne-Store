@@ -26,6 +26,7 @@ type Product struct {
 	Rating         float64           `json:"rating" bson:"rating" validate:"min=0,max=5"`
 	ReviewCount    int               `json:"reviewCount" bson:"reviewCount" validate:"min=0"`
 	Tags           []string          `json:"tags" bson:"tags"`
+	Gender         []string          `json:"gender" bson:"gender"` // ["all", "women", "men", "kids", "inclusive"]
 	IsAvailable    bool              `json:"isAvailable" bson:"isAvailable"`
 	IsFeatured     bool              `json:"isFeatured" bson:"isFeatured"`
 	// Customization options
@@ -67,6 +68,7 @@ type CreateProductRequest struct {
 	Size          *string   `json:"size,omitempty"`
 	StockQuantity int       `json:"stockQuantity" validate:"required,min=0"`
 	Tags          []string  `json:"tags"`
+	Gender        []string  `json:"gender"`
 	IsAvailable   bool      `json:"isAvailable"`
 	IsFeatured    bool      `json:"isFeatured"`
 	// Customization options
@@ -92,6 +94,7 @@ type UpdateProductRequest struct {
 	Size          *string   `json:"size,omitempty"`
 	StockQuantity *int      `json:"stockQuantity,omitempty" validate:"omitempty,min=0"`
 	Tags          []string  `json:"tags,omitempty"`
+	Gender        []string  `json:"gender,omitempty"`
 	IsAvailable   *bool     `json:"isAvailable,omitempty"`
 	IsFeatured    *bool     `json:"isFeatured,omitempty"`
 	// Customization options
@@ -122,6 +125,7 @@ type ProductFilter struct {
 	Subcategory string   `json:"subcategory,omitempty"`
 	MetalType  []string `json:"metalType,omitempty"`
 	StoneType  []string `json:"stoneType,omitempty"`
+	Gender     []string `json:"gender,omitempty"` // filter by gender: women, men, kids, inclusive
 	MinPrice   *float64 `json:"minPrice,omitempty"`
 	MaxPrice   *float64 `json:"maxPrice,omitempty"`
 	MinRating  *float64 `json:"minRating,omitempty"`
@@ -150,6 +154,7 @@ type Category struct {
 	Slug        string            `json:"slug" bson:"slug" validate:"required,min=2,max=100"`
 	Description string            `json:"description" bson:"description"`
 	Image       string            `json:"image" bson:"image"`
+	Gender      []string          `json:"gender" bson:"gender"` // ["all", "women", "men", "kids", "inclusive"]
 	IsActive    bool              `json:"isActive" bson:"isActive"`
 	SortOrder   int               `json:"sortOrder" bson:"sortOrder"`
 	CreatedAt   time.Time         `json:"createdAt" bson:"createdAt"`

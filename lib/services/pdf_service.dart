@@ -1,19 +1,39 @@
-import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/order.dart';
 import '../models/user.dart';
 
+// Conditional imports for platform-specific code
+import 'pdf_service_stub.dart'
+    if (dart.library.io) 'pdf_service_io.dart'
+    if (dart.library.html) 'pdf_service_web.dart' as platform;
+
 class PdfService {
+  static pw.Font? _font;
+  static pw.Font? _fontBold;
+
+  // Load Google Fonts that support Unicode (including Rs symbol)
+  static Future<void> _loadFonts() async {
+    if (_font == null) {
+      _font = await PdfGoogleFonts.notoSansRegular();
+      _fontBold = await PdfGoogleFonts.notoSansBold();
+    }
+  }
+
   static Future<Uint8List> generateInvoice(Order order, User user) async {
+    // Load Unicode-compatible fonts
+    await _loadFonts();
+
     final pdf = pw.Document();
 
-    // Load custom font if needed
-    final fontData = await rootBundle.load('assets/fonts/Poppins-Regular.ttf');
-    final ttf = pw.Font.ttf(fontData);
+    // Create text styles with Unicode font
+    final normalStyle = pw.TextStyle(font: _font, fontSize: 10);
+    final boldStyle = pw.TextStyle(font: _fontBold, fontSize: 10, fontWeight: pw.FontWeight.bold);
+    final titleStyle = pw.TextStyle(font: _fontBold, fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.amber900);
+    final subtitleStyle = pw.TextStyle(font: _font, fontSize: 12, color: PdfColors.grey700);
+    final invoiceStyle = pw.TextStyle(font: _fontBold, fontSize: 20, fontWeight: pw.FontWeight.bold);
 
     pdf.addPage(
       pw.Page(
@@ -35,35 +55,16 @@ class PdfService {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text(
-                          'THYNE JEWELS',
-                          style: pw.TextStyle(
-                            fontSize: 24,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.amber900,
-                          ),
-                        ),
-                        pw.Text(
-                          'Demi-Fine Jewelry',
-                          style: const pw.TextStyle(
-                            fontSize: 12,
-                            color: PdfColors.grey700,
-                          ),
-                        ),
+                        pw.Text('THYNE JEWELS', style: titleStyle),
+                        pw.Text('Demi-Fine Jewelry', style: subtitleStyle),
                       ],
                     ),
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Text(
-                          'INVOICE',
-                          style: pw.TextStyle(
-                            fontSize: 20,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
+                        pw.Text('INVOICE', style: invoiceStyle),
                         pw.SizedBox(height: 4),
-                        pw.Text('#${order.id}'),
+                        pw.Text('#${order.id}', style: normalStyle),
                       ],
                     ),
                   ],
@@ -79,23 +80,17 @@ class PdfService {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text(
-                          'Bill To:',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
+                        pw.Text('Bill To:', style: boldStyle),
                         pw.SizedBox(height: 4),
-                        pw.Text(user.name),
-                        pw.Text(user.email),
-                        pw.Text(user.phone),
+                        pw.Text(user.name, style: normalStyle),
+                        pw.Text(user.email, style: normalStyle),
+                        pw.Text(user.phone, style: normalStyle),
                         pw.SizedBox(height: 8),
-                        pw.Text(
-                          'Ship To:',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
+                        pw.Text('Ship To:', style: boldStyle),
                         pw.SizedBox(height: 4),
-                        pw.Text(order.shippingAddress.street),
-                        pw.Text('${order.shippingAddress.city}, ${order.shippingAddress.state}'),
-                        pw.Text('${order.shippingAddress.zipCode}, ${order.shippingAddress.country}'),
+                        pw.Text(order.shippingAddress.street, style: normalStyle),
+                        pw.Text('${order.shippingAddress.city}, ${order.shippingAddress.state}', style: normalStyle),
+                        pw.Text('${order.shippingAddress.zipCode}, ${order.shippingAddress.country}', style: normalStyle),
                       ],
                     ),
                   ),
@@ -103,11 +98,11 @@ class PdfService {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Text('Date: ${_formatDate(order.createdAt)}'),
-                        pw.Text('Status: ${order.status.displayName}'),
+                        pw.Text('Date: ${_formatDate(order.createdAt)}', style: normalStyle),
+                        pw.Text('Status: ${order.status.displayName}', style: normalStyle),
                         if (order.trackingNumber != null)
-                          pw.Text('Tracking: ${order.trackingNumber}'),
-                        pw.Text('Payment: ${order.paymentMethod}'),
+                          pw.Text('Tracking: ${order.trackingNumber}', style: normalStyle),
+                        pw.Text('Payment: ${order.paymentMethod}', style: normalStyle),
                       ],
                     ),
                   ),
@@ -125,19 +120,19 @@ class PdfService {
                       color: PdfColors.grey200,
                     ),
                     children: [
-                      _buildTableCell('Item', isHeader: true),
-                      _buildTableCell('Qty', isHeader: true, align: pw.TextAlign.center),
-                      _buildTableCell('Price', isHeader: true, align: pw.TextAlign.right),
-                      _buildTableCell('Total', isHeader: true, align: pw.TextAlign.right),
+                      _buildTableCell('Item', font: _fontBold, isHeader: true),
+                      _buildTableCell('Qty', font: _fontBold, isHeader: true, align: pw.TextAlign.center),
+                      _buildTableCell('Price', font: _fontBold, isHeader: true, align: pw.TextAlign.right),
+                      _buildTableCell('Total', font: _fontBold, isHeader: true, align: pw.TextAlign.right),
                     ],
                   ),
                   // Item Rows
                   ...order.items.map((item) => pw.TableRow(
                     children: [
-                      _buildTableCell(item.product.name),
-                      _buildTableCell(item.quantity.toString(), align: pw.TextAlign.center),
-                      _buildTableCell('\$${item.product.price.toStringAsFixed(2)}', align: pw.TextAlign.right),
-                      _buildTableCell('\$${(item.product.price * item.quantity).toStringAsFixed(2)}', align: pw.TextAlign.right),
+                      _buildTableCell(item.product.name, font: _font),
+                      _buildTableCell(item.quantity.toString(), font: _font, align: pw.TextAlign.center),
+                      _buildTableCell('Rs.${item.product.price.toStringAsFixed(0)}', font: _font, align: pw.TextAlign.right),
+                      _buildTableCell('Rs.${(item.product.price * item.quantity).toStringAsFixed(0)}', font: _font, align: pw.TextAlign.right),
                     ],
                   )),
                 ],
@@ -151,13 +146,13 @@ class PdfService {
                   width: 250,
                   child: pw.Column(
                     children: [
-                      _buildTotalRow('Subtotal', order.subtotal),
-                      _buildTotalRow('Tax', order.tax),
-                      _buildTotalRow('Shipping', order.shipping),
+                      _buildTotalRow('Subtotal', order.subtotal, font: _font),
+                      _buildTotalRow('Tax (GST)', order.tax, font: _font),
+                      _buildTotalRow('Shipping', order.shipping, font: _font),
                       if (order.discount > 0)
-                        _buildTotalRow('Discount', -order.discount),
+                        _buildTotalRow('Discount', -order.discount, font: _font),
                       pw.Divider(),
-                      _buildTotalRow('Total', order.total, isTotal: true),
+                      _buildTotalRow('Total', order.total, font: _fontBold, isTotal: true),
                     ],
                   ),
                 ),
@@ -176,19 +171,16 @@ class PdfService {
                   children: [
                     pw.Text(
                       'Thank you for your purchase!',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      style: pw.TextStyle(font: _fontBold, fontWeight: pw.FontWeight.bold, fontSize: 14),
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text(
                       'For questions about this invoice, please contact:',
-                      style: const pw.TextStyle(fontSize: 10),
+                      style: pw.TextStyle(font: _font, fontSize: 10),
                     ),
                     pw.Text(
-                      'Email: support@thynejewels.com | Phone: 1-800-THYNE',
-                      style: const pw.TextStyle(fontSize: 10),
+                      'Email: support@thynejewels.com | Phone: +91 9876543210',
+                      style: pw.TextStyle(font: _font, fontSize: 10),
                     ),
                   ],
                 ),
@@ -202,12 +194,13 @@ class PdfService {
     return pdf.save();
   }
 
-  static pw.Widget _buildTableCell(String text, {bool isHeader = false, pw.TextAlign align = pw.TextAlign.left}) {
+  static pw.Widget _buildTableCell(String text, {pw.Font? font, bool isHeader = false, pw.TextAlign align = pw.TextAlign.left}) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
       child: pw.Text(
         text,
         style: pw.TextStyle(
+          font: font,
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
           fontSize: isHeader ? 11 : 10,
         ),
@@ -216,7 +209,7 @@ class PdfService {
     );
   }
 
-  static pw.Widget _buildTotalRow(String label, double amount, {bool isTotal = false}) {
+  static pw.Widget _buildTotalRow(String label, double amount, {pw.Font? font, bool isTotal = false}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 4),
       child: pw.Row(
@@ -225,13 +218,15 @@ class PdfService {
           pw.Text(
             label,
             style: pw.TextStyle(
+              font: font,
               fontWeight: isTotal ? pw.FontWeight.bold : pw.FontWeight.normal,
               fontSize: isTotal ? 12 : 10,
             ),
           ),
           pw.Text(
-            '\$${amount.toStringAsFixed(2)}',
+            'Rs.${amount.toStringAsFixed(0)}',
             style: pw.TextStyle(
+              font: font,
               fontWeight: isTotal ? pw.FontWeight.bold : pw.FontWeight.normal,
               fontSize: isTotal ? 12 : 10,
             ),
@@ -245,12 +240,9 @@ class PdfService {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  // Save PDF to device
-  static Future<File> savePdfToFile(Uint8List pdfData, String fileName) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$fileName');
-    await file.writeAsBytes(pdfData);
-    return file;
+  // Save PDF - platform aware
+  static Future<String> savePdfToFile(Uint8List pdfData, String fileName) async {
+    return platform.savePdfToFile(pdfData, fileName);
   }
 
   // Print PDF

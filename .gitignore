@@ -43,3 +43,28 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Backend Go files
+backend/server
+backend/bin/
+backend/*.out
+backend/*.log
+backend/*.pid
+
+# Environment files (should not be committed)
+.env
+.env.local
+.env.production
+.env.*.local
+backend/.env
+
+# Keep example file for reference
+!.env.example
+!backend/.env.example
+
+# Process ID files
+*.pid
+
+# Build artifacts
+server.out
+server.log

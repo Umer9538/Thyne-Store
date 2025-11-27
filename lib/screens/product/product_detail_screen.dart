@@ -6,6 +6,8 @@ import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/wishlist_provider.dart';
+import '../../providers/recently_viewed_provider.dart';
+import '../../services/api_service.dart';
 import '../../utils/theme.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/video_player_widget.dart';
@@ -13,10 +15,16 @@ import 'review_submission_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
+  final double? salePrice; // Optional sale price for deals/flash sales
+  final double? originalPrice; // Optional original price override
+  final int? discountPercent; // Optional discount percentage
 
   const ProductDetailScreen({
     super.key,
     required this.product,
+    this.salePrice,
+    this.originalPrice,
+    this.discountPercent,
   });
 
   @override
@@ -35,6 +43,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _selectedPolish;
   String? _selectedStoneColor;
   String? _selectedGemstone;
+  String? _selectedSize;
 
   @override
   void initState() {
@@ -43,6 +52,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _initializeData() async {
+    // Track product view for recently viewed feature
+    _trackProductView();
+
     // Show loading dialog
     if (mounted) {
       showDialog(
@@ -82,12 +94,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (widget.product.availableGemstones.isNotEmpty) {
       _selectedGemstone = widget.product.availableGemstones.first;
     }
+    if (widget.product.size != null) {
+      _selectedSize = widget.product.size;
+    }
 
     if (mounted) {
       Navigator.of(context).pop(); // Close loading dialog
       setState(() {
         // Refresh UI with initialized data
       });
+    }
+  }
+
+  /// Track product view for recently viewed feature
+  Future<void> _trackProductView() async {
+    try {
+      // Update local state immediately for real-time UI update
+      final recentlyViewedProvider = context.read<RecentlyViewedProvider>();
+      recentlyViewedProvider.addProductLocally(widget.product);
+
+      // Track on server in background
+      await ApiService.trackProductView(productId: widget.product.id);
+      debugPrint('Tracked product view: ${widget.product.id}');
+    } catch (e) {
+      // Silently fail - don't interrupt user experience for tracking
+      debugPrint('Failed to track product view: $e');
     }
   }
 
@@ -370,14 +401,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
+                          // Use sale price if provided, otherwise use product price
                           Text(
-                            '₹${widget.product.price.toStringAsFixed(0)}',
+                            '₹${(widget.salePrice ?? widget.product.price).toStringAsFixed(0)}',
                             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  color: AppTheme.primaryGold,
+                                  color: widget.salePrice != null ? Colors.green.shade700 : AppTheme.primaryGold,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
-                          if (widget.product.originalPrice != null)
+                          // Show original price if sale price is provided or if product has original price
+                          if (widget.salePrice != null)
+                            Text(
+                              '₹${(widget.originalPrice ?? widget.product.price).toStringAsFixed(0)}',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                            )
+                          else if (widget.product.originalPrice != null)
                             Text(
                               '₹${widget.product.originalPrice!.toStringAsFixed(0)}',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -385,7 +426,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     color: AppTheme.textSecondary,
                                   ),
                             ),
-                          if (widget.product.discount > 0)
+                          // Show discount badge
+                          if (widget.discountPercent != null && widget.discountPercent! > 0)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${widget.discountPercent}% OFF',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else if (widget.product.discount > 0)
                             Container(
                               margin: const EdgeInsets.only(top: 4),
                               padding: const EdgeInsets.symmetric(
@@ -613,12 +675,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Wrap(
                       spacing: 8,
                       children: ['5', '6', '7', '8', '9'].map((size) {
-                        final isSelected = size == widget.product.size;
+                        final isSelected = size == _selectedSize;
                         return ChoiceChip(
                           label: Text(size),
                           selected: isSelected,
                           onSelected: (selected) {
-                            // Handle size selection
+                            if (selected) {
+                              setState(() {
+                                _selectedSize = size;
+                              });
+                            }
                           },
                           selectedColor: AppTheme.primaryGold,
                           labelStyle: TextStyle(
@@ -798,7 +864,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: OutlinedButton(
                 onPressed: widget.product.isAvailable
                     ? () {
-                        cartProvider.addToCart(widget.product, quantity: _quantity);
+                        cartProvider.addToCart(
+                          widget.product,
+                          quantity: _quantity,
+                          salePrice: widget.salePrice,
+                          originalPrice: widget.originalPrice,
+                          discountPercent: widget.discountPercent,
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Added $_quantity items to cart'),
@@ -820,7 +892,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: ElevatedButton(
                 onPressed: widget.product.isAvailable
                     ? () {
-                        cartProvider.addToCart(widget.product, quantity: _quantity);
+                        cartProvider.addToCart(
+                          widget.product,
+                          quantity: _quantity,
+                          salePrice: widget.salePrice,
+                          originalPrice: widget.originalPrice,
+                          discountPercent: widget.discountPercent,
+                        );
                         Navigator.pushNamed(context, '/checkout');
                       }
                     : null,

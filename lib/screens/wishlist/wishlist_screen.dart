@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/wishlist_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../models/product.dart';
 import '../../utils/theme.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({super.key});
@@ -18,14 +20,17 @@ class _WishlistScreenState extends State<WishlistScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WishlistProvider>().loadWishlist();
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.isAuthenticated) {
+        context.read<WishlistProvider>().loadWishlist();
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: const Text('My Wishlist'),
         actions: [
           Consumer<WishlistProvider>(
@@ -45,8 +50,42 @@ class _WishlistScreenState extends State<WishlistScreen> {
           ),
         ],
       ),
-      body: Consumer<WishlistProvider>(
-        builder: (context, wishlistProvider, child) {
+      body: Consumer2<AuthProvider, WishlistProvider>(
+        builder: (context, authProvider, wishlistProvider, child) {
+          // Check if user is not authenticated
+          if (!authProvider.isAuthenticated) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.favorite_border,
+                    size: 100,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Please login to view your wishlist',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Save your favorite items for later',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  GlassPrimaryButton(
+                    text: 'Login',
+                    onPressed: () => Navigator.pushNamed(context, '/login'),
+                  ),
+                ],
+              ),
+            );
+          }
+
           if (wishlistProvider.isLoading) {
             return const Center(
               child: CircularProgressIndicator(),
@@ -69,17 +108,20 @@ class _WishlistScreenState extends State<WishlistScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    wishlistProvider.error!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                    textAlign: TextAlign.center,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      wishlistProvider.error!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
+                  GlassPrimaryButton(
+                    text: 'Retry',
                     onPressed: () => wishlistProvider.loadWishlist(),
-                    child: const Text('Retry'),
                   ),
                 ],
               ),
@@ -109,9 +151,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
                         ),
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
+                  GlassPrimaryButton(
+                    text: 'Start Shopping',
                     onPressed: () => Navigator.pushNamed(context, '/home'),
-                    child: const Text('Start Shopping'),
                   ),
                 ],
               ),
@@ -151,10 +193,13 @@ class _WishlistScreenState extends State<WishlistScreen> {
   }
 
   Widget _buildWishlistItem(BuildContext context, Product product) {
-    return Card(
+    return GlassCard(
       margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      elevation: 2,
+      blur: GlassConfig.softBlur,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -222,21 +267,21 @@ class _WishlistScreenState extends State<WishlistScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton.icon(
+                        child: GlassButton(
+                          text: '',
                           onPressed: () => _addToCart(context, product),
-                          icon: const Icon(Icons.shopping_cart, size: 16),
-                          label: const Text('Add to Cart'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryGold,
-                            side: const BorderSide(color: AppTheme.primaryGold),
-                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          blur: GlassConfig.softBlur,
+                          tintColor: AppTheme.primaryGold,
+                          child: const Text('Add to Cart'),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      IconButton(
+                      GlassIconButton(
+                        icon: Icons.favorite,
                         onPressed: () => _removeFromWishlist(context, product),
-                        icon: const Icon(Icons.favorite, color: AppTheme.errorRed),
-                        tooltip: 'Remove from wishlist',
+                        size: 40,
+                        tintColor: AppTheme.errorRed,
                       ),
                     ],
                   ),
@@ -294,24 +339,23 @@ class _WishlistScreenState extends State<WishlistScreen> {
   void _showClearWishlistDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Wishlist'),
-        content: const Text('Are you sure you want to remove all items from your wishlist?'),
+      builder: (context) => GlassDialog(
+        title: 'Clear Wishlist',
+        message: 'Are you sure you want to remove all items from your wishlist?',
         actions: [
-          TextButton(
+          GlassButton(
+            text: 'Cancel',
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            blur: GlassConfig.softBlur,
           ),
-          ElevatedButton(
+          GlassButton(
+            text: 'Clear All',
             onPressed: () {
               Navigator.pop(context);
               _clearWishlist(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Clear All'),
+            tintColor: AppTheme.errorRed,
+            blur: GlassConfig.mediumBlur,
           ),
         ],
       ),

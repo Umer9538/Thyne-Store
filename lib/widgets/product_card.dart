@@ -8,6 +8,7 @@ import '../providers/cart_provider.dart';
 import '../providers/wishlist_provider.dart';
 import '../services/promotion_manager.dart';
 import '../utils/theme.dart';
+import 'glass/glass_ui.dart';
 
 class ProductCard extends StatefulWidget {
   final Product product;
@@ -69,7 +70,7 @@ class _ProductCardState extends State<ProductCard> {
     final cartProvider = Provider.of<CartProvider>(context);
     final wishlistProvider = Provider.of<WishlistProvider>(context);
     final isInWishlist = wishlistProvider.isInWishlist(widget.product.id);
-    
+
     // Determine which discount to show
     final hasEventDiscount = _promotion != null && _promotion!.isLive;
     final eventDiscountText = hasEventDiscount ? _promotion!.discountText : null;
@@ -77,11 +78,11 @@ class _ProductCardState extends State<ProductCard> {
 
     return GestureDetector(
       onTap: widget.onTap,
-      child: Card(
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        blur: GlassConfig.softBlur,
+        showGlow: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -139,23 +140,17 @@ class _ProductCardState extends State<ProductCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
+                        GlassContainer(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 4,
                           ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppTheme.primaryGold, AppTheme.accentPurple],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryGold.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                          blur: GlassConfig.mediumBlur,
+                          borderRadius: BorderRadius.circular(12),
+                          showGlow: true,
+                          tintColor: AppTheme.primaryGold,
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.primaryGold, AppTheme.accentPurple],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -178,15 +173,13 @@ class _ProductCardState extends State<ProductCard> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Container(
+                        GlassContainer(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          blur: GlassConfig.mediumBlur,
+                          borderRadius: BorderRadius.circular(8),
                           child: Text(
                             _promotion!.eventName.toUpperCase(),
                             style: const TextStyle(
@@ -204,15 +197,14 @@ class _ProductCardState extends State<ProductCard> {
                   Positioned(
                     top: 8,
                     left: 8,
-                    child: Container(
+                    child: GlassContainer(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorRed,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      blur: GlassConfig.mediumBlur,
+                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.errorRed.withOpacity(0.9),
                       child: Text(
                         '${widget.product.discount.toStringAsFixed(0)}% OFF',
                         style: const TextStyle(
@@ -227,36 +219,21 @@ class _ProductCardState extends State<ProductCard> {
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: InkWell(
+                  child: GestureDetector(
                     onTap: () {
                       wishlistProvider.toggleWishlist(widget.product.id);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        isInWishlist ? Icons.favorite : Icons.favorite_outline,
-                        size: 18,
-                        color: isInWishlist
-                            ? AppTheme.errorRed
-                            : AppTheme.textSecondary,
-                      ),
+                    child: Icon(
+                      isInWishlist ? Icons.favorite : Icons.favorite_outline,
+                      color: isInWishlist ? AppTheme.errorRed : Colors.grey.shade600,
+                      size: 24,
                     ),
                   ),
                 ),
               ],
             ),
             // Product Details
-            Flexible(
+            Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3.0, vertical: 2.0),
                 child: Column(
@@ -329,7 +306,8 @@ class _ProductCardState extends State<ProductCard> {
                     SizedBox(
                       width: double.infinity,
                       height: 18,
-                      child: ElevatedButton(
+                      child: GlassButton(
+                        text: widget.product.isAvailable ? 'Add' : 'Out',
                         onPressed: widget.product.isAvailable
                             ? () {
                                 cartProvider.addToCart(widget.product);
@@ -347,17 +325,18 @@ class _ProductCardState extends State<ProductCard> {
                                 );
                               }
                             : null,
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
+                        enabled: widget.product.isAvailable,
+                        height: 18,
+                        padding: EdgeInsets.zero,
+                        blur: GlassConfig.softBlur,
+                        tintColor: AppTheme.primaryGold,
+                        borderRadius: BorderRadius.circular(3),
                         child: Text(
                           widget.product.isAvailable ? 'Add' : 'Out',
-                          style: const TextStyle(fontSize: 7),
+                          style: const TextStyle(
+                            fontSize: 7,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),

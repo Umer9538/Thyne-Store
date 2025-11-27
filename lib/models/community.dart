@@ -1,3 +1,34 @@
+// Product tag for posts
+class ProductTag {
+  final String id;
+  final String name;
+  final double price;
+  final String imageUrl;
+
+  ProductTag({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.imageUrl,
+  });
+
+  factory ProductTag.fromJson(Map<String, dynamic> json) {
+    return ProductTag(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      price: (json['price'] ?? 0.0).toDouble(),
+      imageUrl: json['imageUrl']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'price': price,
+    'imageUrl': imageUrl,
+  };
+}
+
 class CommunityPost {
   final String id;
   final String userId;
@@ -10,11 +41,12 @@ class CommunityPost {
   final int voteCount;
   final int commentCount;
   final List<String> tags;
+  final List<ProductTag>? products;
   final bool isAdminPost;
   final bool isFeatured;
   final bool isPinned;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? updatedAt;
 
   CommunityPost({
     required this.id,
@@ -28,11 +60,12 @@ class CommunityPost {
     this.voteCount = 0,
     this.commentCount = 0,
     this.tags = const [],
+    this.products,
     this.isAdminPost = false,
     this.isFeatured = false,
     this.isPinned = false,
     required this.createdAt,
-    required this.updatedAt,
+    this.updatedAt,
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
@@ -48,6 +81,9 @@ class CommunityPost {
       voteCount: json['voteCount'] ?? 0,
       commentCount: json['commentCount'] ?? 0,
       tags: List<String>.from(json['tags'] ?? []),
+      products: (json['products'] as List<dynamic>?)
+          ?.map((p) => ProductTag.fromJson(p as Map<String, dynamic>))
+          .toList(),
       isAdminPost: json['isAdminPost'] ?? false,
       isFeatured: json['isFeatured'] ?? false,
       isPinned: json['isPinned'] ?? false,
@@ -77,7 +113,7 @@ class CommunityPost {
       'isFeatured': isFeatured,
       'isPinned': isPinned,
       'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 }

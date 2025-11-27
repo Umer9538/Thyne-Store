@@ -18,6 +18,7 @@ class Product {
   final int reviewCount;
   final int ratingCount;
   final List<String> tags;
+  final List<String> gender;
   final bool isAvailable;
   final bool isFeatured;
   final bool isNewArrival;
@@ -48,6 +49,7 @@ class Product {
     this.reviewCount = 0,
     int? ratingCount,
     this.tags = const [],
+    this.gender = const [],
     this.isAvailable = true,
     this.isFeatured = false,
     this.availableColors = const [],
@@ -87,6 +89,7 @@ class Product {
       rating: json['rating']?.toDouble() ?? 0.0,
       reviewCount: json['reviewCount'] ?? 0,
       tags: List<String>.from(json['tags'] ?? []),
+      gender: List<String>.from(json['gender'] ?? []),
       isAvailable: json['isAvailable'] ?? true,
       isFeatured: json['isFeatured'] ?? false,
       availableColors: List<String>.from(json['availableColors'] ?? []),

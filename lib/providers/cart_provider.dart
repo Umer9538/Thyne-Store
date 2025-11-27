@@ -1,15 +1,23 @@
 import 'package:flutter/foundation.dart';
 import '../models/cart.dart';
 import '../models/product.dart';
+import '../models/store_settings.dart';
+import '../services/api_service.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
   String? _couponCode;
   double _discount = 0.0;
 
+  // Store settings for dynamic tax and shipping
+  StoreSettings _storeSettings = StoreSettings.defaults;
+  bool _settingsLoaded = false;
+
   List<CartItem> get items => _items;
   String? get couponCode => _couponCode;
   double get discount => _discount;
+  StoreSettings get storeSettings => _storeSettings;
+  bool get settingsLoaded => _settingsLoaded;
 
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
 
@@ -18,27 +26,84 @@ class CartProvider extends ChangeNotifier {
   }
 
   double get tax {
-    return subtotal * 0.18; // 18% GST
+    if (!_storeSettings.enableGst) return 0.0;
+    return subtotal * (_storeSettings.gstRate / 100);
   }
 
   double get shipping {
-    return subtotal > 1000 ? 0 : 99; // Free shipping above ₹1000
+    if (_storeSettings.enableFreeShipping && subtotal >= _storeSettings.freeShippingThreshold) {
+      return 0.0;
+    }
+    return _storeSettings.shippingCost;
   }
 
   double get total {
     return subtotal - discount + tax + shipping;
   }
 
-  void addToCart(Product product, {int quantity = 1}) {
+  // Convenience getters for UI
+  double get gstRate => _storeSettings.gstRate;
+  double get freeShippingThreshold => _storeSettings.freeShippingThreshold;
+  bool get hasFreeShipping => shipping == 0;
+  String get currencySymbol => _storeSettings.currencySymbol;
+
+  /// Load store settings from API
+  Future<void> loadStoreSettings() async {
+    if (_settingsLoaded) return;
+
+    try {
+      final response = await ApiService.getStoreSettings();
+      if (response['success'] == true && response['data'] != null) {
+        _storeSettings = StoreSettings.fromJson(response['data']);
+        _settingsLoaded = true;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Failed to load store settings: $e');
+      // Keep using defaults if loading fails
+    }
+  }
+
+  /// Update store settings (for when settings change)
+  void updateStoreSettings(StoreSettings settings) {
+    _storeSettings = settings;
+    _settingsLoaded = true;
+    notifyListeners();
+  }
+
+  void addToCart(
+    Product product, {
+    int quantity = 1,
+    double? salePrice,
+    double? originalPrice,
+    int? discountPercent,
+  }) {
     final existingIndex = _items.indexWhere((item) => item.product.id == product.id);
 
     if (existingIndex >= 0) {
-      _items[existingIndex].quantity += quantity;
+      final existingItem = _items[existingIndex];
+      // If adding with sale price, or existing item has sale price, preserve the better deal
+      // Replace item to update sale price info (since fields are final)
+      final newSalePrice = salePrice ?? existingItem.salePrice;
+      final newOriginalPrice = originalPrice ?? existingItem.originalPrice;
+      final newDiscountPercent = discountPercent ?? existingItem.discountPercent;
+
+      _items[existingIndex] = CartItem(
+        id: existingItem.id,
+        product: product,
+        quantity: existingItem.quantity + quantity,
+        salePrice: newSalePrice,
+        originalPrice: newOriginalPrice,
+        discountPercent: newDiscountPercent,
+      );
     } else {
       _items.add(CartItem(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         product: product,
         quantity: quantity,
+        salePrice: salePrice,
+        originalPrice: originalPrice,
+        discountPercent: discountPercent,
       ));
     }
 

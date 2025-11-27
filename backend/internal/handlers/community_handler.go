@@ -215,8 +215,16 @@ func (h *CommunityHandler) LikePost(c *gin.Context) {
 		return
 	}
 
-	userName, _ := c.Get("userName")
-	liked, err := h.communityService.LikePost(c.Request.Context(), postID, userID, userName.(string))
+	// Get user from context to extract the name
+	userInterface, exists := c.Get("user")
+	userName := "Anonymous"
+	if exists {
+		if user, ok := userInterface.(*models.User); ok {
+			userName = user.Name
+		}
+	}
+
+	liked, err := h.communityService.LikePost(c.Request.Context(), postID, userID, userName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to like post"})
 		return
@@ -256,8 +264,16 @@ func (h *CommunityHandler) VotePost(c *gin.Context) {
 		return
 	}
 
-	userName, _ := c.Get("userName")
-	err = h.communityService.VotePost(c.Request.Context(), postID, userID, userName.(string), req.VoteType)
+	// Get user from context to extract the name
+	userInterface, exists := c.Get("user")
+	userName := "Anonymous"
+	if exists {
+		if user, ok := userInterface.(*models.User); ok {
+			userName = user.Name
+		}
+	}
+
+	err = h.communityService.VotePost(c.Request.Context(), postID, userID, userName, req.VoteType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
