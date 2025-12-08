@@ -11,6 +11,7 @@ class StorageServiceWeb {
   static const String _creationsKey = 'ai_creations';
   static const String _searchHistoryKey = 'search_history';
   static const String _chatHistoryKey = 'chat_history';
+  static const String _conversationsKey = 'ai_conversations';
 
   SharedPreferences? _prefs;
 
@@ -21,31 +22,96 @@ class StorageServiceWeb {
 
   // AI Creations operations
   Future<int> insertCreation(AICreation creation) async {
-    final p = await prefs;
-    final creationsJson = p.getString(_creationsKey) ?? '[]';
-    final creations = (jsonDecode(creationsJson) as List).cast<Map<String, dynamic>>();
+    try {
+      final p = await prefs;
+      final creationsJson = p.getString(_creationsKey) ?? '[]';
+      final creations = (jsonDecode(creationsJson) as List).cast<Map<String, dynamic>>();
 
-    creations.insert(0, creation.toJson());
+      creations.insert(0, creation.toJson());
 
-    await p.setString(_creationsKey, jsonEncode(creations));
-    return 1;
+      final success = await p.setString(_creationsKey, jsonEncode(creations));
+      print('💾 Storage: insertCreation success=$success, total=${creations.length}');
+
+      // Verify write worked
+      final verification = p.getString(_creationsKey);
+      if (verification == null) {
+        print('⚠️ Storage: Write verification FAILED - SharedPreferences may not be working on web');
+      }
+
+      return success ? 1 : 0;
+    } catch (e) {
+      print('❌ Storage: insertCreation error: $e');
+      return 0;
+    }
   }
 
   Future<List<AICreation>> getAllCreations({int? limit, int? offset}) async {
-    final p = await prefs;
-    final creationsJson = p.getString(_creationsKey) ?? '[]';
-    final creations = (jsonDecode(creationsJson) as List).cast<Map<String, dynamic>>();
+    try {
+      final p = await prefs;
+      final creationsJson = p.getString(_creationsKey) ?? '[]';
+      print('💾 Storage: getAllCreations raw data length: ${creationsJson.length}');
 
-    var result = creations.map((json) => AICreation.fromJson(json)).toList();
+      final creations = (jsonDecode(creationsJson) as List).cast<Map<String, dynamic>>();
 
-    if (offset != null && offset > 0) {
-      result = result.skip(offset).toList();
+      // Debug: Log raw JSON values for first few items
+      for (var i = 0; i < creations.length && i < 3; i++) {
+        final json = creations[i];
+        print('💾 Storage: Raw JSON[$i] isSuccessful=${json['isSuccessful']} (type: ${json['isSuccessful'].runtimeType})');
+      }
+
+      var result = creations.map((json) => AICreation.fromJson(json)).toList();
+
+      // Deduplicate by ID (keep the first occurrence which is the newest)
+      final seen = <String>{};
+      result = result.where((creation) {
+        if (seen.contains(creation.id)) {
+          print('💾 Storage: Removing duplicate ID: ${creation.id}');
+          return false;
+        }
+        seen.add(creation.id);
+        return true;
+      }).toList();
+
+      if (offset != null && offset > 0) {
+        result = result.skip(offset).toList();
+      }
+      if (limit != null && limit > 0) {
+        result = result.take(limit).toList();
+      }
+
+      print('💾 Storage: getAllCreations returning ${result.length} items (after dedup)');
+      return result;
+    } catch (e) {
+      print('❌ Storage: getAllCreations error: $e');
+      return [];
     }
-    if (limit != null && limit > 0) {
-      result = result.take(limit).toList();
-    }
+  }
 
-    return result;
+  /// Cleans up duplicate entries in storage
+  Future<void> deduplicateCreations() async {
+    try {
+      final p = await prefs;
+      final creationsJson = p.getString(_creationsKey) ?? '[]';
+      final creations = (jsonDecode(creationsJson) as List).cast<Map<String, dynamic>>();
+
+      // Deduplicate by ID
+      final seen = <String>{};
+      final dedupedCreations = creations.where((json) {
+        final id = json['id'] as String;
+        if (seen.contains(id)) {
+          return false;
+        }
+        seen.add(id);
+        return true;
+      }).toList();
+
+      if (dedupedCreations.length < creations.length) {
+        print('💾 Storage: Removed ${creations.length - dedupedCreations.length} duplicates');
+        await p.setString(_creationsKey, jsonEncode(dedupedCreations));
+      }
+    } catch (e) {
+      print('❌ Storage: deduplicateCreations error: $e');
+    }
   }
 
   Future<List<AICreation>> getSuccessfulCreations({int? limit}) async {
@@ -174,6 +240,82 @@ class StorageServiceWeb {
           ? (successfulCreations / totalCreations * 100).toStringAsFixed(1)
           : '0.0',
     };
+  }
+
+  // Conversation operations
+  Future<int> saveConversation(Map<String, dynamic> conversation) async {
+    try {
+      final p = await prefs;
+      final conversationsJson = p.getString(_conversationsKey) ?? '[]';
+      final conversations = (jsonDecode(conversationsJson) as List).cast<Map<String, dynamic>>();
+
+      // Find and update existing or add new
+      final existingIndex = conversations.indexWhere((c) => c['id'] == conversation['id']);
+      if (existingIndex >= 0) {
+        conversations[existingIndex] = conversation;
+      } else {
+        conversations.insert(0, conversation);
+      }
+
+      // Keep only last 50 conversations
+      if (conversations.length > 50) {
+        conversations.removeRange(50, conversations.length);
+      }
+
+      await p.setString(_conversationsKey, jsonEncode(conversations));
+      print('💾 Storage: saveConversation success, total=${conversations.length}');
+      return 1;
+    } catch (e) {
+      print('❌ Storage: saveConversation error: $e');
+      return 0;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllConversations() async {
+    try {
+      final p = await prefs;
+      final conversationsJson = p.getString(_conversationsKey) ?? '[]';
+      final conversations = (jsonDecode(conversationsJson) as List).cast<Map<String, dynamic>>();
+      print('💾 Storage: getAllConversations returning ${conversations.length} items');
+      return conversations;
+    } catch (e) {
+      print('❌ Storage: getAllConversations error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getConversation(String id) async {
+    try {
+      final conversations = await getAllConversations();
+      return conversations.firstWhere((c) => c['id'] == id, orElse: () => <String, dynamic>{});
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<int> deleteConversation(String id) async {
+    try {
+      final p = await prefs;
+      final conversations = await getAllConversations();
+      conversations.removeWhere((c) => c['id'] == id);
+      await p.setString(_conversationsKey, jsonEncode(conversations));
+      print('💾 Storage: deleteConversation success');
+      return 1;
+    } catch (e) {
+      print('❌ Storage: deleteConversation error: $e');
+      return 0;
+    }
+  }
+
+  Future<int> clearAllConversations() async {
+    try {
+      final p = await prefs;
+      await p.remove(_conversationsKey);
+      return 1;
+    } catch (e) {
+      print('❌ Storage: clearAllConversations error: $e');
+      return 0;
+    }
   }
 
   Future<void> close() async {

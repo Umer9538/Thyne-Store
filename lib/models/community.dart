@@ -1,15 +1,110 @@
-// Product tag for posts
+// Moderation status enum for community posts
+enum ModerationStatus {
+  pending,
+  approved,
+  rejected;
+
+  static ModerationStatus fromString(String? status) {
+    switch (status) {
+      case 'approved':
+        return ModerationStatus.approved;
+      case 'rejected':
+        return ModerationStatus.rejected;
+      case 'pending':
+      default:
+        return ModerationStatus.pending;
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case ModerationStatus.pending:
+        return 'Pending';
+      case ModerationStatus.approved:
+        return 'Approved';
+      case ModerationStatus.rejected:
+        return 'Rejected';
+    }
+  }
+}
+
+/// Customization options selected for a tagged product
+class ProductCustomizationTag {
+  final String? selectedMetal;           // e.g., "14K Gold"
+  final String? selectedPlating;         // e.g., "Rose Gold"
+  final Map<String, String>? stoneColors; // e.g., {"center": "Blue", "side": "White"}
+  final String? selectedSize;            // e.g., "7" for ring size
+  final String? engravingText;           // e.g., "Forever Yours"
+  final double? thickness;               // e.g., 2.5mm
+
+  ProductCustomizationTag({
+    this.selectedMetal,
+    this.selectedPlating,
+    this.stoneColors,
+    this.selectedSize,
+    this.engravingText,
+    this.thickness,
+  });
+
+  factory ProductCustomizationTag.fromJson(Map<String, dynamic> json) {
+    return ProductCustomizationTag(
+      selectedMetal: json['selectedMetal']?.toString(),
+      selectedPlating: json['selectedPlating']?.toString(),
+      stoneColors: json['stoneColors'] != null
+          ? Map<String, String>.from(json['stoneColors'])
+          : null,
+      selectedSize: json['selectedSize']?.toString(),
+      engravingText: json['engravingText']?.toString(),
+      thickness: (json['thickness'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    if (selectedMetal != null) 'selectedMetal': selectedMetal,
+    if (selectedPlating != null) 'selectedPlating': selectedPlating,
+    if (stoneColors != null) 'stoneColors': stoneColors,
+    if (selectedSize != null) 'selectedSize': selectedSize,
+    if (engravingText != null) 'engravingText': engravingText,
+    if (thickness != null) 'thickness': thickness,
+  };
+
+  bool get hasCustomizations =>
+      selectedMetal != null ||
+      selectedPlating != null ||
+      (stoneColors != null && stoneColors!.isNotEmpty) ||
+      selectedSize != null ||
+      engravingText != null ||
+      thickness != null;
+
+  /// Get a summary string of customizations for display
+  String get summary {
+    final parts = <String>[];
+    if (selectedMetal != null) parts.add(selectedMetal!);
+    if (selectedPlating != null) parts.add('$selectedPlating plating');
+    if (selectedSize != null) parts.add('Size $selectedSize');
+    if (engravingText != null) parts.add('Engraved');
+    return parts.join(' • ');
+  }
+}
+
+// Product tag for posts - enhanced with customization support
 class ProductTag {
   final String id;
   final String name;
   final double price;
   final String imageUrl;
+  final ProductCustomizationTag? customization; // Customization details
+  final String? orderId; // If tagged from an order
+  final String? orderNumber; // Order number for display
 
   ProductTag({
     required this.id,
     required this.name,
     required this.price,
     required this.imageUrl,
+    this.customization,
+    this.orderId,
+    this.orderNumber,
   });
 
   factory ProductTag.fromJson(Map<String, dynamic> json) {
@@ -18,6 +113,11 @@ class ProductTag {
       name: json['name']?.toString() ?? '',
       price: (json['price'] ?? 0.0).toDouble(),
       imageUrl: json['imageUrl']?.toString() ?? '',
+      customization: json['customization'] != null
+          ? ProductCustomizationTag.fromJson(json['customization'])
+          : null,
+      orderId: json['orderId']?.toString(),
+      orderNumber: json['orderNumber']?.toString(),
     );
   }
 
@@ -26,7 +126,70 @@ class ProductTag {
     'name': name,
     'price': price,
     'imageUrl': imageUrl,
+    if (customization != null) 'customization': customization!.toJson(),
+    if (orderId != null) 'orderId': orderId,
+    if (orderNumber != null) 'orderNumber': orderNumber,
   };
+
+  /// Whether this product was tagged from an order (has customizations)
+  bool get isFromOrder => orderId != null;
+}
+
+/// Order tag for community posts - references an entire order
+class OrderTag {
+  final String orderId;
+  final String orderNumber;
+  final DateTime orderDate;
+  final double orderTotal;
+  final List<ProductTag> products; // Individual products from the order
+
+  OrderTag({
+    required this.orderId,
+    required this.orderNumber,
+    required this.orderDate,
+    required this.orderTotal,
+    required this.products,
+  });
+
+  factory OrderTag.fromJson(Map<String, dynamic> json) {
+    return OrderTag(
+      orderId: json['orderId']?.toString() ?? '',
+      orderNumber: json['orderNumber']?.toString() ?? '',
+      orderDate: json['orderDate'] != null
+          ? DateTime.parse(json['orderDate'])
+          : DateTime.now(),
+      orderTotal: (json['orderTotal'] ?? 0.0).toDouble(),
+      products: (json['products'] as List<dynamic>?)
+              ?.map((p) => ProductTag.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'orderId': orderId,
+    'orderNumber': orderNumber,
+    'orderDate': orderDate.toIso8601String(),
+    'orderTotal': orderTotal,
+    'products': products.map((p) => p.toJson()).toList(),
+  };
+}
+
+/// Type of source for tagged products in a post
+enum PostTagSource {
+  product,  // Direct product selection from catalog
+  order,    // Product selected from user's order history
+}
+
+extension PostTagSourceExtension on PostTagSource {
+  String get displayName {
+    switch (this) {
+      case PostTagSource.product:
+        return 'Product';
+      case PostTagSource.order:
+        return 'My Order';
+    }
+  }
 }
 
 class CommunityPost {
@@ -42,9 +205,16 @@ class CommunityPost {
   final int commentCount;
   final List<String> tags;
   final List<ProductTag>? products;
+  final OrderTag? order; // Order tag (if post is about an order)
+  final PostTagSource? tagSource; // Source of the tagged product/order
   final bool isAdminPost;
   final bool isFeatured;
   final bool isPinned;
+  // Moderation fields
+  final ModerationStatus moderationStatus;
+  final String? rejectionReason;
+  final String? moderatedBy;
+  final DateTime? moderatedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -61,14 +231,37 @@ class CommunityPost {
     this.commentCount = 0,
     this.tags = const [],
     this.products,
+    this.order,
+    this.tagSource,
     this.isAdminPost = false,
     this.isFeatured = false,
     this.isPinned = false,
+    this.moderationStatus = ModerationStatus.pending,
+    this.rejectionReason,
+    this.moderatedBy,
+    this.moderatedAt,
     required this.createdAt,
     this.updatedAt,
   });
 
+  /// Check if this post has a product or order tagged
+  bool get hasTaggedItem => (products != null && products!.isNotEmpty) || order != null;
+
+  /// Get all tagged products (either direct products or from order)
+  List<ProductTag> get allTaggedProducts {
+    if (order != null) {
+      return order!.products;
+    }
+    return products ?? [];
+  }
+
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
+    PostTagSource? tagSource;
+    if (json['tagSource'] != null) {
+      final sourceStr = json['tagSource'].toString().toLowerCase();
+      tagSource = sourceStr == 'order' ? PostTagSource.order : PostTagSource.product;
+    }
+
     return CommunityPost(
       id: json['id']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
@@ -84,9 +277,19 @@ class CommunityPost {
       products: (json['products'] as List<dynamic>?)
           ?.map((p) => ProductTag.fromJson(p as Map<String, dynamic>))
           .toList(),
+      order: json['order'] != null
+          ? OrderTag.fromJson(json['order'] as Map<String, dynamic>)
+          : null,
+      tagSource: tagSource,
       isAdminPost: json['isAdminPost'] ?? false,
       isFeatured: json['isFeatured'] ?? false,
       isPinned: json['isPinned'] ?? false,
+      moderationStatus: ModerationStatus.fromString(json['moderationStatus']?.toString()),
+      rejectionReason: json['rejectionReason']?.toString(),
+      moderatedBy: json['moderatedBy']?.toString(),
+      moderatedAt: json['moderatedAt'] != null
+          ? DateTime.parse(json['moderatedAt'])
+          : null,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
@@ -109,9 +312,16 @@ class CommunityPost {
       'voteCount': voteCount,
       'commentCount': commentCount,
       'tags': tags,
+      if (products != null) 'products': products!.map((p) => p.toJson()).toList(),
+      if (order != null) 'order': order!.toJson(),
+      if (tagSource != null) 'tagSource': tagSource!.name,
       'isAdminPost': isAdminPost,
       'isFeatured': isFeatured,
       'isPinned': isPinned,
+      'moderationStatus': moderationStatus.name,
+      'rejectionReason': rejectionReason,
+      'moderatedBy': moderatedBy,
+      'moderatedAt': moderatedAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -304,6 +514,30 @@ class CommunityFeedResponse {
       page: json['page'] ?? 1,
       limit: json['limit'] ?? 20,
       totalPages: json['totalPages'] ?? 1,
+    );
+  }
+}
+
+// Moderation statistics for admin dashboard
+class ModerationStats {
+  final int pending;
+  final int approved;
+  final int rejected;
+  final int total;
+
+  ModerationStats({
+    required this.pending,
+    required this.approved,
+    required this.rejected,
+    required this.total,
+  });
+
+  factory ModerationStats.fromJson(Map<String, dynamic> json) {
+    return ModerationStats(
+      pending: json['pending'] ?? 0,
+      approved: json['approved'] ?? 0,
+      rejected: json['rejected'] ?? 0,
+      total: json['total'] ?? 0,
     );
   }
 }

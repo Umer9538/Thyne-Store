@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../models/product.dart';
 import '../../models/homepage.dart';
 import '../../providers/cart_provider.dart';
@@ -75,6 +76,19 @@ class _BundleDetailScreenState extends State<BundleDetailScreen> {
         ? ((originalPrice - bundlePrice) / originalPrice * 100).round()
         : 0;
 
+    // Create bundle info for all items in this bundle
+    final bundleId = widget.bundle['id']?.toString() ??
+                     widget.bundle['_id']?.toString() ??
+                     DateTime.now().millisecondsSinceEpoch.toString();
+    final bundleName = widget.bundle['title'] ?? 'Bundle Deal';
+    final bundleInfo = BundleInfo(
+      bundleId: bundleId,
+      bundleName: bundleName,
+      bundlePrice: bundlePrice,
+      originalPrice: originalPrice,
+      discountPercent: discountPercent,
+    );
+
     // Add each product in the bundle to cart with their quantities
     for (int i = 0; i < _products.length && i < items.length; i++) {
       final product = _products[i];
@@ -90,6 +104,7 @@ class _BundleDetailScreenState extends State<BundleDetailScreen> {
         salePrice: discountedPrice,
         originalPrice: product.price,
         discountPercent: discountPercent,
+        bundleInfo: bundleInfo,
       );
     }
 
@@ -311,12 +326,7 @@ class _BundleDetailScreenState extends State<BundleDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       if (_loading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
+                        _buildProductsShimmer()
                       else if (_products.isEmpty)
                         Center(
                           child: Padding(
@@ -520,6 +530,15 @@ class _BundleDetailScreenState extends State<BundleDetailScreen> {
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,
+                      placeholder: (context, url) => Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.white,
+                        ),
+                      ),
                       errorWidget: (context, url, error) => Container(
                         width: 80,
                         height: 80,
@@ -576,6 +595,65 @@ class _BundleDetailScreenState extends State<BundleDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Shimmer loading effect for products list
+  Widget _buildProductsShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Column(
+        children: List.generate(3, (index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                // Image placeholder
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Text placeholders
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 16,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 14,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }

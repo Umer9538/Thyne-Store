@@ -1,10 +1,31 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class ApiConfig {
   // Backend API Configuration
   // Use environment variable for production, default to localhost:8080 for development
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:8080/api/v1',
-  );
+  static String get baseUrl {
+    // Check for environment override first
+    const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+
+    // Auto-detect platform for development
+    if (kIsWeb) {
+      // Web uses localhost
+      return 'http://localhost:8080/api/v1';
+    } else if (Platform.isAndroid) {
+      // Android emulator uses 10.0.2.2 to access host machine
+      return 'http://10.0.2.2:8080/api/v1';
+    } else if (Platform.isIOS) {
+      // iOS simulator can use localhost
+      return 'http://localhost:8080/api/v1';
+    } else {
+      // Default fallback
+      return 'http://localhost:8080/api/v1';
+    }
+  }
 
   // Production URL (set via --dart-define=API_BASE_URL=https://api.thynejewels.com/api/v1)
   static const bool isProduction = String.fromEnvironment(

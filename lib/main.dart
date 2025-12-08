@@ -14,12 +14,10 @@ import 'providers/address_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/recently_viewed_provider.dart';
 import 'utils/theme.dart';
-import 'screens/auth/phone_login_screen.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/auth/admin_login_screen.dart';
-// Navigation - Legacy implementations kept for reference/fallback
 import 'widgets/main_navigation.dart';
 import 'widgets/three_section_navigation.dart';
-// Home screens - ThyneHomeComplete is the main production screen
 import 'screens/home/thyne_home_figma.dart';
 import 'screens/home/thyne_home_complete.dart';
 import 'theme/thyne_theme.dart';
@@ -27,11 +25,12 @@ import 'screens/cart/cart_screen.dart';
 import 'screens/checkout/checkout_screen.dart';
 import 'screens/checkout/guest_checkout_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
-import 'screens/admin/customers/customers_management_screen.dart';
+import 'screens/admin/users/user_management_screen.dart';
 import 'screens/admin/products/product_management_screen.dart';
 import 'screens/admin/categories/category_management_screen.dart';
 import 'screens/admin/inventory/inventory_management_screen.dart';
 import 'screens/admin/orders/order_management_screen.dart';
+import 'screens/admin/orders/custom_orders_screen.dart';
 import 'screens/admin/analytics/analytics_dashboard.dart';
 import 'screens/search/enhanced_search_screen.dart';
 import 'screens/loyalty/loyalty_screen.dart';
@@ -137,20 +136,29 @@ class MyApp extends StatelessWidget {
       ],
       child: Builder(
         builder: (context) {
-          // Set up loyalty callback when providers are available
+          // Set up provider callbacks when providers are available
           WidgetsBinding.instance.addPostFrameCallback((_) {
             final authProvider = Provider.of<AuthProvider>(context, listen: false);
             final loyaltyProvider = Provider.of<LoyaltyProvider>(context, listen: false);
             final wishlistProvider = Provider.of<WishlistProvider>(context, listen: false);
-            
+            final aiProvider = Provider.of<AIProvider>(context, listen: false);
+
+            // Set up login callback
             authProvider.setOnLoginSuccess((userId) {
               loyaltyProvider.loadLoyaltyProgram(userId);
               wishlistProvider.loadWishlist();
+              aiProvider.setUser(userId); // Load AI data from backend
             });
-            
-            // Load wishlist if user is already authenticated
-            if (authProvider.isAuthenticated) {
+
+            // Set up logout callback
+            authProvider.setOnLogout(() {
+              aiProvider.setUser(null); // Clear AI data on logout
+            });
+
+            // Load data if user is already authenticated
+            if (authProvider.isAuthenticated && authProvider.user != null) {
               wishlistProvider.loadWishlist();
+              aiProvider.setUser(authProvider.user!.id);
             }
 
             // Load store settings for cart calculations
@@ -180,7 +188,7 @@ class MyApp extends StatelessWidget {
                 routes: {
               // Auth routes
               '/onboarding': (context) => const OnboardingScreen(),
-              '/login': (context) => const PhoneLoginScreen(),
+              '/login': (context) => const LoginScreen(),
               '/admin-login': (context) => const AdminLoginScreen(),
               // Main home - production screen
               '/home': (context) => const ThyneHomeComplete(),
@@ -196,8 +204,9 @@ class MyApp extends StatelessWidget {
               '/admin/categories': (context) => const CategoryManagementScreen(),
               '/admin/inventory': (context) => const InventoryManagementScreen(),
               '/admin/orders': (context) => const OrderManagementScreen(),
+              '/admin/custom-orders': (context) => const CustomOrdersScreen(),
               '/admin/analytics': (context) => const AnalyticsDashboard(),
-              '/admin/customers': (context) => const CustomersManagementScreen(),
+              '/admin/customers': (context) => const UserManagementScreen(),
               '/search': (context) => const EnhancedSearchScreen(),
               '/loyalty': (context) => const LoyaltyScreen(),
               '/admin/storefront': (context) => const StorefrontManagementScreen(),

@@ -13,11 +13,40 @@ class Showcases360Screen extends StatefulWidget {
 class _Showcases360ScreenState extends State<Showcases360Screen> {
   bool _loading = true;
   List<Showcase360> _showcases = [];
+  List<Showcase360> _filteredShowcases = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadShowcases();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+      _filterShowcases();
+    });
+  }
+
+  void _filterShowcases() {
+    if (_searchQuery.isEmpty) {
+      _filteredShowcases = List.from(_showcases);
+    } else {
+      _filteredShowcases = _showcases.where((showcase) {
+        return showcase.title.toLowerCase().contains(_searchQuery) ||
+            showcase.description.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
   }
 
   Future<void> _loadShowcases() async {
@@ -30,6 +59,9 @@ class _Showcases360ScreenState extends State<Showcases360Screen> {
         _showcases = (response['data'] as List)
             .map((s) => Showcase360.fromJson(s))
             .toList();
+        _filterShowcases();
+        setState(() => _loading = false);
+        return;
       }
     } catch (e) {
       print('Error loading showcases: $e');
@@ -47,6 +79,7 @@ class _Showcases360ScreenState extends State<Showcases360Screen> {
       } catch (_) {}
     }
 
+    _filterShowcases();
     setState(() => _loading = false);
   }
 
@@ -65,18 +98,70 @@ class _Showcases360ScreenState extends State<Showcases360Screen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _showcases.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadShowcases,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _showcases.length,
-                    itemBuilder: (context, index) => _buildShowcaseCard(_showcases[index]),
-                  ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search showcases...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _showcases.isEmpty
+                    ? _buildEmptyState()
+                    : _filteredShowcases.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No results found',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                ),
+                                Text(
+                                  'Try a different search term',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.grey.shade500,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadShowcases,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: _filteredShowcases.length,
+                              itemBuilder: (context, index) => _buildShowcaseCard(_filteredShowcases[index]),
+                            ),
+                          ),
+          ),
+        ],
+      ),
     );
   }
 

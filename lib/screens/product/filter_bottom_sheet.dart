@@ -17,6 +17,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   final Set<String> _selectedGenders = {};
   final Set<String> _selectedCategories = {};
   bool _inStockOnly = false;
+  bool _initialized = false;
 
   final List<String> _metalTypes = [
     '18K White Gold',
@@ -38,9 +39,10 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   ];
 
   final List<String> _genders = [
-    'Male',
-    'Female',
-    'Child',
+    'Men',
+    'Women',
+    'Children',
+    'Unisex',
   ];
 
   final List<String> _categories = [
@@ -55,6 +57,31 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     'Cufflinks',
     'Brooches',
   ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initializeFromProvider();
+      _initialized = true;
+    }
+  }
+
+  void _initializeFromProvider() {
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+
+    // Pre-select gender from provider
+    if (productProvider.selectedGender != null) {
+      _selectedGenders.add(productProvider.selectedGender!);
+    }
+
+    // Pre-select category from provider
+    if (productProvider.selectedCategory != null &&
+        productProvider.selectedCategory != 'All' &&
+        _categories.contains(productProvider.selectedCategory)) {
+      _selectedCategories.add(productProvider.selectedCategory!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -154,46 +181,56 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                         ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: _genders.map((gender) {
                       final isSelected = _selectedGenders.contains(gender);
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  gender == 'Male'
-                                      ? Icons.man
-                                      : gender == 'Female'
-                                          ? Icons.woman
-                                          : Icons.child_care,
-                                  size: 16,
-                                  color: isSelected ? Colors.white : AppTheme.primaryGold,
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(child: Text(gender)),
-                              ],
+                      IconData icon;
+                      switch (gender) {
+                        case 'Men':
+                          icon = Icons.man;
+                          break;
+                        case 'Women':
+                          icon = Icons.woman;
+                          break;
+                        case 'Children':
+                          icon = Icons.child_care;
+                          break;
+                        case 'Unisex':
+                          icon = Icons.people;
+                          break;
+                        default:
+                          icon = Icons.person;
+                      }
+                      return ChoiceChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              icon,
+                              size: 16,
+                              color: isSelected ? Colors.white : AppTheme.primaryGold,
                             ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  _selectedGenders.add(gender);
-                                } else {
-                                  _selectedGenders.remove(gender);
-                                }
-                              });
-                            },
-                            selectedColor: AppTheme.primaryGold,
-                            backgroundColor: Colors.grey.shade100,
-                            labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : AppTheme.textPrimary,
-                              fontSize: 12,
-                            ),
-                          ),
+                            const SizedBox(width: 4),
+                            Text(gender),
+                          ],
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedGenders.add(gender);
+                            } else {
+                              _selectedGenders.remove(gender);
+                            }
+                          });
+                        },
+                        selectedColor: AppTheme.primaryGold,
+                        backgroundColor: Colors.grey.shade100,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          fontSize: 12,
                         ),
                       );
                     }).toList(),

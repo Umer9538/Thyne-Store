@@ -4,6 +4,9 @@ import '../models/product.dart';
 import '../models/store_settings.dart';
 import '../services/api_service.dart';
 
+export '../models/store_settings.dart' show ProductCustomization;
+export '../models/cart.dart' show BundleInfo;
+
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
   String? _couponCode;
@@ -77,8 +80,30 @@ class CartProvider extends ChangeNotifier {
     double? salePrice,
     double? originalPrice,
     int? discountPercent,
+    ProductCustomization? customization,
+    BundleInfo? bundleInfo,
   }) {
-    final existingIndex = _items.indexWhere((item) => item.product.id == product.id);
+    // Create a temporary item to get the unique key
+    final tempItem = CartItem(
+      id: '',
+      product: product,
+      customization: customization,
+      bundleInfo: bundleInfo,
+    );
+
+    // For bundle items, use bundleId + productId as unique key
+    final uniqueKey = bundleInfo != null
+        ? '${bundleInfo.bundleId}_${product.id}'
+        : tempItem.uniqueKey;
+
+    // Find existing item with same product + customization/bundle combination
+    final existingIndex = _items.indexWhere((item) {
+      if (bundleInfo != null) {
+        return item.bundleInfo?.bundleId == bundleInfo.bundleId &&
+               item.product.id == product.id;
+      }
+      return item.uniqueKey == uniqueKey && item.bundleInfo == null;
+    });
 
     if (existingIndex >= 0) {
       final existingItem = _items[existingIndex];
@@ -95,6 +120,8 @@ class CartProvider extends ChangeNotifier {
         salePrice: newSalePrice,
         originalPrice: newOriginalPrice,
         discountPercent: newDiscountPercent,
+        customization: customization ?? existingItem.customization,
+        bundleInfo: bundleInfo ?? existingItem.bundleInfo,
       );
     } else {
       _items.add(CartItem(
@@ -104,10 +131,28 @@ class CartProvider extends ChangeNotifier {
         salePrice: salePrice,
         originalPrice: originalPrice,
         discountPercent: discountPercent,
+        customization: customization,
+        bundleInfo: bundleInfo,
       ));
     }
 
     notifyListeners();
+  }
+
+  /// Remove a bundle from cart by bundleId
+  void removeBundleFromCart(String bundleId) {
+    _items.removeWhere((item) => item.bundleInfo?.bundleId == bundleId);
+    notifyListeners();
+  }
+
+  /// Get items grouped by bundleId (for display)
+  Map<String?, List<CartItem>> get itemsGroupedByBundle {
+    final grouped = <String?, List<CartItem>>{};
+    for (final item in _items) {
+      final key = item.bundleInfo?.bundleId;
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+    return grouped;
   }
 
   void removeFromCart(String productId) {

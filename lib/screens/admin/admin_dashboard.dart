@@ -315,6 +315,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'route': '/admin/orders',
       },
       {
+        'title': 'Custom Orders',
+        'subtitle': 'AI-designed jewelry orders',
+        'icon': Icons.auto_awesome,
+        'color': Colors.deepPurple,
+        'route': '/admin/custom-orders',
+      },
+      {
         'title': 'Inventory',
         'subtitle': 'Stock management',
         'icon': Icons.warehouse,
@@ -329,9 +336,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'route': '/admin/analytics',
       },
       {
-        'title': 'Customers',
-        'subtitle': 'User management',
-        'icon': Icons.people,
+        'title': 'User Management',
+        'subtitle': 'Roles & permissions',
+        'icon': Icons.admin_panel_settings,
         'color': Colors.orange,
         'route': '/admin/customers',
       },

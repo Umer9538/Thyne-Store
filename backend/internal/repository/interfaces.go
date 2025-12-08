@@ -272,3 +272,55 @@ type WishlistRepository interface {
 	GetWishlistItemsByProduct(ctx context.Context, productID primitive.ObjectID) ([]models.WishlistItem, error)
 	ClearWishlist(ctx context.Context, userID primitive.ObjectID) error
 }
+
+// AIRepository defines AI creations and chat data access methods
+type AIRepository interface {
+	// AI Creations
+	CreateCreation(ctx context.Context, creation *models.AICreation) error
+	GetCreationByID(ctx context.Context, id primitive.ObjectID) (*models.AICreation, error)
+	GetCreationsByUserID(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.AICreation, int64, error)
+	DeleteCreation(ctx context.Context, id primitive.ObjectID) error
+	ClearCreationsByUserID(ctx context.Context, userID primitive.ObjectID) error
+
+	// Chat Messages
+	CreateChatMessage(ctx context.Context, message *models.ChatMessage) error
+	GetChatMessagesBySession(ctx context.Context, sessionID string, page, limit int) ([]models.ChatMessage, int64, error)
+	GetChatMessagesByUserID(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.ChatMessage, int64, error)
+	DeleteChatMessage(ctx context.Context, id primitive.ObjectID) error
+	ClearChatBySessionID(ctx context.Context, sessionID string) error
+	ClearChatByUserID(ctx context.Context, userID primitive.ObjectID) error
+
+	// Chat Sessions
+	CreateChatSession(ctx context.Context, session *models.ChatSession) error
+	GetChatSessionByID(ctx context.Context, id primitive.ObjectID) (*models.ChatSession, error)
+	GetChatSessionsByUserID(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.ChatSession, int64, error)
+	UpdateChatSession(ctx context.Context, session *models.ChatSession) error
+	DeleteChatSession(ctx context.Context, id primitive.ObjectID) error
+
+	// Search History
+	AddSearchHistory(ctx context.Context, history *models.SearchHistory) error
+	GetSearchHistoryByUserID(ctx context.Context, userID primitive.ObjectID, limit int) ([]models.SearchHistory, error)
+	ClearSearchHistoryByUserID(ctx context.Context, userID primitive.ObjectID) error
+
+	// Statistics
+	GetUserAIStatistics(ctx context.Context, userID primitive.ObjectID) (*models.AIStatistics, error)
+
+	// Token Tracking
+	GetTokenUsage(ctx context.Context, userID primitive.ObjectID, month string) (*models.TokenUsage, error)
+	CreateTokenUsage(ctx context.Context, usage *models.TokenUsage) error
+	IncrementTokenUsage(ctx context.Context, userID primitive.ObjectID, month string, tokens int64, lastGenerated *time.Time) error
+}
+
+// CustomOrderRepository defines custom AI jewelry order data access methods
+type CustomOrderRepository interface {
+	Create(ctx context.Context, order *models.CustomOrder) error
+	GetByID(ctx context.Context, id primitive.ObjectID) (*models.CustomOrder, error)
+	GetByOrderNumber(ctx context.Context, orderNumber string) (*models.CustomOrder, error)
+	GetByUserID(ctx context.Context, userID primitive.ObjectID, page, limit int) ([]models.CustomOrder, int64, error)
+	GetAll(ctx context.Context, filter models.CustomOrderFilter) ([]models.CustomOrder, int64, error)
+	Update(ctx context.Context, order *models.CustomOrder) error
+	UpdateStatus(ctx context.Context, id primitive.ObjectID, status models.CustomOrderStatus) error
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	GetByStatus(ctx context.Context, status models.CustomOrderStatus, page, limit int) ([]models.CustomOrder, int64, error)
+	GetStatistics(ctx context.Context) (map[string]interface{}, error)
+}

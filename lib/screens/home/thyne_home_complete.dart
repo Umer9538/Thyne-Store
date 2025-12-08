@@ -283,6 +283,8 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAF8F3),
       body: Stack(
@@ -297,7 +299,7 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
           // Floating Search Bar (not shown on create tab)
           if (selectedTab != 'create')
             Positioned(
-              bottom: 80,
+              bottom: 80 + bottomPadding, // Account for bottom nav + safe area
               left: 20,
               right: 20,
               child: _buildFloatingSearchBar(),
@@ -530,13 +532,11 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
                         final address = authProvider.user?.defaultAddress;
                         String deliveryLocation = 'Set Location';
                         if (address != null) {
-                          // Show street and city, or just city if street is empty
-                          if (address.street.isNotEmpty && address.city.isNotEmpty) {
-                            deliveryLocation = '${address.street}, ${address.city}';
+                          // Use shortAddress for compact display, fallback to city
+                          if (address.shortAddress.isNotEmpty) {
+                            deliveryLocation = address.shortAddress;
                           } else if (address.city.isNotEmpty) {
                             deliveryLocation = address.city;
-                          } else if (address.street.isNotEmpty) {
-                            deliveryLocation = address.street;
                           }
                         }
                         return Row(
@@ -3179,6 +3179,11 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
                                       color: const Color(0xFF999999),
                                     ),
                                     border: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
                                   ),
                                   style: GoogleFonts.inter(
                                     fontSize: 14,

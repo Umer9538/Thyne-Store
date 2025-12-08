@@ -553,93 +553,181 @@ class _CreateDealFormState extends State<CreateDealForm> {
   }
 
   void _showProductPicker() {
+    String searchQuery = '';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) {
-          return Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Select Product',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          // Filter products based on search query
+          final filteredProducts = searchQuery.isEmpty
+              ? _products
+              : _products.where((product) {
+                  final query = searchQuery.toLowerCase();
+                  return product.name.toLowerCase().contains(query) ||
+                      product.category.toLowerCase().contains(query) ||
+                      product.description.toLowerCase().contains(query);
+                }).toList();
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (context, scrollController) {
+              return Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
                       ),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Select Product',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _products.length,
-                  itemBuilder: (context, index) {
-                    final product = _products[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: product.images.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  product.images.first,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      width: 50,
-                                      height: 50,
-                                      color: Colors.grey.shade200,
-                                      child: const Icon(Icons.image_not_supported),
-                                    );
-                                  },
-                                ),
+                  ),
+                  // Search field
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search products...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setModalState(() => searchQuery = '');
+                                },
                               )
                             : null,
-                        title: Text(product.name),
-                        subtitle: Text('\$${product.price.toStringAsFixed(2)}'),
-                        trailing: Radio<String>(
-                          value: product.id,
-                          groupValue: _selectedProduct?.id,
-                          onChanged: (value) {
-                            setState(() => _selectedProduct = product);
-                            Navigator.pop(context);
-                          },
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
-                        onTap: () {
-                          setState(() => _selectedProduct = product);
-                          Navigator.pop(context);
-                        },
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                      onChanged: (value) {
+                        setModalState(() => searchQuery = value);
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: filteredProducts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  searchQuery.isNotEmpty ? Icons.search_off : Icons.inventory_2_outlined,
+                                  size: 64,
+                                  color: Colors.grey.shade400,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  searchQuery.isNotEmpty ? 'No products found' : 'No products available',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                                if (searchQuery.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      'Try a different search term',
+                                      style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: filteredProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = filteredProducts[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: ListTile(
+                                  leading: product.images.isNotEmpty
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.network(
+                                            product.images.first,
+                                            width: 50,
+                                            height: 50,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                width: 50,
+                                                height: 50,
+                                                color: Colors.grey.shade200,
+                                                child: const Icon(Icons.image_not_supported),
+                                              );
+                                            },
+                                          ),
+                                        )
+                                      : null,
+                                  title: Text(product.name),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '₹${product.price.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: AppTheme.primaryGold,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Stock: ${product.stock}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: Radio<String>(
+                                    value: product.id,
+                                    groupValue: _selectedProduct?.id,
+                                    onChanged: (value) {
+                                      setState(() => _selectedProduct = product);
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  onTap: () {
+                                    setState(() => _selectedProduct = product);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),

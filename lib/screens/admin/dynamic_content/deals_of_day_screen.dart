@@ -4,6 +4,7 @@ import 'package:thyne_jewls/services/api_service.dart';
 import 'package:thyne_jewls/models/homepage.dart';
 import 'package:thyne_jewls/models/product.dart';
 import 'package:intl/intl.dart';
+import 'edit_deal_form.dart';
 
 class DealsOfDayScreen extends StatefulWidget {
   const DealsOfDayScreen({super.key});
@@ -442,11 +443,20 @@ class _DealsOfDayScreenState extends State<DealsOfDayScreen> {
     }
   }
 
-  void _showEditDealDialog() {
-    // TODO: Navigate to edit deal form
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit Deal Form - Coming Soon')),
+  void _showEditDealDialog() async {
+    if (_activeDeal == null) return;
+    
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditDealForm(deal: _activeDeal!),
+      ),
     );
+    
+    // Refresh the deal if updated successfully
+    if (result == true && mounted) {
+      _loadActiveDeal();
+    }
   }
 
   void _endDeal() async {

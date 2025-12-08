@@ -13,11 +13,41 @@ class BundleDealsScreen extends StatefulWidget {
 class _BundleDealsScreenState extends State<BundleDealsScreen> {
   bool _loading = true;
   List<BundleDeal> _bundles = [];
+  List<BundleDeal> _filteredBundles = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadBundles();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+      _filterBundles();
+    });
+  }
+
+  void _filterBundles() {
+    if (_searchQuery.isEmpty) {
+      _filteredBundles = List.from(_bundles);
+    } else {
+      _filteredBundles = _bundles.where((bundle) {
+        return bundle.title.toLowerCase().contains(_searchQuery) ||
+            bundle.description.toLowerCase().contains(_searchQuery) ||
+            bundle.category.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
   }
 
   Future<void> _loadBundles() async {
@@ -31,6 +61,7 @@ class _BundleDealsScreenState extends State<BundleDealsScreen> {
         _bundles = bundlesData
             .map((b) => BundleDeal.fromJson(b as Map<String, dynamic>))
             .toList();
+        _filterBundles();
       }
     } catch (e) {
       print('Error loading bundles: $e');
@@ -62,18 +93,70 @@ class _BundleDealsScreenState extends State<BundleDealsScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _bundles.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadBundles,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _bundles.length,
-                    itemBuilder: (context, index) => _buildBundleCard(_bundles[index]),
-                  ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search bundles...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _bundles.isEmpty
+                    ? _buildEmptyState()
+                    : _filteredBundles.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No results found',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                ),
+                                Text(
+                                  'Try a different search term',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.grey.shade500,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadBundles,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: _filteredBundles.length,
+                              itemBuilder: (context, index) => _buildBundleCard(_filteredBundles[index]),
+                            ),
+                          ),
+          ),
+        ],
+      ),
     );
   }
 

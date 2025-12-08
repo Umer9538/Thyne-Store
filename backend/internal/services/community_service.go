@@ -31,17 +31,31 @@ func (s *CommunityService) CreatePost(ctx context.Context, req *models.CreatePos
 		return nil, err
 	}
 
+	// Determine moderation status: admin posts are auto-approved, user posts are pending
+	moderationStatus := models.ModerationStatusPending
+	if isAdmin {
+		moderationStatus = models.ModerationStatusApproved
+	}
+
 	post := &models.CommunityPost{
-		UserID:      userID,
-		UserName:    user.Name,
-		UserAvatar:  user.ProfileImage,
-		Content:     req.Content,
-		Images:      req.Images,
-		Videos:      req.Videos,
-		Tags:        req.Tags,
-		IsAdminPost: isAdmin,
-		IsFeatured:  req.IsFeatured && isAdmin, // Only admins can feature posts
-		IsPinned:    req.IsPinned && isAdmin,   // Only admins can pin posts
+		UserID:           userID,
+		UserName:         user.Name,
+		UserAvatar:       user.ProfileImage,
+		Content:          req.Content,
+		Images:           req.Images,
+		Videos:           req.Videos,
+		Tags:             req.Tags,
+		IsAdminPost:      isAdmin,
+		IsFeatured:       req.IsFeatured && isAdmin, // Only admins can feature posts
+		IsPinned:         req.IsPinned && isAdmin,   // Only admins can pin posts
+		ModerationStatus: moderationStatus,
+	}
+
+	// If admin, set moderation info
+	if isAdmin {
+		now := time.Now()
+		post.ModeratedBy = userID
+		post.ModeratedAt = &now
 	}
 
 	err = s.communityRepo.CreatePost(ctx, post)
@@ -397,6 +411,110 @@ func (s *CommunityService) TogglePinPost(ctx context.Context, postID, adminID pr
 	post.UpdatedAt = time.Now()
 
 	return s.communityRepo.UpdatePost(ctx, postID, post)
+}
+
+// GetPendingPosts retrieves posts pending moderation (admin only)
+func (s *CommunityService) GetPendingPosts(ctx context.Context, page, limit int) (*models.CommunityFeedResponse, error) {
+	posts, total, err := s.communityRepo.GetPostsByModerationStatus(ctx, models.ModerationStatusPending, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(total) / limit
+	if int(total)%limit > 0 {
+		totalPages++
+	}
+
+	return &models.CommunityFeedResponse{
+		Posts:      convertPostsToSlice(posts),
+		Total:      total,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// GetRejectedPosts retrieves rejected posts (admin only)
+func (s *CommunityService) GetRejectedPosts(ctx context.Context, page, limit int) (*models.CommunityFeedResponse, error) {
+	posts, total, err := s.communityRepo.GetPostsByModerationStatus(ctx, models.ModerationStatusRejected, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(total) / limit
+	if int(total)%limit > 0 {
+		totalPages++
+	}
+
+	return &models.CommunityFeedResponse{
+		Posts:      convertPostsToSlice(posts),
+		Total:      total,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// ModeratePost approves or rejects a post (admin only)
+func (s *CommunityService) ModeratePost(ctx context.Context, postID, adminID primitive.ObjectID, action, reason string) error {
+	// Verify admin status
+	admin, err := s.userRepo.GetByID(ctx, adminID)
+	if err != nil || !admin.IsAdmin {
+		return errors.New("unauthorized: admin access required")
+	}
+
+	// Get the post
+	post, err := s.communityRepo.GetPostByID(ctx, postID)
+	if err != nil {
+		return err
+	}
+
+	// Update moderation status
+	now := time.Now()
+	switch action {
+	case "approve":
+		post.ModerationStatus = models.ModerationStatusApproved
+		post.RejectionReason = ""
+	case "reject":
+		if reason == "" {
+			return errors.New("rejection reason is required")
+		}
+		post.ModerationStatus = models.ModerationStatusRejected
+		post.RejectionReason = reason
+	default:
+		return errors.New("invalid moderation action")
+	}
+
+	post.ModeratedBy = adminID
+	post.ModeratedAt = &now
+	post.UpdatedAt = now
+
+	return s.communityRepo.UpdatePost(ctx, postID, post)
+}
+
+// GetModerationStats returns moderation statistics (admin only)
+func (s *CommunityService) GetModerationStats(ctx context.Context) (map[string]int64, error) {
+	pendingCount, err := s.communityRepo.CountPostsByModerationStatus(ctx, models.ModerationStatusPending)
+	if err != nil {
+		return nil, err
+	}
+
+	approvedCount, err := s.communityRepo.CountPostsByModerationStatus(ctx, models.ModerationStatusApproved)
+	if err != nil {
+		return nil, err
+	}
+
+	rejectedCount, err := s.communityRepo.CountPostsByModerationStatus(ctx, models.ModerationStatusRejected)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]int64{
+		"pending":  pendingCount,
+		"approved": approvedCount,
+		"rejected": rejectedCount,
+		"total":    pendingCount + approvedCount + rejectedCount,
+	}, nil
 }
 
 // Helper function to convert []*Post to []Post

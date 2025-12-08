@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/theme.dart';
 import '../onboarding/onboarding_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'admin_login_screen.dart';
+import 'otp_verification_screen.dart';
 import '../../widgets/glass/glass_ui.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,21 +19,164 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneOrEmailController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _notifyOrders = true;
   bool _subscribeNewsletter = false;
 
+  // Country code data
+  String _selectedCountryCode = '+92';
+  String _selectedCountryFlag = '🇵🇰';
+
+  final List<Map<String, String>> _countryCodes = [
+    {'code': '+92', 'flag': '🇵🇰', 'name': 'Pakistan'},
+    {'code': '+91', 'flag': '🇮🇳', 'name': 'India'},
+    {'code': '+1', 'flag': '🇺🇸', 'name': 'USA'},
+    {'code': '+44', 'flag': '🇬🇧', 'name': 'UK'},
+    {'code': '+971', 'flag': '🇦🇪', 'name': 'UAE'},
+    {'code': '+966', 'flag': '🇸🇦', 'name': 'Saudi Arabia'},
+    {'code': '+65', 'flag': '🇸🇬', 'name': 'Singapore'},
+    {'code': '+60', 'flag': '🇲🇾', 'name': 'Malaysia'},
+    {'code': '+61', 'flag': '🇦🇺', 'name': 'Australia'},
+    {'code': '+49', 'flag': '🇩🇪', 'name': 'Germany'},
+    {'code': '+33', 'flag': '🇫🇷', 'name': 'France'},
+    {'code': '+81', 'flag': '🇯🇵', 'name': 'Japan'},
+    {'code': '+86', 'flag': '🇨🇳', 'name': 'China'},
+    {'code': '+82', 'flag': '🇰🇷', 'name': 'South Korea'},
+    {'code': '+39', 'flag': '🇮🇹', 'name': 'Italy'},
+    {'code': '+34', 'flag': '🇪🇸', 'name': 'Spain'},
+    {'code': '+55', 'flag': '🇧🇷', 'name': 'Brazil'},
+    {'code': '+52', 'flag': '🇲🇽', 'name': 'Mexico'},
+    {'code': '+7', 'flag': '🇷🇺', 'name': 'Russia'},
+    {'code': '+27', 'flag': '🇿🇦', 'name': 'South Africa'},
+  ];
+
   @override
   void dispose() {
-    _phoneOrEmailController.dispose();
+    _phoneController.dispose();
     super.dispose();
+  }
+
+  void _showCountryCodePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Select Country',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _countryCodes.length,
+                itemBuilder: (context, index) {
+                  final country = _countryCodes[index];
+                  final isSelected = country['code'] == _selectedCountryCode;
+                  return ListTile(
+                    leading: Text(
+                      country['flag']!,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    title: Text(country['name']!),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          country['code']!,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.check, color: Color(0xFF3D5A3D)),
+                        ],
+                      ],
+                    ),
+                    selected: isSelected,
+                    selectedTileColor: const Color(0xFF3D5A3D).withOpacity(0.1),
+                    onTap: () {
+                      setState(() {
+                        _selectedCountryCode = country['code']!;
+                        _selectedCountryFlag = country['flag']!;
+                      });
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _handleContinue() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement phone/email login flow
-      // For now, navigate to home
-      Navigator.of(context).pushReplacementNamed('/home');
+      final phoneNumber = _phoneController.text.trim();
+      final authProvider = context.read<AuthProvider>();
+
+      // Validate phone number (should be digits only)
+      if (!RegExp(r'^[0-9]{6,15}$').hasMatch(phoneNumber.replaceAll(' ', ''))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid phone number'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Format phone number with country code
+      final fullPhoneNumber = '$_selectedCountryCode${phoneNumber.replaceAll(' ', '')}';
+
+      // Send OTP
+      final success = await authProvider.sendPhoneOTP(fullPhoneNumber);
+
+      if (success && mounted) {
+        // Navigate to OTP verification screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => OTPVerificationScreen(
+              phoneNumber: fullPhoneNumber,
+              notifyOrders: _notifyOrders,
+              subscribeNewsletter: _subscribeNewsletter,
+            ),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error ?? 'Failed to send OTP'),
+            backgroundColor: Colors.red.shade400,
+          ),
+        );
+      }
     }
   }
 
@@ -51,16 +197,35 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Close button
+            // Admin login button
             Positioned(
               top: 16,
               left: 16,
-              child: GlassIconButton(
-                icon: Icons.close,
-                size: 44,
+              child: GlassButton(
+                text: 'Admin',
                 onPressed: () {
-                  Navigator.of(context).pushReplacementNamed('/home');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+                  );
                 },
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                height: 44,
+                blur: GlassConfig.softBlur,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.admin_panel_settings_outlined, size: 18, color: Colors.black54),
+                    SizedBox(width: 6),
+                    Text(
+                      'Admin',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -105,19 +270,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Logo
-                        Container(
+                        SvgPicture.asset(
+                          'assets/thyne.svg',
                           width: 100,
                           height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF3D1F1F), width: 2),
-                          ),
-                          child: Center(
-                            child: CustomPaint(
-                              size: const Size(70, 70),
-                              painter: ThyneLogoPainter(),
-                            ),
-                          ),
                         ),
 
                         const SizedBox(height: 32),
@@ -145,32 +301,83 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 40),
 
-                        // Phone or Email input
-                        TextFormField(
-                          controller: _phoneOrEmailController,
-                          decoration: InputDecoration(
-                            hintText: 'Phone or Email',
-                            hintStyle: const TextStyle(
-                              color: Colors.black26,
-                              fontSize: 15,
+                        // Phone input with country code
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Country code selector
+                            GestureDetector(
+                              onTap: _showCountryCodePicker,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F5F0),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _selectedCountryFlag,
+                                      style: const TextStyle(fontSize: 20),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _selectedCountryCode,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      color: Colors.grey[600],
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            filled: true,
-                            fillColor: const Color(0xFFF5F5F0),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
+                            const SizedBox(width: 12),
+                            // Phone number input
+                            Expanded(
+                              child: TextFormField(
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                decoration: InputDecoration(
+                                  hintText: 'Phone Number',
+                                  hintStyle: const TextStyle(
+                                    color: Colors.black26,
+                                    fontSize: 15,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF5F5F0),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 18,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Enter phone number';
+                                  }
+                                  if (!RegExp(r'^[0-9]{6,15}$').hasMatch(value.replaceAll(' ', ''))) {
+                                    return 'Invalid phone number';
+                                  }
+                                  return null;
+                                },
+                              ),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 18,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your phone or email';
-                            }
-                            return null;
-                          },
+                          ],
                         ),
 
                         const SizedBox(height: 20),

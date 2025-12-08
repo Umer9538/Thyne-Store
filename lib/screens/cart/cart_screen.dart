@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/guest_session_provider.dart';
@@ -73,13 +74,9 @@ class _CartScreenState extends State<CartScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    itemCount: cartProvider.items.length,
-                    itemBuilder: (context, index) {
-                      final item = cartProvider.items[index];
-                      return _buildCartItem(context, item, cartProvider);
-                    },
+                    children: _buildCartItemsList(context, cartProvider),
                   ),
                 ),
                 _buildOrderSummary(context, cartProvider),
@@ -125,6 +122,272 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  /// Build list of cart items, grouping bundle items together
+  List<Widget> _buildCartItemsList(BuildContext context, CartProvider cartProvider) {
+    final widgets = <Widget>[];
+    final groupedItems = cartProvider.itemsGroupedByBundle;
+
+    for (final entry in groupedItems.entries) {
+      final bundleId = entry.key;
+      final items = entry.value;
+
+      if (bundleId != null && items.isNotEmpty) {
+        // This is a bundle - display as a single card
+        widgets.add(_buildBundleCard(context, items, cartProvider));
+      } else {
+        // Regular items - display individually
+        for (final item in items) {
+          widgets.add(_buildCartItem(context, item, cartProvider));
+        }
+      }
+    }
+
+    return widgets;
+  }
+
+  /// Build a card for bundle items
+  Widget _buildBundleCard(BuildContext context, List<dynamic> bundleItems, CartProvider cartProvider) {
+    final firstItem = bundleItems.first;
+    final bundleInfo = firstItem.bundleInfo!;
+
+    // Calculate total bundle price
+    final bundleTotalPrice = bundleItems.fold<double>(
+      0, (sum, item) => sum + item.totalPrice,
+    );
+    final bundleOriginalPrice = bundleItems.fold<double>(
+      0, (sum, item) => sum + (item.originalPrice ?? item.product.price) * item.quantity,
+    );
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Bundle Header
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF094010).withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF094010),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.card_giftcard,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        bundleInfo.bundleName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF094010),
+                            ),
+                      ),
+                      Text(
+                        '${bundleItems.length} items in this bundle',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (bundleInfo.discountPercent > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${bundleInfo.discountPercent}% OFF',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: AppTheme.errorRed),
+                  onPressed: () {
+                    cartProvider.removeBundleFromCart(bundleInfo.bundleId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${bundleInfo.bundleName} removed from cart'),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // Bundle Products List
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: bundleItems.map<Widget>((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      // Product Image
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: CachedNetworkImage(
+                          imageUrl: item.product.images.isNotEmpty
+                              ? item.product.images.first
+                              : '',
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(
+                              width: 50,
+                              height: 50,
+                              color: Colors.white,
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: 50,
+                            height: 50,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.image, size: 20),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Product Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.product.name,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Qty: ${item.quantity}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Price
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${item.totalPrice.toStringAsFixed(0)}',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green.shade700,
+                                ),
+                          ),
+                          if (item.originalPrice != null)
+                            Text(
+                              '₹${(item.originalPrice! * item.quantity).toStringAsFixed(0)}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          // Bundle Total
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Bundle Total',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (bundleOriginalPrice > bundleTotalPrice)
+                      Text(
+                        'You save ₹${(bundleOriginalPrice - bundleTotalPrice).toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    if (bundleOriginalPrice > bundleTotalPrice)
+                      Text(
+                        '₹${bundleOriginalPrice.toStringAsFixed(0)}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              decoration: TextDecoration.lineThrough,
+                              color: AppTheme.textSecondary,
+                            ),
+                      ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '₹${bundleTotalPrice.toStringAsFixed(0)}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF094010),
+                          ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCartItem(BuildContext context, item, CartProvider cartProvider) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -148,10 +411,25 @@ class _CartScreenState extends State<CartScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: CachedNetworkImage(
-                  imageUrl: item.product.images.first,
+                  imageUrl: item.product.images.isNotEmpty ? item.product.images.first : '',
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
+                  placeholder: (context, url) => Shimmer.fromColors(
+                    baseColor: Colors.grey[300]!,
+                    highlightColor: Colors.grey[100]!,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.white,
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.image, color: Colors.grey),
+                  ),
                 ),
               ),
             ),

@@ -65,20 +65,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Column(
                 children: [
                   // Logo
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF3D1F1F), width: 2),
-                    ),
-                    child: Center(
-                      child: SvgPicture.asset(
-                        'assets/thyne.svg',
-                        width: 80,
-                        height: 80,
-                      ),
-                    ),
+                  SvgPicture.asset(
+                    'assets/thyne.svg',
+                    width: 100,
+                    height: 100,
                   ),
 
                   const SizedBox(height: 20),

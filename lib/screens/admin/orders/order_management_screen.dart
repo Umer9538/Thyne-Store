@@ -215,12 +215,16 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Order #${order.id}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                Flexible(
+                  child: Text(
+                    'Order #${order.id}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
@@ -244,16 +248,22 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
               children: [
                 const Icon(Icons.person, size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 4),
-                Text(
-                  order.customerName,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Flexible(
+                  child: Text(
+                    order.customerName,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 const Icon(Icons.phone, size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 4),
-                Text(
-                  order.customerPhone,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Flexible(
+                  child: Text(
+                    order.customerPhone,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -263,9 +273,12 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
               children: [
                 const Icon(Icons.calendar_today, size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 4),
-                Text(
-                  order.orderDate,
-                  style: Theme.of(context).textTheme.bodySmall,
+                Flexible(
+                  child: Text(
+                    order.orderDate,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 const Icon(Icons.shopping_cart, size: 16, color: AppTheme.textSecondary),
@@ -276,12 +289,15 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
                 ),
                 const SizedBox(width: 16),
                 const Icon(Icons.currency_rupee, size: 16, color: AppTheme.primaryGold),
-                Text(
-                  '₹${order.totalAmount.toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryGold,
-                      ),
+                Flexible(
+                  child: Text(
+                    '₹${order.totalAmount.toStringAsFixed(0)}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryGold,
+                        ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -345,13 +361,15 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Order Details #${order.id}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                  Expanded(
+                    child: Text(
+                      'Order #${order.id.length > 8 ? order.id.substring(order.id.length - 8) : order.id}',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -463,72 +481,96 @@ class _OrderManagementScreenState extends State<OrderManagementScreen>
   }
 
   void _showUpdateStatusDialog(AdminOrder order) {
-    String selectedStatus = order.status;
+    // Normalize status and ensure it exists in the dropdown items list
+    String initialStatus = order.status.toLowerCase();
+    
+    // Valid statuses that exist in the dropdown
+    const validStatuses = ['pending', 'placed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    
+    // Ensure the status exists in valid statuses, default to 'pending' if not
+    if (!validStatuses.contains(initialStatus)) {
+      initialStatus = 'pending';
+    }
 
+    String selectedStatus = initialStatus;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Update Order Status'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Order #${order.id}'),
-            Text('Customer: ${order.customerName}'),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: selectedStatus,
-              decoration: const InputDecoration(
-                labelText: 'Status',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'placed', child: Text('Placed')),
-                DropdownMenuItem(value: 'processing', child: Text('Processing')),
-                DropdownMenuItem(value: 'shipped', child: Text('Shipped')),
-                DropdownMenuItem(value: 'delivered', child: Text('Delivered')),
-                DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Update Order Status'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Order #${order.id}'),
+                Text('Customer: ${order.customerName}'),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(value: 'placed', child: Text('Placed')),
+                    DropdownMenuItem(value: 'processing', child: Text('Processing')),
+                    DropdownMenuItem(value: 'shipped', child: Text('Shipped')),
+                    DropdownMenuItem(value: 'delivered', child: Text('Delivered')),
+                    DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() {
+                        selectedStatus = value;
+                      });
+                    }
+                  },
+                ),
               ],
-              onChanged: (value) {
-                selectedStatus = value!;
-              },
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await ApiService.updateOrderStatus(
+                      orderId: order.id,
+                      status: selectedStatus,
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        const SnackBar(
+                          content: Text('Order status updated successfully'),
+                          backgroundColor: AppTheme.successGreen,
+                        ),
+                      );
+                      // Refresh orders
+                      setState(() {});
+                    }
+                  } catch (e) {
+                    if (dialogContext.mounted) {
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating status: ${e.toString()}'),
+                          backgroundColor: AppTheme.errorRed,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Update'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await ApiService.updateOrderStatus(
-                  orderId: order.id,
-                  status: selectedStatus,
-                );
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Order status updated successfully'),
-                    backgroundColor: AppTheme.successGreen,
-                  ),
-                );
-                // Refresh orders
-                setState(() {});
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error updating status: ${e.toString()}'),
-                    backgroundColor: AppTheme.errorRed,
-                  ),
-                );
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

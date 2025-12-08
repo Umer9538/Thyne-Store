@@ -280,14 +280,28 @@ class _ProductCardState extends State<ProductCard> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              '₹${widget.product.price.toStringAsFixed(0)}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryGold,
-                                    fontSize: 9,
-                                  ),
+                            child: RichText(
                               overflow: TextOverflow.ellipsis,
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '₹${widget.product.price.toStringAsFixed(0)}',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryGold,
+                                          fontSize: 9,
+                                        ),
+                                  ),
+                                  TextSpan(
+                                    text: ' incl.',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontWeight: FontWeight.normal,
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 7,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           if (widget.product.originalPrice != null || hasEventDiscount)

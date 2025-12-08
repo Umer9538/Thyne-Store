@@ -140,10 +140,10 @@ func (s *userService) UpdateAddress(userID primitive.ObjectID, addressID string,
 
 	// If this is set as default, unset other defaults first
     if req.IsDefault {
-        return s.userRepo.SetDefaultAddress(nil, userID, addrID)
+        return s.userRepo.SetDefaultAddress(context.Background(), userID, addrID)
 	}
 
-    return s.userRepo.UpdateAddress(nil, userID, addrID, address)
+    return s.userRepo.UpdateAddress(context.Background(), userID, addrID, address)
 }
 
 func (s *userService) DeleteAddress(userID primitive.ObjectID, addressID string) error {
@@ -151,7 +151,7 @@ func (s *userService) DeleteAddress(userID primitive.ObjectID, addressID string)
     if err != nil {
         return errors.New("invalid address ID")
     }
-    return s.userRepo.DeleteAddress(nil, userID, addrID)
+    return s.userRepo.DeleteAddress(context.Background(), userID, addrID)
 }
 
 func (s *userService) SetDefaultAddress(userID primitive.ObjectID, addressID string) error {
@@ -159,7 +159,7 @@ func (s *userService) SetDefaultAddress(userID primitive.ObjectID, addressID str
     if err != nil {
         return errors.New("invalid address ID")
     }
-    return s.userRepo.SetDefaultAddress(nil, userID, addrID)
+    return s.userRepo.SetDefaultAddress(context.Background(), userID, addrID)
 }
 
 func (s *userService) GetAllUsers(page, limit int) ([]models.User, int64, error) {
@@ -170,7 +170,7 @@ func (s *userService) GetAllUsers(page, limit int) ([]models.User, int64, error)
 		limit = 20
 	}
 
-	return s.userRepo.GetAll(nil, page, limit)
+	return s.userRepo.GetAll(context.Background(), page, limit)
 }
 
 func (s *userService) SearchUsers(query string, page, limit int) ([]models.User, int64, error) {
@@ -181,11 +181,11 @@ func (s *userService) SearchUsers(query string, page, limit int) ([]models.User,
 		limit = 20
 	}
 
-	return s.userRepo.Search(nil, query, page, limit)
+	return s.userRepo.Search(context.Background(), query, page, limit)
 }
 
 func (s *userService) DeactivateUser(userID primitive.ObjectID) error {
-	user, err := s.userRepo.GetByID(nil, userID)
+	user, err := s.userRepo.GetByID(context.Background(), userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
@@ -193,11 +193,11 @@ func (s *userService) DeactivateUser(userID primitive.ObjectID) error {
 	user.IsActive = false
 	user.UpdatedAt = time.Now()
 
-	return s.userRepo.Update(nil, user)
+	return s.userRepo.Update(context.Background(), user)
 }
 
 func (s *userService) ActivateUser(userID primitive.ObjectID) error {
-	user, err := s.userRepo.GetByID(nil, userID)
+	user, err := s.userRepo.GetByID(context.Background(), userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
@@ -205,11 +205,11 @@ func (s *userService) ActivateUser(userID primitive.ObjectID) error {
 	user.IsActive = true
 	user.UpdatedAt = time.Now()
 
-	return s.userRepo.Update(nil, user)
+	return s.userRepo.Update(context.Background(), user)
 }
 
 func (s *userService) MakeAdmin(userID primitive.ObjectID) error {
-	user, err := s.userRepo.GetByID(nil, userID)
+	user, err := s.userRepo.GetByID(context.Background(), userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
@@ -217,11 +217,11 @@ func (s *userService) MakeAdmin(userID primitive.ObjectID) error {
 	user.IsAdmin = true
 	user.UpdatedAt = time.Now()
 
-	return s.userRepo.Update(nil, user)
+	return s.userRepo.Update(context.Background(), user)
 }
 
 func (s *userService) RemoveAdmin(userID primitive.ObjectID) error {
-	user, err := s.userRepo.GetByID(nil, userID)
+	user, err := s.userRepo.GetByID(context.Background(), userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
@@ -229,7 +229,7 @@ func (s *userService) RemoveAdmin(userID primitive.ObjectID) error {
 	user.IsAdmin = false
 	user.UpdatedAt = time.Now()
 
-	return s.userRepo.Update(nil, user)
+	return s.userRepo.Update(context.Background(), user)
 }
 
 // Wishlist methods

@@ -270,6 +270,7 @@ func (h *HomepageHandler) CreateFlashSale(c *gin.Context) {
 		StartTime:   req.StartTime,
 		EndTime:     req.EndTime,
 		Discount:    req.Discount,
+		IsActive:    true, // Set active by default so it shows on user side
 	}
 
 	err := h.homepageService.CreateFlashSale(c.Request.Context(), sale)

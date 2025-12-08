@@ -501,3 +501,95 @@ func (h *CommunityHandler) TogglePinPost(c *gin.Context) {
 		"message": "Pin status toggled successfully",
 	})
 }
+
+// ==================== Moderation Endpoints ====================
+
+// GetPendingPosts retrieves posts pending moderation (admin only)
+func (h *CommunityHandler) GetPendingPosts(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	feed, err := h.communityService.GetPendingPosts(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch pending posts"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    feed,
+	})
+}
+
+// GetRejectedPosts retrieves rejected posts (admin only)
+func (h *CommunityHandler) GetRejectedPosts(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	feed, err := h.communityService.GetRejectedPosts(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rejected posts"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    feed,
+	})
+}
+
+// ModeratePost approves or rejects a post (admin only)
+func (h *CommunityHandler) ModeratePost(c *gin.Context) {
+	postID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+
+	userIDStr, _ := c.Get("userID")
+	adminID, _ := primitive.ObjectIDFromHex(userIDStr.(string))
+
+	var req models.ModeratePostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.communityService.ModeratePost(c.Request.Context(), postID, adminID, req.Action, req.Reason)
+	if err != nil {
+		if err.Error() == "unauthorized: admin access required" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+			return
+		}
+		if err.Error() == "rejection reason is required" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Rejection reason is required"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	message := "Post approved successfully"
+	if req.Action == "reject" {
+		message = "Post rejected successfully"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": message,
+	})
+}
+
+// GetModerationStats returns moderation statistics (admin only)
+func (h *CommunityHandler) GetModerationStats(c *gin.Context) {
+	stats, err := h.communityService.GetModerationStats(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch moderation stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    stats,
+	})
+}

@@ -23,18 +23,80 @@ type User struct {
     UpdatedAt    time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
 
-// Address represents a user's address
+// Address represents a user's address with detailed fields for Indian delivery
 type Address struct {
-	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	UserID    primitive.ObjectID `json:"userId" bson:"userId"`
-	Street    string             `json:"street" bson:"street" validate:"required,min=1,max=200"`
-	City      string             `json:"city" bson:"city" validate:"required,min=1,max=100"`
-	State     string             `json:"state" bson:"state" validate:"required,min=1,max=100"`
-	ZipCode   string             `json:"zipCode" bson:"zipCode" validate:"required,min=1,max=10"`
-	Country   string             `json:"country" bson:"country" validate:"required,min=1,max=100"`
-	IsDefault bool               `json:"isDefault" bson:"isDefault"`
-	CreatedAt time.Time          `json:"createdAt" bson:"createdAt"`
-	UpdatedAt time.Time          `json:"updatedAt" bson:"updatedAt"`
+	ID             primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID         primitive.ObjectID `json:"userId" bson:"userId"`
+	// New detailed address fields
+	HouseNoFloor   string             `json:"houseNoFloor" bson:"houseNoFloor" validate:"required,min=1,max=100"`   // House no. & Floor
+	BuildingBlock  string             `json:"buildingBlock" bson:"buildingBlock" validate:"required,min=1,max=200"` // Building & Block number
+	LandmarkArea   string             `json:"landmarkArea" bson:"landmarkArea" validate:"required,min=1,max=200"`   // Landmark & Area
+	City           string             `json:"city" bson:"city" validate:"required,min=1,max=100"`
+	State          string             `json:"state" bson:"state" validate:"required,min=1,max=100"`
+	Pincode        string             `json:"pincode" bson:"pincode" validate:"required,len=6"`                     // Indian pincode (6 digits)
+	Country        string             `json:"country" bson:"country"`
+	Label          string             `json:"label" bson:"label" validate:"required,oneof=home work other"`         // Address label: home, work, other
+	RecipientName  string             `json:"recipientName,omitempty" bson:"recipientName,omitempty"`               // Optional: recipient name
+	RecipientPhone string             `json:"recipientPhone,omitempty" bson:"recipientPhone,omitempty"`             // Optional: recipient phone
+	IsDefault      bool               `json:"isDefault" bson:"isDefault"`
+	// Legacy fields for backward compatibility
+	Street         string             `json:"street,omitempty" bson:"street,omitempty"`                             // Computed: full address string
+	ZipCode        string             `json:"zipCode,omitempty" bson:"zipCode,omitempty"`                           // Alias for pincode
+	CreatedAt      time.Time          `json:"createdAt" bson:"createdAt"`
+	UpdatedAt      time.Time          `json:"updatedAt" bson:"updatedAt"`
+}
+
+// GetFullAddress returns the complete formatted address string
+func (a *Address) GetFullAddress() string {
+	parts := []string{}
+	if a.HouseNoFloor != "" {
+		parts = append(parts, a.HouseNoFloor)
+	}
+	if a.BuildingBlock != "" {
+		parts = append(parts, a.BuildingBlock)
+	}
+	if a.LandmarkArea != "" {
+		parts = append(parts, a.LandmarkArea)
+	}
+	if a.City != "" {
+		parts = append(parts, a.City)
+	}
+	if a.State != "" {
+		parts = append(parts, a.State)
+	}
+	if a.Pincode != "" {
+		parts = append(parts, a.Pincode)
+	}
+	return joinStrings(parts, ", ")
+}
+
+// GetShortAddress returns a shortened address for display
+func (a *Address) GetShortAddress() string {
+	parts := []string{}
+	if a.HouseNoFloor != "" {
+		parts = append(parts, a.HouseNoFloor)
+	}
+	if a.LandmarkArea != "" {
+		parts = append(parts, a.LandmarkArea)
+	}
+	if a.City != "" {
+		parts = append(parts, a.City)
+	}
+	return joinStrings(parts, ", ")
+}
+
+// Helper function to join non-empty strings
+func joinStrings(parts []string, sep string) string {
+	result := ""
+	for i, part := range parts {
+		if part != "" {
+			if result != "" {
+				result += sep
+			}
+			result += parts[i]
+		}
+	}
+	return result
 }
 
 // CreateUserRequest represents the request to create a new user
@@ -69,12 +131,21 @@ type UpdateProfileRequest struct {
 
 // AddAddressRequest represents the request to add a new address
 type AddAddressRequest struct {
-	Street    string `json:"street" validate:"required,min=5,max=200"`
-	City      string `json:"city" validate:"required,min=2,max=100"`
-	State     string `json:"state" validate:"required,min=2,max=100"`
-	ZipCode   string `json:"zipCode" validate:"required,min=3,max=10"`
-	Country   string `json:"country" validate:"required,min=2,max=100"`
-	IsDefault bool   `json:"isDefault"`
+	// New detailed address fields
+	HouseNoFloor   string `json:"houseNoFloor" validate:"required,min=1,max=100"`
+	BuildingBlock  string `json:"buildingBlock" validate:"required,min=1,max=200"`
+	LandmarkArea   string `json:"landmarkArea" validate:"required,min=1,max=200"`
+	City           string `json:"city" validate:"required,min=2,max=100"`
+	State          string `json:"state" validate:"required,min=2,max=100"`
+	Pincode        string `json:"pincode" validate:"required,len=6"`
+	Country        string `json:"country"`
+	Label          string `json:"label" validate:"required,oneof=home work other"`
+	RecipientName  string `json:"recipientName,omitempty"`
+	RecipientPhone string `json:"recipientPhone,omitempty"`
+	IsDefault      bool   `json:"isDefault"`
+	// Legacy fields for backward compatibility
+	Street         string `json:"street,omitempty"`
+	ZipCode        string `json:"zipCode,omitempty"`
 }
 
 // ForgotPasswordRequest represents the forgot password request

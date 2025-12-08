@@ -304,8 +304,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             _buildDetailRow('Payment Method', widget.order.paymentMethod),
             _buildDetailRow(
               'Shipping Address',
-              '${widget.order.shippingAddress.street}\n'
-              '${widget.order.shippingAddress.city}, ${widget.order.shippingAddress.state} ${widget.order.shippingAddress.zipCode}',
+              '${widget.order.shippingAddress.fullAddress}\n'
+              '${widget.order.shippingAddress.city}, ${widget.order.shippingAddress.state} ${widget.order.shippingAddress.pincode}',
             ),
             if (widget.order.deliveredAt != null)
               _buildDetailRow('Delivered On', _formatDateTime(widget.order.deliveredAt!)),

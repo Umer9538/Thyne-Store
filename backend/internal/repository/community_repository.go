@@ -21,6 +21,10 @@ type CommunityRepository interface {
 	IncrementPostVoteCount(ctx context.Context, postID primitive.ObjectID, increment int) error
 	IncrementPostCommentCount(ctx context.Context, postID primitive.ObjectID, increment int) error
 
+	// Moderation operations
+	GetPostsByModerationStatus(ctx context.Context, status models.ModerationStatus, page, limit int) ([]*models.CommunityPost, int64, error)
+	CountPostsByModerationStatus(ctx context.Context, status models.ModerationStatus) (int64, error)
+
 	// Like operations
 	CreateLike(ctx context.Context, like *models.PostLike) error
 	DeleteLike(ctx context.Context, postID, userID primitive.ObjectID) error

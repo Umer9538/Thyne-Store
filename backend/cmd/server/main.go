@@ -79,7 +79,12 @@ func main() {
     loyaltyRepo := mongo.NewLoyaltyRepository(db)
 	homepageRepo := mongo.NewHomepageRepository(db)
 	communityRepo := mongo.NewCommunityRepository(db)
+	aiRepo := mongo.NewAIRepository(db)
+	customOrderRepo := mongo.NewCustomOrderRepository(db)
     // notificationRepo := mongo.NewNotificationRepository(db)
+
+	// Initialize storefront repository early for order ID generation
+	storefrontDataRepo := repository.NewStorefrontDataRepository(db)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo, cfg.JWT, 12) // bcrypt cost 12
@@ -92,10 +97,17 @@ func main() {
 	invoiceService := services.NewInvoiceService(invoiceRepo, orderRepo, userRepo)
 	homepageService := services.NewHomepageService(homepageRepo, productRepo)
 	communityService := services.NewCommunityService(communityRepo, userRepo)
-	
+	aiService := services.NewAIService(aiRepo)
+	customOrderService := services.NewCustomOrderService(customOrderRepo)
+
 	// Initialize notification service (without Firebase credentials for now)
     // notifications disabled for build-only profile
-	
+
+	// Set storefront repo on order service for order ID generation
+	if orderServiceImpl, ok := orderService.(interface{ SetStorefrontRepo(*repository.StorefrontDataRepository) }); ok {
+		orderServiceImpl.SetStorefrontRepo(storefrontDataRepo)
+	}
+
 	// Set loyalty service on order service for purchase points integration
 	if orderServiceImpl, ok := orderService.(interface{ SetLoyaltyService(*services.LoyaltyService) }); ok {
 		orderServiceImpl.SetLoyaltyService(loyaltyService)
@@ -123,9 +135,10 @@ func main() {
 	loyaltyHandler := handlers.NewLoyaltyHandler(loyaltyService)
 	homepageHandler := handlers.NewHomepageHandler(homepageService)
 	communityHandler := handlers.NewCommunityHandler(communityService)
+	aiHandler := handlers.NewAIHandler(aiService)
+	customOrderHandler := handlers.NewCustomOrderHandler(customOrderService, authService)
 
-	// Initialize storefront repository and handler
-	storefrontDataRepo := repository.NewStorefrontDataRepository(db)
+	// Initialize storefront handler (repo already initialized earlier for order ID generation)
 	storefrontDataHandler := handlers.NewStorefrontDataHandler(storefrontDataRepo)
 
 	// Initialize upload handler
@@ -373,6 +386,60 @@ func main() {
 			}
 		}
 
+		// AI routes - for user's AI creations, chat history, and intent analysis
+		ai := api.Group("/ai")
+		{
+			// Public endpoints - no auth required for better UX
+			ai.POST("/analyze-intent", aiHandler.AnalyzeIntent)
+			ai.POST("/estimate-price", aiHandler.EstimatePrice)
+
+			// Protected endpoints - require authentication
+			aiAuth := ai.Group("")
+			aiAuth.Use(middleware.AuthRequired(authService))
+
+			// AI Creations (Library)
+			aiAuth.POST("/creations", aiHandler.SaveCreation)
+			aiAuth.GET("/creations", aiHandler.GetCreations)
+			aiAuth.GET("/creations/:id", aiHandler.GetCreation)
+			aiAuth.DELETE("/creations/:id", aiHandler.DeleteCreation)
+			aiAuth.DELETE("/creations", aiHandler.ClearCreations)
+
+			// Chat
+			aiAuth.POST("/chat/messages", aiHandler.SendChatMessage)
+			aiAuth.GET("/chat/sessions", aiHandler.GetChatSessions)
+			aiAuth.GET("/chat/sessions/:sessionId/messages", aiHandler.GetChatMessages)
+			aiAuth.GET("/chat/history", aiHandler.GetChatHistory)
+			aiAuth.DELETE("/chat/sessions/:sessionId", aiHandler.DeleteChatSession)
+			aiAuth.DELETE("/chat", aiHandler.ClearChat)
+
+			// Search History
+			aiAuth.POST("/search-history", aiHandler.AddSearchHistory)
+			aiAuth.GET("/search-history", aiHandler.GetSearchHistory)
+			aiAuth.DELETE("/search-history", aiHandler.ClearSearchHistory)
+
+			// Statistics
+			aiAuth.GET("/statistics", aiHandler.GetStatistics)
+
+			// Token Tracking
+			aiAuth.GET("/tokens", aiHandler.GetTokenUsage)
+			aiAuth.GET("/tokens/can-generate", aiHandler.CheckCanGenerate)
+		}
+
+		// Custom Orders routes - public endpoint for creating orders
+		customOrders := api.Group("/custom-orders")
+		customOrders.Use(middleware.OptionalAuth(authService))
+		{
+			customOrders.POST("", customOrderHandler.CreateOrder)
+			customOrders.GET("/:id", customOrderHandler.GetOrder)
+		}
+
+		// Custom Orders - authenticated user routes
+		customOrdersAuth := api.Group("/custom-orders")
+		customOrdersAuth.Use(middleware.AuthRequired(authService))
+		{
+			customOrdersAuth.GET("/my-orders", customOrderHandler.GetUserOrders)
+		}
+
         // Admin routes
 		admin := api.Group("/admin")
 		admin.Use(middleware.AuthRequired(authService))
@@ -513,6 +580,27 @@ func main() {
 				adminHomepage.POST("/bundle-deals", homepageHandler.CreateBundleDeal)
 				adminHomepage.PUT("/bundle-deals/:id", homepageHandler.UpdateBundleDeal)
 				adminHomepage.DELETE("/bundle-deals/:id", homepageHandler.DeleteBundleDeal)
+			}
+
+			// Community moderation management
+			adminCommunity := admin.Group("/community")
+			{
+				adminCommunity.GET("/moderation/pending", communityHandler.GetPendingPosts)
+				adminCommunity.GET("/moderation/rejected", communityHandler.GetRejectedPosts)
+				adminCommunity.GET("/moderation/stats", communityHandler.GetModerationStats)
+				adminCommunity.POST("/posts/:id/moderate", communityHandler.ModeratePost)
+			}
+
+			// Custom Orders management (admin)
+			adminCustomOrders := admin.Group("/custom-orders")
+			{
+				adminCustomOrders.GET("", customOrderHandler.AdminGetAllOrders)
+				adminCustomOrders.GET("/statistics", customOrderHandler.AdminGetStatistics)
+				adminCustomOrders.GET("/:id", customOrderHandler.GetOrder)
+				adminCustomOrders.POST("/:id/contacted", customOrderHandler.AdminMarkAsContacted)
+				adminCustomOrders.POST("/:id/confirm", customOrderHandler.AdminConfirmOrder)
+				adminCustomOrders.PUT("/:id/status", customOrderHandler.AdminUpdateStatus)
+				adminCustomOrders.POST("/:id/cancel", customOrderHandler.AdminCancelOrder)
 			}
 
 			// Placeholder endpoints for future implementation

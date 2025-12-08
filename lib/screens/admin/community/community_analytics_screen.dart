@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../../providers/community_provider.dart';
 import '../../../models/community.dart';
 import '../../../utils/theme.dart';
@@ -12,7 +13,9 @@ class CommunityAnalyticsScreen extends StatefulWidget {
 }
 
 class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
-  String _timeRange = '7d'; // 7d, 30d, 90d, all
+  String _timeRange = '7d'; // 7d, 30d, 90d, all, custom
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
 
   @override
   void initState() {
@@ -27,26 +30,216 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
     await provider.fetchFeed(refresh: true);
   }
 
+  // Filter posts based on selected date range
+  List<CommunityPost> _filterPostsByDateRange(List<CommunityPost> posts) {
+    if (posts.isEmpty) return posts;
+
+    DateTime now = DateTime.now();
+    DateTime startDate;
+    DateTime endDate = now;
+
+    switch (_timeRange) {
+      case '7d':
+        startDate = now.subtract(const Duration(days: 7));
+        break;
+      case '30d':
+        startDate = now.subtract(const Duration(days: 30));
+        break;
+      case '90d':
+        startDate = now.subtract(const Duration(days: 90));
+        break;
+      case 'custom':
+        if (_customStartDate != null && _customEndDate != null) {
+          startDate = _customStartDate!;
+          endDate = _customEndDate!.add(const Duration(days: 1)); // Include end date
+        } else {
+          return posts; // No filter if custom dates not set
+        }
+        break;
+      case 'all':
+      default:
+        return posts; // Return all posts
+    }
+
+    return posts.where((post) {
+      return post.createdAt.isAfter(startDate) && post.createdAt.isBefore(endDate);
+    }).toList();
+  }
+
+  // Show date picker options dialog
+  Future<void> _showDatePickerOptions() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              'Select Date Option',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.calendar_today, color: AppTheme.primaryGold),
+              ),
+              title: const Text('Select Single Date'),
+              subtitle: const Text('View analytics for a specific day'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSingleDatePicker();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.date_range, color: AppTheme.primaryGold),
+              ),
+              title: const Text('Select Date Range'),
+              subtitle: const Text('View analytics for a period'),
+              onTap: () {
+                Navigator.pop(context);
+                _showDateRangePicker();
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Show single date picker
+  Future<void> _showSingleDatePicker() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _customStartDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppTheme.primaryGold,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _customStartDate = picked;
+        _customEndDate = picked; // Same date for single day
+        _timeRange = 'custom';
+      });
+    }
+  }
+
+  // Show date range picker dialog
+  Future<void> _showDateRangePicker() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _customStartDate != null && _customEndDate != null
+          ? DateTimeRange(start: _customStartDate!, end: _customEndDate!)
+          : DateTimeRange(
+              start: DateTime.now().subtract(const Duration(days: 7)),
+              end: DateTime.now(),
+            ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppTheme.primaryGold,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _customStartDate = picked.start;
+        _customEndDate = picked.end;
+        _timeRange = 'custom';
+      });
+    }
+  }
+
+  // Get display text for current date range
+  String _getDateRangeDisplayText() {
+    switch (_timeRange) {
+      case '7d':
+        return 'Last 7 Days';
+      case '30d':
+        return 'Last 30 Days';
+      case '90d':
+        return 'Last 90 Days';
+      case 'custom':
+        if (_customStartDate != null && _customEndDate != null) {
+          final dateFormat = DateFormat('MMM d, yyyy');
+          // Check if it's a single day
+          if (_customStartDate!.year == _customEndDate!.year &&
+              _customStartDate!.month == _customEndDate!.month &&
+              _customStartDate!.day == _customEndDate!.day) {
+            return dateFormat.format(_customStartDate!);
+          }
+          return '${dateFormat.format(_customStartDate!)} - ${dateFormat.format(_customEndDate!)}';
+        }
+        return 'Custom Date';
+      case 'all':
+      default:
+        return 'All Time';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Community Analytics'),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.calendar_today),
-            onSelected: (value) {
-              setState(() {
-                _timeRange = value;
-              });
-              _loadAnalytics();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: '7d', child: Text('Last 7 Days')),
-              const PopupMenuItem(value: '30d', child: Text('Last 30 Days')),
-              const PopupMenuItem(value: '90d', child: Text('Last 90 Days')),
-              const PopupMenuItem(value: 'all', child: Text('All Time')),
-            ],
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadAnalytics,
           ),
         ],
       ),
@@ -56,29 +249,128 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          // Filter posts by date range
+          final filteredPosts = _filterPostsByDateRange(provider.posts);
+
           return RefreshIndicator(
             onRefresh: _loadAnalytics,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Date range selector
+                _buildDateRangeSelector(),
+                const SizedBox(height: 16),
+
                 // Overview metrics
-                _buildOverviewSection(provider.posts),
+                _buildOverviewSection(filteredPosts),
                 const SizedBox(height: 24),
 
                 // Engagement metrics
-                _buildEngagementSection(provider.posts),
+                _buildEngagementSection(filteredPosts),
                 const SizedBox(height: 24),
 
                 // Top posts
-                _buildTopPostsSection(provider.posts),
+                _buildTopPostsSection(filteredPosts),
                 const SizedBox(height: 24),
 
                 // User activity
-                _buildUserActivitySection(provider.posts),
+                _buildUserActivitySection(filteredPosts),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildDateRangeSelector() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.date_range, color: AppTheme.primaryGold),
+                const SizedBox(width: 8),
+                const Text(
+                  'Date Range',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Quick select buttons
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildDateChip('7d', 'Last 7 Days'),
+                _buildDateChip('30d', 'Last 30 Days'),
+                _buildDateChip('90d', 'Last 90 Days'),
+                _buildDateChip('all', 'All Time'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Custom date button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _showDatePickerOptions,
+                icon: const Icon(Icons.calendar_month),
+                label: Text(
+                  _timeRange == 'custom' && _customStartDate != null
+                      ? _getDateRangeDisplayText()
+                      : 'Select Custom Date Range',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _timeRange == 'custom' ? Colors.white : AppTheme.primaryGold,
+                  backgroundColor: _timeRange == 'custom' ? AppTheme.primaryGold : null,
+                  side: BorderSide(color: AppTheme.primaryGold),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            // Show selected date range info
+            if (_timeRange != 'custom' && _timeRange != 'all') ...[
+              const SizedBox(height: 8),
+              Text(
+                'Showing: ${_getDateRangeDisplayText()}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateChip(String value, String label) {
+    final isSelected = _timeRange == value;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            _timeRange = value;
+          });
+        }
+      },
+      selectedColor: AppTheme.primaryGold.withValues(alpha: 0.3),
+      checkmarkColor: AppTheme.primaryGold,
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.primaryGold : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
   }
@@ -106,7 +398,7 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
           crossAxisCount: 2,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+          childAspectRatio: 1.4,
           children: [
             _buildMetricCard(
               'Total Posts',
@@ -142,31 +434,41 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 6),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color.withOpacity(0.7),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: color.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -175,7 +477,7 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
 
   Widget _buildEngagementSection(List<CommunityPost> posts) {
     if (posts.isEmpty) {
-      return const SizedBox.shrink();
+      return _buildEmptyState('No posts in selected date range');
     }
 
     final avgLikes = posts.fold<int>(0, (sum, p) => sum + p.likeCount) / posts.length;
@@ -224,19 +526,45 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
     );
   }
 
+  Widget _buildEmptyState(String message) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEngagementRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppTheme.textSecondary,
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             value,
             style: const TextStyle(
@@ -291,19 +619,23 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text('by ${post.userName}'),
+              subtitle: Text('by ${post.userName} • ${DateFormat('MMM d').format(post.createdAt)}'),
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.favorite, size: 16, color: Colors.red),
                       const SizedBox(width: 4),
-                      Text(
-                        post.likeCount.toString(),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          post.likeCount.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -312,7 +644,12 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
                     children: [
                       const Icon(Icons.comment, size: 16, color: Colors.blue),
                       const SizedBox(width: 4),
-                      Text(post.commentCount.toString()),
+                      Flexible(
+                        child: Text(
+                          post.commentCount.toString(),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -378,23 +715,31 @@ class _CommunityAnalyticsScreenState extends State<CommunityAnalyticsScreen> {
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.favorite, size: 16, color: Colors.red),
                       const SizedBox(width: 4),
-                      Text(
-                        likeCount.toString(),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          likeCount.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
-                  Text(
-                    'total likes',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[600],
+                  Flexible(
+                    child: Text(
+                      'total likes',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
                   ),
                 ],

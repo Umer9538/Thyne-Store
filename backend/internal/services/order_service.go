@@ -31,6 +31,7 @@ type orderService struct {
 	orderRepo         repository.OrderRepository
 	productRepo       repository.ProductRepository
 	cartRepo          repository.CartRepository
+	storefrontRepo    *repository.StorefrontDataRepository
 	loyaltyService    *LoyaltyService
 	notificationService *NotificationService
 }
@@ -41,6 +42,10 @@ func NewOrderService(orderRepo repository.OrderRepository, productRepo repositor
 		productRepo: productRepo,
 		cartRepo:    cartRepo,
 	}
+}
+
+func (s *orderService) SetStorefrontRepo(storefrontRepo *repository.StorefrontDataRepository) {
+	s.storefrontRepo = storefrontRepo
 }
 
 func (s *orderService) SetLoyaltyService(loyaltyService *LoyaltyService) {
@@ -54,8 +59,18 @@ func (s *orderService) SetNotificationService(notificationService *NotificationS
 func (s *orderService) CreateOrder(userID string, guestSessionID string, req *models.CreateOrderRequest) (*models.Order, error) {
 	ctx := context.Background()
 
-	// Generate unique order number
-	orderNumber := generateOrderNumber()
+	// Generate unique order number using store settings
+	var orderNumber string
+	var err error
+	if s.storefrontRepo != nil {
+		orderNumber, err = s.storefrontRepo.GetNextOrderNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate order number: %w", err)
+		}
+	} else {
+		// Fallback to legacy format if storefront repo is not set
+		orderNumber = generateOrderNumber()
+	}
 
 	// Create order object
 	order := &models.Order{
@@ -99,7 +114,7 @@ func (s *orderService) CreateOrder(userID string, guestSessionID string, req *mo
 	order.Total = order.Subtotal + order.Tax + order.Shipping
 
 	// Save to database
-	err := s.orderRepo.Create(ctx, order)
+	err = s.orderRepo.Create(ctx, order)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create order: %w", err)
 	}
