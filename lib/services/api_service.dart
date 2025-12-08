@@ -15,11 +15,16 @@ class ApiService {
       return response;
     }
 
+    print('🔐 Got 401 Unauthorized, attempting token refresh...');
+
     try {
       final existingRefreshToken = await _storage.read(key: 'refresh_token');
       if (existingRefreshToken == null) {
+        print('🔐 No refresh token found, cannot refresh');
         return response;
       }
+
+      print('🔐 Found refresh token, attempting refresh...');
 
       // Attempt token refresh
       final refreshResponse = await http.post(
@@ -28,6 +33,8 @@ class ApiService {
         body: json.encode({'refreshToken': existingRefreshToken}),
       );
 
+      print('🔐 Refresh response status: ${refreshResponse.statusCode}');
+
       if (refreshResponse.statusCode >= 200 && refreshResponse.statusCode < 300) {
         final parsed = json.decode(refreshResponse.body) as Map<String, dynamic>;
         final data = (parsed['data'] ?? {}) as Map<String, dynamic>;
@@ -35,15 +42,21 @@ class ApiService {
         final newRefresh = data['refreshToken'] as String?;
         if (newAccess != null) {
           await _storage.write(key: 'auth_token', value: newAccess);
+          print('🔐 New access token saved');
         }
         if (newRefresh != null) {
           await _storage.write(key: 'refresh_token', value: newRefresh);
+          print('🔐 New refresh token saved');
         }
 
         // Retry original request with updated headers
+        print('🔐 Retrying original request with new token...');
         return await makeRequest();
+      } else {
+        print('🔐 Token refresh failed: ${refreshResponse.body}');
       }
-    } catch (_) {
+    } catch (e) {
+      print('🔐 Token refresh error: $e');
       // Fall through to return original unauthorized response
     }
 
@@ -71,6 +84,8 @@ class ApiService {
       final token = await _getAuthToken();
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
+        // Log token prefix for debugging (first 20 chars only for security)
+        print('🔑 Using auth token: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
       } else {
         // Debug: Log when token is missing
         print('⚠️ Auth required but no token found in storage');
@@ -261,23 +276,41 @@ class ApiService {
 
   // Address APIs
   static Future<Map<String, dynamic>> addAddress({
-    required String street,
+    required String houseNoFloor,
+    required String buildingBlock,
+    required String landmarkArea,
     required String city,
     required String state,
-    required String zipCode,
-    required String country,
+    required String pincode,
+    required String label,
+    String? recipientName,
+    String? recipientPhone,
+    String country = 'India',
     bool isDefault = false,
   }) async {
+    // Compute full address string for backward compatibility
+    final street = [houseNoFloor, buildingBlock, landmarkArea, city, state, pincode]
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+
     final response = await http.post(
       Uri.parse('$baseUrl/users/addresses'),
       headers: await _getHeaders(requireAuth: true),
       body: json.encode({
-        'street': street,
+        'houseNoFloor': houseNoFloor,
+        'buildingBlock': buildingBlock,
+        'landmarkArea': landmarkArea,
         'city': city,
         'state': state,
-        'zipCode': zipCode,
+        'pincode': pincode,
         'country': country,
+        'label': label,
+        if (recipientName != null) 'recipientName': recipientName,
+        if (recipientPhone != null) 'recipientPhone': recipientPhone,
         'isDefault': isDefault,
+        // Legacy fields for backward compatibility
+        'street': street,
+        'zipCode': pincode,
       }),
     );
 
@@ -286,23 +319,41 @@ class ApiService {
 
   static Future<Map<String, dynamic>> updateAddress({
     required String addressId,
-    required String street,
+    required String houseNoFloor,
+    required String buildingBlock,
+    required String landmarkArea,
     required String city,
     required String state,
-    required String zipCode,
-    required String country,
+    required String pincode,
+    required String label,
+    String? recipientName,
+    String? recipientPhone,
+    String country = 'India',
     bool isDefault = false,
   }) async {
+    // Compute full address string for backward compatibility
+    final street = [houseNoFloor, buildingBlock, landmarkArea, city, state, pincode]
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+
     final response = await http.put(
       Uri.parse('$baseUrl/users/addresses/$addressId'),
       headers: await _getHeaders(requireAuth: true),
       body: json.encode({
-        'street': street,
+        'houseNoFloor': houseNoFloor,
+        'buildingBlock': buildingBlock,
+        'landmarkArea': landmarkArea,
         'city': city,
         'state': state,
-        'zipCode': zipCode,
+        'pincode': pincode,
         'country': country,
+        'label': label,
+        if (recipientName != null) 'recipientName': recipientName,
+        if (recipientPhone != null) 'recipientPhone': recipientPhone,
         'isDefault': isDefault,
+        // Legacy fields for backward compatibility
+        'street': street,
+        'zipCode': pincode,
       }),
     );
 
@@ -1114,6 +1165,149 @@ class ApiService {
         'status': status,
         'trackingNumber': trackingNumber,
       }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  // ==================== Custom Orders (AI-Generated Jewelry) ====================
+
+  /// Submit a custom order for AI-generated jewelry design
+  static Future<Map<String, dynamic>> submitCustomOrder({
+    required String prompt,
+    String? imageUrl,
+    String? imageDescription,
+    String? jewelryType,
+    String? metalType,
+    double? estimatedMinPrice,
+    double? estimatedMaxPrice,
+    String? conversationId,
+    required String customerName,
+    required String customerPhone,
+    String? customerEmail,
+    String? customerNotes,
+    Map<String, dynamic>? shippingAddress,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/custom-orders'),
+      headers: await _getHeaders(requireAuth: false),
+      body: json.encode({
+        'designInfo': {
+          'prompt': prompt,
+          'imageUrl': imageUrl,
+          'imageDescription': imageDescription,
+          'jewelryType': jewelryType,
+          'metalType': metalType,
+          'conversationId': conversationId,
+        },
+        'customerInfo': {
+          'name': customerName,
+          'phone': customerPhone,
+          'email': customerEmail,
+          'shippingAddress': shippingAddress,
+        },
+        'priceInfo': {
+          'estimatedMin': estimatedMinPrice,
+          'estimatedMax': estimatedMaxPrice,
+          'currency': 'INR',
+        },
+        'customerNotes': customerNotes,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get all custom orders (Admin)
+  static Future<Map<String, dynamic>> getAdminCustomOrders({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+
+    final uri = Uri.parse('$baseUrl/admin/custom-orders').replace(queryParameters: queryParams);
+    final response = await http.get(
+      uri,
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get custom order details (Admin)
+  static Future<Map<String, dynamic>> getCustomOrderDetails(String orderId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/custom-orders/$orderId'),
+      headers: await _getHeaders(requireAuth: true),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Update custom order status (Admin)
+  static Future<Map<String, dynamic>> updateCustomOrderStatus({
+    required String orderId,
+    required String status,
+    String? adminNotes,
+    double? confirmedPrice,
+    String? trackingNumber,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/custom-orders/$orderId/status'),
+      headers: await _getHeaders(requireAuth: true),
+      body: json.encode({
+        'status': status,
+        if (adminNotes != null) 'adminNotes': adminNotes,
+        if (confirmedPrice != null) 'confirmedPrice': confirmedPrice,
+        if (trackingNumber != null) 'trackingNumber': trackingNumber,
+      }),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Mark custom order as contacted (Admin)
+  static Future<Map<String, dynamic>> markCustomOrderContacted({
+    required String orderId,
+    String? adminNotes,
+  }) async {
+    return updateCustomOrderStatus(
+      orderId: orderId,
+      status: 'contacted',
+      adminNotes: adminNotes,
+    );
+  }
+
+  /// Confirm custom order after contact (Admin)
+  static Future<Map<String, dynamic>> confirmCustomOrder({
+    required String orderId,
+    required double confirmedPrice,
+    String? adminNotes,
+  }) async {
+    return updateCustomOrderStatus(
+      orderId: orderId,
+      status: 'confirmed',
+      confirmedPrice: confirmedPrice,
+      adminNotes: adminNotes,
+    );
+  }
+
+  /// Get user's custom orders
+  static Future<Map<String, dynamic>> getMyCustomOrders({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/custom-orders/my?page=$page&limit=$limit'),
+      headers: await _getHeaders(requireAuth: true),
     );
 
     return _handleResponse(response);
@@ -1934,11 +2128,12 @@ class ApiService {
 
   /// Get homepage layout configuration (Admin only)
   static Future<Map<String, dynamic>> getHomepageLayout() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/admin/homepage/layout'),
-      headers: await _getHeaders(requireAuth: true),
-    );
-
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/homepage/layout'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
     return _handleResponse(response);
   }
 
@@ -1946,13 +2141,17 @@ class ApiService {
   static Future<Map<String, dynamic>> updateHomepageLayout(
     Map<String, dynamic> layoutData,
   ) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/admin/homepage/layout'),
-      headers: await _getHeaders(requireAuth: true),
-      body: jsonEncode(layoutData),
-    );
-
-    return _handleResponse(response);
+    print('📐 Updating homepage layout: $layoutData');
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/homepage/layout'),
+        headers: await _getHeaders(requireAuth: true),
+        body: jsonEncode(layoutData),
+      );
+    });
+    final result = _handleResponse(response);
+    print('📐 Layout update response: $result');
+    return result;
   }
 
   // ==================== Storefront Data API Methods ====================
@@ -2217,20 +2416,40 @@ class ApiService {
     List<String>? images,
     List<String>? videos,
     List<String>? tags,
+    List<dynamic>? products, // ProductTag list
+    Map<String, dynamic>? order, // OrderTag
+    dynamic tagSource, // PostTagSource enum
     bool isFeatured = false,
     bool isPinned = false,
   }) async {
+    final body = <String, dynamic>{
+      'content': content,
+      if (images != null && images.isNotEmpty) 'images': images,
+      if (videos != null && videos.isNotEmpty) 'videos': videos,
+      if (tags != null && tags.isNotEmpty) 'tags': tags,
+      'isFeatured': isFeatured,
+      'isPinned': isPinned,
+    };
+
+    // Add product tags if provided
+    if (products != null && products.isNotEmpty) {
+      body['products'] = products.map((p) => p is Map ? p : p.toJson()).toList();
+    }
+
+    // Add order tag if provided (already a Map)
+    if (order != null) {
+      body['order'] = order;
+    }
+
+    // Add tag source if provided
+    if (tagSource != null) {
+      body['tagSource'] = tagSource.toString().split('.').last;
+    }
+
     final response = await http.post(
       Uri.parse('$baseUrl/community/posts'),
       headers: await _getHeaders(requireAuth: true),
-      body: jsonEncode({
-        'content': content,
-        if (images != null && images.isNotEmpty) 'images': images,
-        if (videos != null && videos.isNotEmpty) 'videos': videos,
-        if (tags != null && tags.isNotEmpty) 'tags': tags,
-        'isFeatured': isFeatured,
-        'isPinned': isPinned,
-      }),
+      body: jsonEncode(body),
     );
     return _handleResponse(response);
   }
@@ -2372,15 +2591,84 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  // ==================== Admin Community Moderation APIs ====================
+
+  // Get pending posts for moderation
+  static Future<Map<String, dynamic>> getPendingPosts({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/community/moderation/pending?page=$page&limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // Get rejected posts
+  static Future<Map<String, dynamic>> getRejectedPosts({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/community/moderation/rejected?page=$page&limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // Get moderation statistics
+  static Future<Map<String, dynamic>> getModerationStats() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/admin/community/moderation/stats'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // Moderate a post (approve or reject)
+  static Future<Map<String, dynamic>> moderatePost({
+    required String postId,
+    required String action, // 'approve' or 'reject'
+    String? reason,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/admin/community/posts/$postId/moderate'),
+        headers: await _getHeaders(requireAuth: true),
+        body: jsonEncode({
+          'action': action,
+          if (reason != null) 'reason': reason,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
   // Dynamic Dashboard APIs
 
   // Get Flash Sales
   static Future<Map<String, dynamic>> getFlashSales() async {
+    print('🔥 Fetching flash sales from: $baseUrl/homepage/flash-sales');
     final response = await http.get(
       Uri.parse('$baseUrl/homepage/flash-sales'),
       headers: await _getHeaders(),
     );
-    return _handleResponse(response);
+    final result = _handleResponse(response);
+    print('🔥 Flash sales response: $result');
+    if (result['data'] != null) {
+      final data = result['data'];
+      if (data is List) {
+        print('🔥 Found ${data.length} active flash sales');
+      }
+    }
+    return result;
   }
 
   // Get Deals of the Day
@@ -2518,6 +2806,37 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Update an existing Deal of the Day (Admin only)
+  static Future<Map<String, dynamic>> updateDealOfDay({
+    required String id,
+    required String productId,
+    required int discountPercent,
+    required int stock,
+    required DateTime startTime,
+    required DateTime endTime,
+    bool? isActive,
+  }) async {
+    // Convert to UTC and format with Z suffix for Go backend
+    final startTimeUtc = startTime.toUtc();
+    final endTimeUtc = endTime.toUtc();
+
+    final response = await _withAuthRetry(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/admin/homepage/deal-of-day/$id'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'productId': productId,
+          'discountPercent': discountPercent,
+          'stock': stock,
+          'startTime': '${startTimeUtc.toIso8601String().split('.')[0]}Z',
+          'endTime': '${endTimeUtc.toIso8601String().split('.')[0]}Z',
+          if (isActive != null) 'isActive': isActive,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
   /// Create a new Flash Sale (Admin only)
   static Future<Map<String, dynamic>> createFlashSale({
     required String title,
@@ -2540,6 +2859,7 @@ class ApiService {
       'startTime': '${startTimeUtc.toIso8601String().split('.')[0]}Z',
       'endTime': '${endTimeUtc.toIso8601String().split('.')[0]}Z',
       'discount': discount,
+      'isActive': true,  // Set active by default so it shows on user side
     };
     print('📤 Flash Sale Request: ${json.encode(requestBody)}');
 
@@ -2555,13 +2875,25 @@ class ApiService {
 
   /// Get all Flash Sales for admin
   static Future<Map<String, dynamic>> getAllFlashSales() async {
+    print('📝 getAllFlashSales: Fetching from $baseUrl/admin/homepage/flash-sales');
     final response = await _withAuthRetry(() async {
       return await http.get(
         Uri.parse('$baseUrl/admin/homepage/flash-sales'),
         headers: await _getHeaders(requireAuth: true),
       );
     });
-    return _handleResponse(response);
+    final result = _handleResponse(response);
+    // Debug: Print the IDs being returned
+    if (result['success'] == true && result['data'] != null) {
+      final data = result['data'] as List?;
+      if (data != null) {
+        print('📝 getAllFlashSales: Got ${data.length} flash sales');
+        for (var sale in data) {
+          print('📝 Flash sale ID: ${sale['id']} - Title: ${sale['title']}');
+        }
+      }
+    }
+    return result;
   }
 
   /// Update an existing Flash Sale (Admin only)
@@ -2576,6 +2908,17 @@ class ApiService {
     required int discount,
     bool? isActive,
   }) async {
+    // Validate ID is not empty
+    if (id.isEmpty) {
+      print('❌ updateFlashSale: ID is empty!');
+      return {'success': false, 'error': 'Flash sale ID is missing'};
+    }
+
+    // Debug logging
+    final url = '$baseUrl/admin/homepage/flash-sale/$id';
+    print('📝 updateFlashSale: ID=$id');
+    print('📝 updateFlashSale: URL=$url');
+
     // Convert to UTC and format with Z suffix for Go backend
     final startTimeUtc = startTime.toUtc();
     final endTimeUtc = endTime.toUtc();
@@ -2593,7 +2936,7 @@ class ApiService {
 
     final response = await _withAuthRetry(() async {
       return await http.put(
-        Uri.parse('$baseUrl/admin/homepage/flash-sale/$id'),
+        Uri.parse(url),
         headers: await _getHeaders(requireAuth: true),
         body: json.encode(requestBody),
       );
@@ -2781,6 +3124,257 @@ class ApiService {
     final response = await _withAuthRetry(() async {
       return await http.delete(
         Uri.parse('$baseUrl/admin/homepage/bundle-deals/$id'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  // ==================== AI API Methods ====================
+
+  /// Analyze intent of a prompt to determine text vs image generation
+  /// Returns: intent (text/image), confidence scores, and enhanced prompt for image
+  static Future<Map<String, dynamic>> analyzeAIIntent(String prompt) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/ai/analyze-intent'),
+      headers: await _getHeaders(), // No auth required for this endpoint
+      body: json.encode({'prompt': prompt}),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get estimated price for AI-generated jewelry design
+  static Future<Map<String, dynamic>> estimateAIPrice({
+    required String prompt,
+    String? jewelryType,
+    String? metalType,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/ai/estimate-price'),
+      headers: await _getHeaders(),
+      body: json.encode({
+        'prompt': prompt,
+        if (jewelryType != null) 'jewelryType': jewelryType,
+        if (metalType != null) 'metalType': metalType,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get current token usage for the user
+  static Future<Map<String, dynamic>> getTokenUsage() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/tokens'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Check if user can generate an image (based on token limits)
+  static Future<Map<String, dynamic>> checkCanGenerate() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/tokens/can-generate'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Save an AI creation
+  static Future<Map<String, dynamic>> saveAICreation({
+    required String prompt,
+    required String imageUrl,
+    required bool isSuccessful,
+    String? errorMessage,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/ai/creations'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'prompt': prompt,
+          'imageUrl': imageUrl,
+          'isSuccessful': isSuccessful,
+          if (errorMessage != null) 'errorMessage': errorMessage,
+          if (metadata != null) 'metadata': metadata,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get user's AI creations
+  static Future<Map<String, dynamic>> getAICreations({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/creations?page=$page&limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Delete an AI creation
+  static Future<Map<String, dynamic>> deleteAICreation(String id) async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/ai/creations/$id'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Clear all AI creations
+  static Future<Map<String, dynamic>> clearAICreations() async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/ai/creations'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Send a chat message
+  static Future<Map<String, dynamic>> sendAIChatMessage({
+    String? sessionId,
+    required String text,
+    required bool isUser,
+    List<Map<String, dynamic>>? products,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/ai/chat/messages'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          if (sessionId != null) 'sessionId': sessionId,
+          'text': text,
+          'isUser': isUser,
+          if (products != null) 'products': products,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get chat sessions
+  static Future<Map<String, dynamic>> getAIChatSessions({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/chat/sessions?page=$page&limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get chat messages for a session
+  static Future<Map<String, dynamic>> getAIChatMessages(
+    String sessionId, {
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/chat/sessions/$sessionId/messages?page=$page&limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get all chat history
+  static Future<Map<String, dynamic>> getAIChatHistory({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/chat/history?page=$page&limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Delete a chat session
+  static Future<Map<String, dynamic>> deleteAIChatSession(String sessionId) async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/ai/chat/sessions/$sessionId'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Clear all chat history
+  static Future<Map<String, dynamic>> clearAIChat() async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/ai/chat'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Add search history
+  static Future<Map<String, dynamic>> addAISearchHistory({
+    required String prompt,
+    String type = 'image',
+  }) async {
+    final response = await _withAuthRetry(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/ai/search-history'),
+        headers: await _getHeaders(requireAuth: true),
+        body: json.encode({
+          'prompt': prompt,
+          'type': type,
+        }),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get search history
+  static Future<Map<String, dynamic>> getAISearchHistory({int limit = 20}) async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/search-history?limit=$limit'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Clear search history
+  static Future<Map<String, dynamic>> clearAISearchHistory() async {
+    final response = await _withAuthRetry(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/ai/search-history'),
+        headers: await _getHeaders(requireAuth: true),
+      );
+    });
+    return _handleResponse(response);
+  }
+
+  /// Get AI statistics
+  static Future<Map<String, dynamic>> getAIStatistics() async {
+    final response = await _withAuthRetry(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/ai/statistics'),
         headers: await _getHeaders(requireAuth: true),
       );
     });

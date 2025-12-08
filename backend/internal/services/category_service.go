@@ -12,8 +12,8 @@ import (
 )
 
 type CategoryService interface {
-	CreateCategory(ctx context.Context, name, description string) (*models.Category, error)
-	UpdateCategory(ctx context.Context, id string, name, description string) (*models.Category, error)
+	CreateCategory(ctx context.Context, name, description string, subcategories []string) (*models.Category, error)
+	UpdateCategory(ctx context.Context, id string, name, description string, subcategories []string) (*models.Category, error)
 	DeleteCategory(ctx context.Context, id string) error
 	GetAllCategories(ctx context.Context) ([]models.Category, error)
 }
@@ -26,16 +26,20 @@ func NewCategoryService(repo repository.CategoryRepository) CategoryService {
 	return &categoryService{repo: repo}
 }
 
-func (s *categoryService) CreateCategory(ctx context.Context, name, description string) (*models.Category, error) {
+func (s *categoryService) CreateCategory(ctx context.Context, name, description string, subcategories []string) (*models.Category, error) {
+	if subcategories == nil {
+		subcategories = []string{}
+	}
 	cat := &models.Category{
-		ID:          primitive.NewObjectID(),
-		Name:        name,
-		Slug:        generateSlug(name),
-		Description: description,
-		IsActive:    true,
-		SortOrder:   0,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:            primitive.NewObjectID(),
+		Name:          name,
+		Slug:          generateSlug(name),
+		Description:   description,
+		Subcategories: subcategories,
+		IsActive:      true,
+		SortOrder:     0,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 	if err := s.repo.Create(ctx, cat); err != nil {
 		return nil, err
@@ -43,7 +47,7 @@ func (s *categoryService) CreateCategory(ctx context.Context, name, description 
 	return cat, nil
 }
 
-func (s *categoryService) UpdateCategory(ctx context.Context, id string, name, description string) (*models.Category, error) {
+func (s *categoryService) UpdateCategory(ctx context.Context, id string, name, description string, subcategories []string) (*models.Category, error) {
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil { return nil, err }
 	existing, err := s.repo.GetByID(ctx, objID)
@@ -51,6 +55,9 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id string, name, d
 	existing.Name = name
 	existing.Slug = generateSlug(name)
 	existing.Description = description
+	if subcategories != nil {
+		existing.Subcategories = subcategories
+	}
 	existing.UpdatedAt = time.Now()
 	if err := s.repo.Update(ctx, existing); err != nil {
 		return nil, err

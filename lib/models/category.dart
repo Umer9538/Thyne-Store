@@ -3,6 +3,7 @@ class Category {
   final String name;
   final String slug;
   final String description;
+  final List<String> subcategories;
   final String image;
   final List<String> gender;
   final bool isActive;
@@ -15,6 +16,7 @@ class Category {
     required this.name,
     required this.slug,
     required this.description,
+    this.subcategories = const [],
     required this.image,
     this.gender = const [],
     this.isActive = true,
@@ -30,6 +32,7 @@ class Category {
       name: json['name']?.toString() ?? '',
       slug: json['slug']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
+      subcategories: List<String>.from(json['subcategories'] ?? []),
       image: json['image']?.toString() ?? '',
       gender: List<String>.from(json['gender'] ?? []),
       isActive: json['isActive'] ?? true,
@@ -49,6 +52,7 @@ class Category {
       'name': name,
       'slug': slug,
       'description': description,
+      'subcategories': subcategories,
       'image': image,
       'gender': gender,
       'isActive': isActive,

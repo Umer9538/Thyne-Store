@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -411,7 +412,7 @@ func (r *StorefrontDataRepository) UpdateStoreSettings(ctx context.Context, sett
 		return err
 	}
 
-	// Update existing settings
+	// Update existing settings (Note: orderIdCounter is NOT updated here, use IncrementOrderCounter instead)
 	update := bson.M{
 		"$set": bson.M{
 			"gstRate":               settings.GSTRate,
@@ -429,6 +430,11 @@ func (r *StorefrontDataRepository) UpdateStoreSettings(ctx context.Context, sett
 			"storeAddress":          settings.StoreAddress,
 			"currency":              settings.Currency,
 			"currencySymbol":        settings.CurrencySymbol,
+			"orderIdPrefix":         settings.OrderIdPrefix,
+			"metalOptions":          settings.MetalOptions,
+			"platingColors":         settings.PlatingColors,
+			"stoneShapes":           settings.StoneShapes,
+			"maxEngravingChars":     settings.MaxEngravingChars,
 			"updatedAt":             settings.UpdatedAt,
 			"updatedBy":             settings.UpdatedBy,
 		},
@@ -436,4 +442,38 @@ func (r *StorefrontDataRepository) UpdateStoreSettings(ctx context.Context, sett
 
 	_, err = r.settingsCollection.UpdateOne(ctx, bson.M{"_id": existingSettings.ID}, update)
 	return err
+}
+
+// GetNextOrderNumber atomically increments the order counter and returns the new order number
+// This ensures unique order numbers even with concurrent requests
+func (r *StorefrontDataRepository) GetNextOrderNumber(ctx context.Context) (string, error) {
+	// Atomically increment the counter and get the updated document
+	filter := bson.M{}
+	update := bson.M{
+		"$inc": bson.M{"orderIdCounter": 1},
+	}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	var settings models.StoreSettings
+	err := r.settingsCollection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&settings)
+
+	if err == mongo.ErrNoDocuments {
+		// Initialize settings with default values if not exists
+		defaultSettings := models.DefaultStoreSettings()
+		defaultSettings.ID = primitive.NewObjectID()
+		defaultSettings.OrderIdCounter = 1001 // Start from 1001 after initial insert
+		_, err := r.settingsCollection.InsertOne(ctx, defaultSettings)
+		if err != nil {
+			return "", err
+		}
+		// Return the first order number
+		return defaultSettings.OrderIdPrefix + "1000", nil
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// Return formatted order number: PREFIX + COUNTER
+	return settings.OrderIdPrefix + fmt.Sprintf("%d", settings.OrderIdCounter), nil
 }

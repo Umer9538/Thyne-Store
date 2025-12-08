@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 import '../../../utils/theme.dart';
 import '../../../models/product.dart';
+import '../../../models/store_settings.dart';
 import '../../../services/api_service.dart';
+
+// Import StockType from product model
 
 class AddEditProductScreen extends StatefulWidget {
   final Product? product;
@@ -24,14 +28,86 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   final _weightController = TextEditingController();
   final _dimensionsController = TextEditingController();
 
-  String _selectedCategory = 'Rings';
-  String _selectedSubcategory = 'Engagement Rings';
+  String? _selectedCategoryId;  // Store category ID instead of name
+  String? _selectedSubcategory;
   String _selectedMetalType = 'Gold';
   String _selectedStoneType = 'Diamond';
+  List<String> _selectedGenders = [];
   bool _isAvailable = true;
   bool _isFeatured = false;
+  StockType _selectedStockType = StockType.stocked;  // Stock type selector
   List<String> _imageUrls = [];
   String? _videoUrl;
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  bool _isVideoPlaying = false;
+
+  // Dynamic categories from backend
+  List<Map<String, dynamic>> _categories = [];
+  List<String> _subcategories = [];
+  bool _loadingCategories = true;
+
+  // Available gender options
+  final List<String> _genderOptions = ['Men', 'Women', 'Children', 'Unisex'];
+
+  // Predefined options for dropdowns
+  final List<String> _materialOptions = [
+    '18K Gold',
+    '14K Gold',
+    '22K Gold',
+    '24K Gold',
+    '925 Silver',
+    '950 Platinum',
+    'Rose Gold Plated',
+    'White Gold Plated',
+    'Rhodium Plated',
+    'Custom',
+  ];
+
+  final List<String> _weightOptions = [
+    '1g',
+    '1.5g',
+    '2g',
+    '2.5g',
+    '3g',
+    '3.5g',
+    '4g',
+    '5g',
+    '7.5g',
+    '10g',
+    '15g',
+    '20g',
+    '25g',
+    '50g',
+    'Custom',
+  ];
+
+  final List<String> _dimensionOptions = [
+    '5mm',
+    '8mm',
+    '10mm',
+    '12mm',
+    '15mm',
+    '18mm',
+    '20mm',
+    '25mm',
+    '10mm x 8mm',
+    '15mm x 10mm',
+    '20mm x 15mm',
+    '25mm x 20mm',
+    'Custom',
+  ];
+
+  // Customization options
+  List<String> _availableMetals = [];
+  List<String> _availablePlatingColors = [];
+  List<String> _availableSizes = [];
+  List<StoneConfig> _stones = [];
+  bool _engravingEnabled = false;
+  int _maxEngravingChars = 15;
+  double _engravingPrice = 500.0;
+  Map<String, double> _metalPriceModifiers = {};
+  Map<String, double> _platingPriceModifiers = {};
 
   String _sanitizeNumericString(String input, {bool allowDecimal = true, bool allowNegative = false}) {
     final pattern = allowDecimal
@@ -74,13 +150,99 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.product != null) {
-      _populateFields();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      print('📂 Loading categories from backend...');
+      final response = await ApiService.getAllCategories();
+      print('📂 Categories response: $response');
+
+      if (response['success'] != true || response['data'] == null) {
+        throw Exception('Invalid response: ${response['message'] ?? 'No data'}');
+      }
+
+      final categoriesData = response['data'] as List;
+      print('📂 Categories data: $categoriesData');
+
+      if (categoriesData.isEmpty) {
+        throw Exception('No categories found in backend');
+      }
+
+      setState(() {
+        _categories = categoriesData.map((data) => {
+          'id': data['id'] as String,  // Store category ID for unique identification
+          'name': data['name'] as String,
+          'subcategories': List<String>.from(data['subcategories'] ?? []),
+        }).toList();
+        print('📂 Loaded ${_categories.length} categories: $_categories');
+
+        // Set default category if available
+        if (_categories.isNotEmpty && _selectedCategoryId == null) {
+          _selectedCategoryId = _categories.first['id'] as String;
+          _updateSubcategories(_selectedCategoryId!);
+        }
+
+        _loadingCategories = false;
+
+        // Now populate fields if editing
+        if (widget.product != null) {
+          _populateFields();
+        }
+      });
+    } catch (e) {
+      // Fallback to default categories if API fails
+      print('📂 Error loading categories: $e');
+      print('📂 Using fallback categories');
+      setState(() {
+        _categories = [
+          {'id': 'fallback_rings', 'name': 'Rings', 'subcategories': ['Engagement Rings', 'Wedding Rings', 'Fashion Rings', 'Statement Rings']},
+          {'id': 'fallback_necklaces', 'name': 'Necklaces', 'subcategories': ['Chain Necklaces', 'Pendant Necklaces', 'Chokers', 'Statement Necklaces']},
+          {'id': 'fallback_earrings', 'name': 'Earrings', 'subcategories': ['Stud Earrings', 'Drop Earrings', 'Hoop Earrings', 'Chandelier Earrings']},
+          {'id': 'fallback_bracelets', 'name': 'Bracelets', 'subcategories': ['Chain Bracelets', 'Bangle Bracelets', 'Charm Bracelets', 'Tennis Bracelets']},
+          {'id': 'fallback_pendants', 'name': 'Pendants', 'subcategories': ['Diamond Pendants', 'Gold Pendants', 'Silver Pendants', 'Custom Pendants']},
+        ];
+        _selectedCategoryId = _categories.first['id'] as String;
+        _updateSubcategories(_selectedCategoryId!);
+        _loadingCategories = false;
+
+        if (widget.product != null) {
+          _populateFields();
+        }
+      });
+    }
+  }
+
+  void _updateSubcategories(String categoryId) {
+    Map<String, dynamic>? categoryData;
+    for (final c in _categories) {
+      if (c['id'] == categoryId) {
+        categoryData = c;
+        break;
+      }
+    }
+
+    if (categoryData != null) {
+      _subcategories = List<String>.from(categoryData['subcategories'] ?? []);
+    } else {
+      _subcategories = [];
+    }
+
+    if (_subcategories.isNotEmpty && (_selectedSubcategory == null || !_subcategories.contains(_selectedSubcategory))) {
+      _selectedSubcategory = _subcategories.first;
+    } else if (_subcategories.isEmpty) {
+      _selectedSubcategory = null;
     }
   }
 
   void _populateFields() {
     final product = widget.product!;
+    print('📝 Populating fields for product: ${product.name}');
+    print('📝 Product category: ${product.category}');
+    print('📝 Product gender: ${product.gender}');
+    print('📝 Available categories: $_categories');
+
     _nameController.text = product.name;
     _descriptionController.text = product.description;
     _priceController.text = product.price.toString();
@@ -89,16 +251,41 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _materialController.text = product.metalType;
     _weightController.text = product.weight?.toString() ?? '';
     _dimensionsController.text = product.size ?? '';
+
     // Ensure dropdown values always match available items to avoid assertion errors
-    // Category and Subcategory
-    final availableCategories = ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants'];
-    _selectedCategory = availableCategories.contains(product.category)
-        ? product.category
-        : availableCategories.first;
-    final availableSubcategories = _getSubcategories(_selectedCategory);
-    _selectedSubcategory = availableSubcategories.contains(product.subcategory)
-        ? product.subcategory
-        : availableSubcategories.first;
+    // Category and Subcategory - use dynamic categories from backend
+    // Find category by name and get its ID (take first match)
+    String? matchingCategoryId;
+    for (final c in _categories) {
+      final categoryName = c['name'] as String;
+      print('📝 Checking category: $categoryName against product.category: ${product.category}');
+      if (categoryName.toLowerCase() == product.category.toLowerCase()) {
+        matchingCategoryId = c['id'] as String;
+        print('📝 Found matching category ID: $matchingCategoryId');
+        break;
+      }
+    }
+    if (matchingCategoryId != null) {
+      _selectedCategoryId = matchingCategoryId;
+    } else if (_categories.isNotEmpty) {
+      print('📝 No matching category found, using first category');
+      _selectedCategoryId = _categories.first['id'] as String;
+    }
+    if (_selectedCategoryId != null) {
+      _updateSubcategories(_selectedCategoryId!);
+      if (_subcategories.contains(product.subcategory)) {
+        _selectedSubcategory = product.subcategory;
+      } else if (product.subcategory != null && product.subcategory!.isNotEmpty) {
+        // Try case-insensitive match for subcategory
+        for (final sub in _subcategories) {
+          if (sub.toLowerCase() == product.subcategory!.toLowerCase()) {
+            _selectedSubcategory = sub;
+            break;
+          }
+        }
+      }
+    }
+
     // Metal Type
     final availableMetalTypes = ['Gold', 'Silver', 'Platinum', 'Rose Gold', 'White Gold'];
     _selectedMetalType = availableMetalTypes.contains(product.metalType)
@@ -113,6 +300,50 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _isAvailable = product.isAvailable;
     _isFeatured = product.isFeatured;
     _imageUrls = List.from(product.images);
+
+    // Gender/Target Audience - ensure we have valid selections
+    if (product.gender.isNotEmpty) {
+      // Map product genders to valid options (case-insensitive matching)
+      _selectedGenders = [];
+      for (final productGender in product.gender) {
+        for (final validGender in _genderOptions) {
+          if (productGender.toLowerCase() == validGender.toLowerCase()) {
+            _selectedGenders.add(validGender);
+            break;
+          }
+        }
+      }
+      print('📝 Set selected genders: $_selectedGenders from product.gender: ${product.gender}');
+    } else {
+      _selectedGenders = [];
+    }
+
+    _selectedStockType = product.stockType;
+    // Show ∞ for made-to-order products
+    if (_selectedStockType == StockType.madeToOrder) {
+      _stockController.text = '∞';
+    }
+
+    // Video URL
+    if (product.videos.isNotEmpty) {
+      _videoUrl = product.videos.first;
+      _initializeVideoPlayer(_videoUrl!);
+    }
+
+    // Customization options
+    _availableMetals = List.from(product.availableMetals);
+    _availablePlatingColors = List.from(product.availablePlatingColors);
+    _availableSizes = List.from(product.availableSizes);
+    _stones = List.from(product.stones);
+    _engravingEnabled = product.engravingEnabled;
+    _maxEngravingChars = product.maxEngravingChars;
+    _engravingPrice = product.engravingPrice;
+    _metalPriceModifiers = Map.from(product.metalPriceModifiers);
+    _platingPriceModifiers = Map.from(product.platingPriceModifiers);
+
+    print('📝 Final selectedCategoryId: $_selectedCategoryId');
+    print('📝 Final selectedSubcategory: $_selectedSubcategory');
+    print('📝 Final selectedGenders: $_selectedGenders');
   }
 
   @override
@@ -125,7 +356,36 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _materialController.dispose();
     _weightController.dispose();
     _dimensionsController.dispose();
+    _videoController?.dispose();
     super.dispose();
+  }
+
+  void _initializeVideoPlayer(String url) {
+    _videoController?.dispose();
+    _videoController = VideoPlayerController.networkUrl(Uri.parse(url))
+      ..initialize().then((_) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+      }).catchError((error) {
+        print('Video initialization error: $error');
+        setState(() {
+          _isVideoInitialized = false;
+        });
+      });
+  }
+
+  void _toggleVideoPlayback() {
+    if (_videoController == null) return;
+    setState(() {
+      if (_videoController!.value.isPlaying) {
+        _videoController!.pause();
+        _isVideoPlaying = false;
+      } else {
+        _videoController!.play();
+        _isVideoPlaying = true;
+      }
+    });
   }
 
   @override
@@ -176,48 +436,62 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 16),
 
               // Category Section
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedCategory,
-                      decoration: _inputDecoration('Category'),
-                      isExpanded: true,
-                      items: ['Rings', 'Necklaces', 'Earrings', 'Bracelets', 'Pendants']
-                          .map((category) => DropdownMenuItem(
-                                value: category,
-                                child: Text(category, overflow: TextOverflow.ellipsis),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCategory = value!;
-                          _selectedSubcategory = _getSubcategories(value)[0];
-                        });
-                      },
+              if (_loadingCategories)
+                const Center(child: CircularProgressIndicator())
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedCategoryId,
+                        decoration: _inputDecoration('Category'),
+                        isExpanded: true,
+                        items: _categories
+                            .map((category) => DropdownMenuItem(
+                                  value: category['id'] as String,  // Use ID as value for uniqueness
+                                  child: Text(category['name'] as String, overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedCategoryId = value!;
+                            _updateSubcategories(value);
+                          });
+                        },
+                        validator: (value) => value == null ? 'Please select a category' : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedSubcategory,
-                      decoration: _inputDecoration('Subcategory'),
-                      isExpanded: true,
-                      items: _getSubcategories(_selectedCategory)
-                          .map((subcategory) => DropdownMenuItem(
-                                value: subcategory,
-                                child: Text(subcategory, overflow: TextOverflow.ellipsis),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedSubcategory = value!;
-                        });
-                      },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedSubcategory,
+                        decoration: _inputDecoration('Subcategory'),
+                        isExpanded: true,
+                        items: _subcategories.isEmpty
+                            ? [const DropdownMenuItem(value: '', child: Text('No subcategories'))]
+                            : _subcategories
+                                .map((subcategory) => DropdownMenuItem(
+                                      value: subcategory,
+                                      child: Text(subcategory, overflow: TextOverflow.ellipsis),
+                                    ))
+                                .toList(),
+                        onChanged: _subcategories.isEmpty
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _selectedSubcategory = value;
+                                });
+                              },
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              const SizedBox(height: 24),
+
+              // Target Audience Section
+              _buildSectionHeader('Target Audience'),
+              const SizedBox(height: 12),
+              _buildGenderSelection(),
               const SizedBox(height: 24),
 
               // Pricing Section
@@ -248,11 +522,109 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               // Inventory Section
               _buildSectionHeader('Inventory'),
               const SizedBox(height: 12),
-              _buildTextField(
-                controller: _stockController,
-                label: 'Stock Quantity',
-                keyboardType: TextInputType.number,
-                validator: (value) => value?.isEmpty == true ? 'Stock quantity is required' : null,
+
+              // Stock Type Selector
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _selectedStockType == StockType.madeToOrder
+                      ? AppTheme.primaryGold.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedStockType == StockType.madeToOrder
+                        ? AppTheme.primaryGold
+                        : Colors.grey.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Stock Type',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStockTypeOption(
+                            title: 'Stocked',
+                            subtitle: 'Limited inventory',
+                            icon: Icons.inventory_2_outlined,
+                            isSelected: _selectedStockType == StockType.stocked,
+                            onTap: () {
+                              setState(() {
+                                _selectedStockType = StockType.stocked;
+                                if (_stockController.text == '∞') {
+                                  _stockController.text = ''; // Clear infinite symbol
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStockTypeOption(
+                            title: 'Made to Order',
+                            subtitle: 'Always available',
+                            icon: Icons.handyman_outlined,
+                            isSelected: _selectedStockType == StockType.madeToOrder,
+                            onTap: () {
+                              setState(() {
+                                _selectedStockType = StockType.madeToOrder;
+                                _stockController.text = '∞'; // Show infinite for made-to-order
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_selectedStockType == StockType.madeToOrder)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: AppTheme.primaryGold),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'This product will always show as available regardless of stock quantity.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryGold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Stock Quantity (only relevant for stocked products)
+              AnimatedOpacity(
+                opacity: _selectedStockType == StockType.stocked ? 1.0 : 0.5,
+                duration: const Duration(milliseconds: 200),
+                child: _buildTextField(
+                  controller: _stockController,
+                  label: _selectedStockType == StockType.madeToOrder
+                      ? 'Stock Quantity (optional for made-to-order)'
+                      : 'Stock Quantity',
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (_selectedStockType == StockType.stocked && (value?.isEmpty == true)) {
+                      return 'Stock quantity is required for stocked products';
+                    }
+                    return null;
+                  },
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -299,27 +671,30 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              _buildTextField(
+              _buildDropdownWithCustomInput(
                 controller: _materialController,
                 label: 'Material Details',
-                placeholder: 'e.g., 18K Gold, 925 Silver',
+                options: _materialOptions,
+                hint: 'Select or enter material',
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: _buildTextField(
+                    child: _buildDropdownWithCustomInput(
                       controller: _weightController,
                       label: 'Weight',
-                      placeholder: 'e.g., 2.5g',
+                      options: _weightOptions,
+                      hint: 'Select or enter weight',
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildTextField(
+                    child: _buildDropdownWithCustomInput(
                       controller: _dimensionsController,
                       label: 'Dimensions',
-                      placeholder: 'e.g., 15mm x 10mm',
+                      options: _dimensionOptions,
+                      hint: 'Select or enter dimensions',
                     ),
                   ),
                 ],
@@ -335,12 +710,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               // Video Section
               _buildSectionHeader('Product Video (Optional)'),
               const SizedBox(height: 12),
-              _buildTextField(
-                controller: TextEditingController(text: _videoUrl ?? ''),
-                label: 'Video URL',
-                placeholder: 'https://example.com/video.mp4',
-                onChanged: (value) => _videoUrl = value,
-              ),
+              _buildVideoUploadSection(),
+              const SizedBox(height: 24),
+
+              // Customization Options Section
+              _buildSectionHeader('Customization Options'),
+              const SizedBox(height: 12),
+              _buildCustomizationSection(),
               const SizedBox(height: 24),
 
               // Settings Section
@@ -393,6 +769,139 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     );
   }
 
+  Widget _buildDropdownWithCustomInput({
+    required TextEditingController controller,
+    required String label,
+    required List<String> options,
+    String? hint,
+  }) {
+    // Check if current value matches any option
+    String? selectedValue;
+    final currentText = controller.text.trim();
+    if (currentText.isNotEmpty && options.contains(currentText)) {
+      selectedValue = currentText;
+    } else if (currentText.isNotEmpty) {
+      selectedValue = 'Custom';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Dropdown for predefined options
+        DropdownButtonFormField<String>(
+          value: selectedValue,
+          decoration: _inputDecoration(label),
+          isExpanded: true,
+          hint: Text(hint ?? 'Select an option', style: TextStyle(color: Colors.grey.shade500)),
+          items: options.map((option) {
+            return DropdownMenuItem(
+              value: option,
+              child: Text(
+                option,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              if (value == 'Custom') {
+                // Show dialog for custom input
+                _showCustomInputDialog(controller, label);
+              } else if (value != null) {
+                controller.text = value;
+              }
+            });
+          },
+        ),
+        // Show custom value if it doesn't match predefined options
+        if (currentText.isNotEmpty && !options.contains(currentText) && currentText != 'Custom')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGold.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.primaryGold.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.edit_note, size: 16, color: AppTheme.primaryGold),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Custom: $currentText',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryGold,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _showCustomInputDialog(controller, label),
+                    child: Icon(Icons.edit, size: 16, color: AppTheme.primaryGold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showCustomInputDialog(TextEditingController controller, String label) {
+    final customController = TextEditingController(text: controller.text);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.edit, color: AppTheme.primaryGold),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Enter Custom $label')),
+          ],
+        ),
+        content: TextField(
+          controller: customController,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: 'Enter custom value',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppTheme.primaryGold),
+            ),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (customController.text.trim().isNotEmpty) {
+                setState(() {
+                  controller.text = customController.text.trim();
+                });
+                Navigator.pop(dialogContext);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGold,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   InputDecoration _inputDecoration(String label, [String? hint]) {
     return InputDecoration(
       labelText: label,
@@ -411,6 +920,32 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Required indicator
+        if (_imageUrls.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange.shade700, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'At least one product image is required',
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (_imageUrls.isNotEmpty) ...[
           SizedBox(
             height: 100,
@@ -418,18 +953,46 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: _imageUrls.length,
               itemBuilder: (context, index) {
+                final imageUrl = _imageUrls[index];
+                final isValidUrl = imageUrl.isNotEmpty && Uri.tryParse(imageUrl)?.hasAbsolutePath == true;
+
                 return Container(
                   margin: const EdgeInsets.only(right: 8),
                   child: Stack(
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          _imageUrls[index],
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                        ),
+                        child: isValidUrl
+                            ? Image.network(
+                                imageUrl,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: 80,
+                                    height: 80,
+                                    color: Colors.grey.shade200,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.broken_image, color: Colors.grey.shade400),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Invalid',
+                                          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                width: 80,
+                                height: 80,
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.image, color: Colors.grey),
+                              ),
                       ),
                       Positioned(
                         top: 4,
@@ -475,6 +1038,275 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     );
   }
 
+  Widget _buildVideoUploadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_videoUrl != null && _videoUrl!.isNotEmpty) ...[
+          // Video Preview Card with actual video player
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              children: [
+                // Video Player Area
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        height: 200,
+                        width: double.infinity,
+                        color: Colors.black,
+                        child: _isVideoInitialized && _videoController != null
+                            ? AspectRatio(
+                                aspectRatio: _videoController!.value.aspectRatio,
+                                child: VideoPlayer(_videoController!),
+                              )
+                            : const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppTheme.primaryGold,
+                                ),
+                              ),
+                      ),
+                      // Play/Pause overlay button
+                      if (_isVideoInitialized)
+                        GestureDetector(
+                          onTap: _toggleVideoPlayback,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _isVideoPlaying ? Icons.pause : Icons.play_arrow,
+                              size: 40,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      // Remove button
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () {
+                            _videoController?.pause();
+                            _videoController?.dispose();
+                            setState(() {
+                              _videoUrl = null;
+                              _videoController = null;
+                              _isVideoInitialized = false;
+                              _isVideoPlaying = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.errorRed,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // MP4 badge
+                      Positioned(
+                        bottom: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGold,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.videocam, color: Colors.white, size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                'MP4',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Video Progress Bar
+                if (_isVideoInitialized && _videoController != null)
+                  VideoProgressIndicator(
+                    _videoController!,
+                    allowScrubbing: true,
+                    colors: VideoProgressColors(
+                      playedColor: AppTheme.primaryGold,
+                      bufferedColor: AppTheme.primaryGold.withOpacity(0.3),
+                      backgroundColor: Colors.grey.shade300,
+                    ),
+                  ),
+                // Video URL Display
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(11)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.link, color: Colors.grey.shade600, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _videoUrl!,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Add Video Button
+        OutlinedButton.icon(
+          onPressed: _addVideoUrl,
+          icon: const Icon(Icons.video_library),
+          label: Text(_videoUrl != null && _videoUrl!.isNotEmpty ? 'Change Video' : 'Add Video URL'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryGold,
+            side: const BorderSide(color: AppTheme.primaryGold),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Supported format: .mp4',
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addVideoUrl() {
+    final controller = TextEditingController(text: _videoUrl ?? '');
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.video_library, color: AppTheme.primaryGold),
+            const SizedBox(width: 8),
+            const Text('Add Video URL'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'Video URL',
+                hintText: 'https://example.com/video.mp4',
+                prefixIcon: const Icon(Icons.link),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'URL must end with .mp4 extension',
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final url = controller.text.trim();
+              if (url.isNotEmpty) {
+                if (url.toLowerCase().endsWith('.mp4')) {
+                  Navigator.pop(dialogContext);
+                  setState(() {
+                    _videoUrl = url;
+                    _isVideoInitialized = false;
+                    _isVideoPlaying = false;
+                  });
+                  // Initialize video player
+                  _initializeVideoPlayer(url);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid .mp4 video URL'),
+                      backgroundColor: AppTheme.errorRed,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGold,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add Video'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSwitchTile(String title, bool value, void Function(bool) onChanged) {
     return SwitchListTile(
       title: Text(title),
@@ -485,21 +1317,697 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     );
   }
 
-  List<String> _getSubcategories(String category) {
-    switch (category) {
-      case 'Rings':
-        return ['Engagement Rings', 'Wedding Rings', 'Fashion Rings', 'Statement Rings'];
-      case 'Necklaces':
-        return ['Chain Necklaces', 'Pendant Necklaces', 'Chokers', 'Statement Necklaces'];
-      case 'Earrings':
-        return ['Stud Earrings', 'Drop Earrings', 'Hoop Earrings', 'Chandelier Earrings'];
-      case 'Bracelets':
-        return ['Chain Bracelets', 'Bangle Bracelets', 'Charm Bracelets', 'Tennis Bracelets'];
-      case 'Pendants':
-        return ['Diamond Pendants', 'Gold Pendants', 'Silver Pendants', 'Custom Pendants'];
-      default:
-        return ['General'];
-    }
+  Widget _buildStockTypeOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryGold : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppTheme.primaryGold : Colors.grey.shade300,
+              width: 2,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryGold.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white.withOpacity(0.2) : AppTheme.primaryGold.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected ? Colors.white : AppTheme.primaryGold,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white.withOpacity(0.9) : Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              // Checkmark indicator
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white : Colors.grey.shade200,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.white : Colors.grey.shade400,
+                    width: 2,
+                  ),
+                ),
+                child: isSelected
+                    ? Icon(
+                        Icons.check,
+                        size: 16,
+                        color: AppTheme.primaryGold,
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenderSelection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select target audience (multiple allowed)',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _genderOptions.map((gender) {
+              final isSelected = _selectedGenders.contains(gender);
+              return FilterChip(
+                label: Text(gender),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      // If Unisex is selected, clear others and just add Unisex
+                      if (gender == 'Unisex') {
+                        _selectedGenders.clear();
+                        _selectedGenders.add('Unisex');
+                      } else {
+                        // If selecting a specific gender, remove Unisex if present
+                        _selectedGenders.remove('Unisex');
+                        _selectedGenders.add(gender);
+                      }
+                    } else {
+                      _selectedGenders.remove(gender);
+                    }
+                  });
+                },
+                selectedColor: AppTheme.primaryGold.withValues(alpha: 0.3),
+                checkmarkColor: AppTheme.primaryGold,
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: isSelected ? AppTheme.primaryGold : Colors.grey.shade300,
+                ),
+                labelStyle: TextStyle(
+                  color: isSelected ? AppTheme.primaryGold : Colors.black87,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              );
+            }).toList(),
+          ),
+          if (_selectedGenders.isEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Please select at least one target audience',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomizationSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Available Metals
+          _buildChipInputSection(
+            title: 'Available Metals',
+            hint: 'e.g., 14K Gold, 18K Gold, 925 Silver',
+            items: _availableMetals,
+            onAdd: (value) {
+              setState(() {
+                if (!_availableMetals.contains(value)) {
+                  _availableMetals.add(value);
+                  _metalPriceModifiers[value] = 0.0;
+                }
+              });
+            },
+            onRemove: (value) {
+              setState(() {
+                _availableMetals.remove(value);
+                _metalPriceModifiers.remove(value);
+              });
+            },
+            priceModifiers: _metalPriceModifiers,
+            onPriceChange: (item, price) {
+              setState(() {
+                _metalPriceModifiers[item] = price;
+              });
+            },
+          ),
+          const Divider(height: 24),
+
+          // Plating Colors
+          _buildChipInputSection(
+            title: 'Plating Colors',
+            hint: 'e.g., White Gold, Rose Gold, Yellow Gold',
+            items: _availablePlatingColors,
+            onAdd: (value) {
+              setState(() {
+                if (!_availablePlatingColors.contains(value)) {
+                  _availablePlatingColors.add(value);
+                  _platingPriceModifiers[value] = 0.0;
+                }
+              });
+            },
+            onRemove: (value) {
+              setState(() {
+                _availablePlatingColors.remove(value);
+                _platingPriceModifiers.remove(value);
+              });
+            },
+            priceModifiers: _platingPriceModifiers,
+            onPriceChange: (item, price) {
+              setState(() {
+                _platingPriceModifiers[item] = price;
+              });
+            },
+          ),
+          const Divider(height: 24),
+
+          // Ring Sizes
+          _buildChipInputSection(
+            title: 'Available Sizes',
+            hint: 'e.g., 5, 6, 7, 8, 9',
+            items: _availableSizes,
+            onAdd: (value) {
+              setState(() {
+                if (!_availableSizes.contains(value)) {
+                  _availableSizes.add(value);
+                }
+              });
+            },
+            onRemove: (value) {
+              setState(() {
+                _availableSizes.remove(value);
+              });
+            },
+          ),
+          const Divider(height: 24),
+
+          // Stone Configuration
+          _buildStoneConfigSection(),
+          const Divider(height: 24),
+
+          // Engraving Options
+          _buildSwitchTile('Enable Engraving', _engravingEnabled, (value) {
+            setState(() {
+              _engravingEnabled = value;
+            });
+          }),
+          if (_engravingEnabled) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: _maxEngravingChars.toString(),
+                    decoration: _inputDecoration('Max Characters'),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null) {
+                        _maxEngravingChars = parsed;
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: _engravingPrice.toString(),
+                    decoration: _inputDecoration('Engraving Price (₹)'),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      final parsed = double.tryParse(value);
+                      if (parsed != null) {
+                        _engravingPrice = parsed;
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChipInputSection({
+    required String title,
+    required String hint,
+    required List<String> items,
+    required Function(String) onAdd,
+    required Function(String) onRemove,
+    Map<String, double>? priceModifiers,
+    Function(String, double)? onPriceChange,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold),
+              onPressed: () => _showAddItemDialog(title, hint, onAdd),
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (items.isEmpty)
+          Text('No $title added', style: TextStyle(color: Colors.grey.shade500, fontSize: 12))
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: items.map((item) {
+              return InputChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(item),
+                    if (priceModifiers != null && priceModifiers.containsKey(item)) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '+₹${priceModifiers[item]!.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                      ),
+                    ],
+                  ],
+                ),
+                onDeleted: () => onRemove(item),
+                onPressed: priceModifiers != null && onPriceChange != null
+                    ? () => _showPriceModifierDialog(item, priceModifiers[item] ?? 0, onPriceChange)
+                    : null,
+                backgroundColor: AppTheme.primaryGold.withOpacity(0.1),
+                deleteIconColor: AppTheme.errorRed,
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStoneConfigSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Stone Configuration', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold),
+              onPressed: _showAddStoneDialog,
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_stones.isEmpty)
+          Text('No stones configured', style: TextStyle(color: Colors.grey.shade500, fontSize: 12))
+        else
+          ..._stones.map((stone) => _buildStoneCard(stone)),
+      ],
+    );
+  }
+
+  Widget _buildStoneCard(StoneConfig stone) {
+    final index = _stones.indexOf(stone);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(stone.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${stone.shape}${stone.count != null ? ' × ${stone.count}' : ''}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  onPressed: () => _showEditStoneDialog(index, stone),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, size: 18, color: AppTheme.errorRed),
+                  onPressed: () {
+                    setState(() {
+                      _stones.removeAt(index);
+                    });
+                  },
+                ),
+              ],
+            ),
+            if (stone.availableColors.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: stone.availableColors.map((color) {
+                  final modifier = stone.colorPriceModifiers?[color] ?? 0.0;
+                  return Chip(
+                    label: Text(
+                      modifier > 0 ? '$color (+₹${modifier.toStringAsFixed(0)})' : color,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddItemDialog(String title, String hint, Function(String) onAdd) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add $title'),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: title,
+            hintText: hint,
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                onAdd(controller.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPriceModifierDialog(String item, double currentPrice, Function(String, double) onPriceChange) {
+    final controller = TextEditingController(text: currentPrice.toString());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Price Modifier for $item'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Price Modifier (₹)',
+            hintText: 'Additional price for this option',
+          ),
+          keyboardType: TextInputType.number,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final price = double.tryParse(controller.text) ?? 0.0;
+              onPriceChange(item, price);
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddStoneDialog() {
+    final nameController = TextEditingController();
+    final shapeController = TextEditingController();
+    final countController = TextEditingController();
+    final colorsController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Stone'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Stone Name', hintText: 'e.g., Center Stone'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: shapeController,
+                decoration: const InputDecoration(labelText: 'Shape', hintText: 'e.g., Round, Oval'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: countController,
+                decoration: const InputDecoration(labelText: 'Count (optional)', hintText: 'e.g., 6'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: colorsController,
+                decoration: const InputDecoration(
+                  labelText: 'Available Colors (comma separated)',
+                  hintText: 'e.g., Clear, Red, Blue',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty && shapeController.text.trim().isNotEmpty) {
+                final colors = colorsController.text
+                    .split(',')
+                    .map((c) => c.trim())
+                    .where((c) => c.isNotEmpty)
+                    .toList();
+                final count = int.tryParse(countController.text);
+                setState(() {
+                  _stones.add(StoneConfig(
+                    name: nameController.text.trim(),
+                    shape: shapeController.text.trim(),
+                    availableColors: colors,
+                    count: count,
+                  ));
+                });
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditStoneDialog(int index, StoneConfig stone) {
+    final nameController = TextEditingController(text: stone.name);
+    final shapeController = TextEditingController(text: stone.shape);
+    final countController = TextEditingController(text: stone.count?.toString() ?? '');
+    final colorsController = TextEditingController(text: stone.availableColors.join(', '));
+    Map<String, double> colorModifiers = Map.from(stone.colorPriceModifiers ?? {});
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Stone'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Stone Name'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: shapeController,
+                  decoration: const InputDecoration(labelText: 'Shape'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: countController,
+                  decoration: const InputDecoration(labelText: 'Count (optional)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: colorsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Available Colors (comma separated)',
+                  ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+                const SizedBox(height: 16),
+                const Text('Color Price Modifiers:', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                ...colorsController.text.split(',').map((c) => c.trim()).where((c) => c.isNotEmpty).map((color) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(color)),
+                        SizedBox(
+                          width: 100,
+                          child: TextField(
+                            decoration: const InputDecoration(
+                              labelText: '+₹',
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                            keyboardType: TextInputType.number,
+                            controller: TextEditingController(text: (colorModifiers[color] ?? 0).toString()),
+                            onChanged: (value) {
+                              colorModifiers[color] = double.tryParse(value) ?? 0;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final colors = colorsController.text
+                    .split(',')
+                    .map((c) => c.trim())
+                    .where((c) => c.isNotEmpty)
+                    .toList();
+                final count = int.tryParse(countController.text);
+                // Clean up modifiers to only include colors that exist
+                final cleanModifiers = <String, double>{};
+                for (final color in colors) {
+                  if (colorModifiers.containsKey(color) && colorModifiers[color]! > 0) {
+                    cleanModifiers[color] = colorModifiers[color]!;
+                  }
+                }
+                setState(() {
+                  _stones[index] = StoneConfig(
+                    name: nameController.text.trim(),
+                    shape: shapeController.text.trim(),
+                    availableColors: colors,
+                    count: count,
+                    colorPriceModifiers: cleanModifiers.isNotEmpty ? cleanModifiers : null,
+                  );
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _addImageUrl() {
@@ -540,7 +2048,38 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
   void _saveProduct() async {
     if (_formKey.currentState!.validate()) {
+      // Validate images - at least one image is required
+      if (_imageUrls.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please add at least one product image'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+        return;
+      }
+
+      // Validate gender selection
+      if (_selectedGenders.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select at least one target audience'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+        return;
+      }
+
       try {
+        // Get category name from selected ID for backend
+        String? categoryName;
+        for (final c in _categories) {
+          if (c['id'] == _selectedCategoryId) {
+            categoryName = c['name'] as String;
+            break;
+          }
+        }
+
         final productData = {
           'name': _nameController.text,
           'description': _descriptionController.text,
@@ -548,8 +2087,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           'originalPrice': _originalPriceController.text.isNotEmpty
               ? _parseNullableDouble(_originalPriceController.text)
               : null,
-          'stockQuantity': _parseRequiredInt(_stockController.text),
-          'category': _selectedCategory,
+          'stockType': _selectedStockType == StockType.madeToOrder ? 'made_to_order' : 'stocked',
+          'stockQuantity': _selectedStockType == StockType.madeToOrder
+              ? 999999  // Large number for made-to-order (always available)
+              : (_stockController.text.isNotEmpty && _stockController.text != '∞'
+                  ? _parseRequiredInt(_stockController.text)
+                  : 0),
+          'category': categoryName,
           'subcategory': _selectedSubcategory,
           'metalType': _selectedMetalType,
           'stoneType': _selectedStoneType,
@@ -561,6 +2105,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           'isAvailable': _isAvailable,
           'isFeatured': _isFeatured,
           'tags': [], // Add tags if needed
+          'gender': _selectedGenders,
+          // Customization options
+          'availableMetals': _availableMetals,
+          'availablePlatingColors': _availablePlatingColors,
+          'availableSizes': _availableSizes,
+          'stones': _stones.map((s) => s.toJson()).toList(),
+          'engravingEnabled': _engravingEnabled,
+          'maxEngravingChars': _maxEngravingChars,
+          'engravingPrice': _engravingPrice,
+          'metalPriceModifiers': _metalPriceModifiers,
+          'platingPriceModifiers': _platingPriceModifiers,
         };
 
         if (widget.product != null) {

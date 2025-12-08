@@ -72,7 +72,39 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> with TickerProviderStateM
         if (loyaltyProvider.loyaltyProgram == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Loyalty Rewards')),
-            body: const Center(child: Text('Error loading loyalty program')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Unable to load loyalty program',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Please check your connection and try again',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final authProvider = context.read<AuthProvider>();
+                      if (authProvider.isAuthenticated) {
+                        loyaltyProvider.loadLoyaltyProgram(authProvider.user!.id);
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGold,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 

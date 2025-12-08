@@ -191,14 +191,14 @@ class _AddressesScreenState extends State<AddressesScreen> {
                         ),
                       if (address.isDefault) const SizedBox(height: 8),
                       Text(
-                        address.street,
+                        address.shortAddress,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${address.city}, ${address.state} ${address.zipCode}',
+                        '${address.city}, ${address.state} ${address.pincode}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: AppTheme.textSecondary,
                             ),

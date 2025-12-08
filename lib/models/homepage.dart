@@ -153,8 +153,17 @@ class FlashSale {
   }
 
   factory FlashSale.fromJson(Map<String, dynamic> json) {
+    // Debug: Check what ID is being parsed
+    final parsedId = json['id']?.toString() ?? '';
+    if (parsedId.isEmpty) {
+      print('⚠️ FlashSale.fromJson: ID is empty! JSON keys: ${json.keys.toList()}');
+      print('⚠️ FlashSale.fromJson: Raw JSON: $json');
+    } else {
+      print('✅ FlashSale.fromJson: Parsed ID=$parsedId for title=${json['title']}');
+    }
+
     return FlashSale(
-      id: json['id'] ?? '',
+      id: parsedId,
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       bannerImage: json['bannerImage'] ?? '',

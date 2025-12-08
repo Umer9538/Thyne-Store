@@ -7,6 +7,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../models/community.dart';
 import '../../../utils/theme.dart';
 import 'community_analytics_screen.dart';
+import 'community_moderation_screen.dart';
 
 class AdminCommunityDashboard extends StatefulWidget {
   const AdminCommunityDashboard({super.key});
@@ -50,7 +51,10 @@ class _AdminCommunityDashboardState extends State<AdminCommunityDashboard> {
       _isLoading = true;
     });
     final provider = Provider.of<CommunityProvider>(context, listen: false);
-    await provider.fetchFeed(refresh: true);
+    await Future.wait([
+      provider.fetchFeed(refresh: true),
+      provider.fetchModerationStats(),
+    ]);
     setState(() {
       _isLoading = false;
     });
@@ -80,6 +84,53 @@ class _AdminCommunityDashboardState extends State<AdminCommunityDashboard> {
       appBar: AppBar(
         title: const Text('Community Management'),
         actions: [
+          Consumer<CommunityProvider>(
+            builder: (context, provider, _) {
+              final pendingCount = provider.moderationStats?.pending ?? 0;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.pending_actions),
+                    tooltip: 'Post Moderation',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CommunityModerationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (pendingCount > 0)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          pendingCount > 99 ? '99+' : pendingCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.analytics),
             tooltip: 'Analytics',
@@ -250,6 +301,164 @@ class _AdminCommunityDashboardState extends State<AdminCommunityDashboard> {
     );
   }
 
+  Widget _buildPostImages(List<String> images) {
+    if (images.isEmpty) return const SizedBox.shrink();
+
+    if (images.length == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: CachedNetworkImage(
+          imageUrl: images.first,
+          height: 200,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            height: 200,
+            color: Colors.grey[200],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
+            height: 200,
+            color: Colors.grey[200],
+            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    // Multiple images - show grid
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: images.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: EdgeInsets.only(right: index < images.length - 1 ? 8 : 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: images[index],
+                width: 180,
+                height: 200,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 180,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 180,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTaggedProducts(List<ProductTag> products) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_offer, size: 16, color: AppTheme.primaryGold),
+              const SizedBox(width: 6),
+              const Text(
+                'Tagged Products',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 80,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                final product = products[index];
+                return Container(
+                  width: 160,
+                  margin: EdgeInsets.only(right: index < products.length - 1 ? 8 : 0),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: CachedNetworkImage(
+                          imageUrl: product.imageUrl,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) => Container(
+                            width: 50,
+                            height: 50,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image, size: 24),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              product.name,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '₹${product.price.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.primaryGold,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPostCard(CommunityPost post, CommunityProvider provider) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -330,10 +539,20 @@ class _AdminCommunityDashboardState extends State<AdminCommunityDashboard> {
             // Content
             Text(
               post.content,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 14),
             ),
+
+            // Post Images
+            if (post.images.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildPostImages(post.images),
+            ],
+
+            // Tagged Products
+            if (post.products != null && post.products!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildTaggedProducts(post.products!),
+            ],
 
             // Tags
             if (post.tags.isNotEmpty) ...[

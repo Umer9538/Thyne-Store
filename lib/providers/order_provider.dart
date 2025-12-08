@@ -40,11 +40,16 @@ class OrderProvider extends ChangeNotifier {
           'image': item.product.images.isNotEmpty ? item.product.images.first : '',
         }).toList(),
         'shippingAddress': {
-          'street': shippingAddress.street,
+          'houseNoFloor': shippingAddress.houseNoFloor,
+          'buildingBlock': shippingAddress.buildingBlock,
+          'landmarkArea': shippingAddress.landmarkArea,
           'city': shippingAddress.city,
           'state': shippingAddress.state,
-          'zipCode': shippingAddress.zipCode,
+          'pincode': shippingAddress.pincode,
           'country': shippingAddress.country,
+          'label': shippingAddress.label.name,
+          'street': shippingAddress.fullAddress, // Legacy compatibility
+          'zipCode': shippingAddress.pincode, // Legacy compatibility
         },
         'paymentMethod': paymentMethod,
       };

@@ -45,7 +45,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	category := c.Query("category")
 	subcategory := c.Query("subcategory")
 	search := c.Query("search")
-	sortBy := c.DefaultQuery("sortBy", "popularity")
+	sortBy := c.DefaultQuery("sortBy", "newest")
 
 	// Build filter
 	filter := models.ProductFilter{

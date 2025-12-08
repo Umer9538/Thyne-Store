@@ -380,6 +380,12 @@ func (c *Collection) ToResponse() CollectionResponse {
 	}
 }
 
+// MetalOption represents a metal type with its variants (karats/purity)
+type MetalOption struct {
+	Type     string   `json:"type" bson:"type"`         // Gold, Silver, Platinum
+	Variants []string `json:"variants" bson:"variants"` // 9K, 14K, 22K for Gold; 925 for Silver
+}
+
 // StoreSettings represents configurable store settings (GST, shipping, etc.)
 type StoreSettings struct {
 	ID                    primitive.ObjectID `json:"id" bson:"_id,omitempty"`
@@ -402,6 +408,14 @@ type StoreSettings struct {
 	StoreAddress          string             `json:"storeAddress" bson:"storeAddress"`
 	Currency              string             `json:"currency" bson:"currency"`                           // INR, USD, etc.
 	CurrencySymbol        string             `json:"currencySymbol" bson:"currencySymbol"`               // ₹, $, etc.
+	// Order ID Settings
+	OrderIdPrefix         string             `json:"orderIdPrefix" bson:"orderIdPrefix"`                 // Prefix for order numbers (e.g., TJ, ORD)
+	OrderIdCounter        int64              `json:"orderIdCounter" bson:"orderIdCounter"`               // Current counter for order numbers
+	// Product Customization Options (Admin Editable)
+	MetalOptions          []MetalOption      `json:"metalOptions" bson:"metalOptions"`                   // Available metal types with variants
+	PlatingColors         []string           `json:"platingColors" bson:"platingColors"`                 // White Gold, Yellow Gold, Rose Gold, etc.
+	StoneShapes           []string           `json:"stoneShapes" bson:"stoneShapes"`                     // Round, Oval, Princess, etc.
+	MaxEngravingChars     int                `json:"maxEngravingChars" bson:"maxEngravingChars"`         // Default max engraving characters
 	// Metadata
 	UpdatedAt             time.Time          `json:"updatedAt" bson:"updatedAt"`
 	UpdatedBy             primitive.ObjectID `json:"updatedBy" bson:"updatedBy"`
@@ -409,23 +423,29 @@ type StoreSettings struct {
 
 // StoreSettingsResponse for API
 type StoreSettingsResponse struct {
-	ID                    string  `json:"id"`
-	GSTRate               float64 `json:"gstRate"`
-	GSTNumber             string  `json:"gstNumber"`
-	EnableGST             bool    `json:"enableGst"`
-	FreeShippingThreshold float64 `json:"freeShippingThreshold"`
-	ShippingCost          float64 `json:"shippingCost"`
-	EnableFreeShipping    bool    `json:"enableFreeShipping"`
-	EnableCOD             bool    `json:"enableCod"`
-	CODCharge             float64 `json:"codCharge"`
-	CODMaxAmount          float64 `json:"codMaxAmount"`
-	StoreName             string  `json:"storeName"`
-	StoreEmail            string  `json:"storeEmail"`
-	StorePhone            string  `json:"storePhone"`
-	StoreAddress          string  `json:"storeAddress"`
-	Currency              string  `json:"currency"`
-	CurrencySymbol        string  `json:"currencySymbol"`
-	UpdatedAt             string  `json:"updatedAt"`
+	ID                    string        `json:"id"`
+	GSTRate               float64       `json:"gstRate"`
+	GSTNumber             string        `json:"gstNumber"`
+	EnableGST             bool          `json:"enableGst"`
+	FreeShippingThreshold float64       `json:"freeShippingThreshold"`
+	ShippingCost          float64       `json:"shippingCost"`
+	EnableFreeShipping    bool          `json:"enableFreeShipping"`
+	EnableCOD             bool          `json:"enableCod"`
+	CODCharge             float64       `json:"codCharge"`
+	CODMaxAmount          float64       `json:"codMaxAmount"`
+	StoreName             string        `json:"storeName"`
+	StoreEmail            string        `json:"storeEmail"`
+	StorePhone            string        `json:"storePhone"`
+	StoreAddress          string        `json:"storeAddress"`
+	Currency              string        `json:"currency"`
+	CurrencySymbol        string        `json:"currencySymbol"`
+	OrderIdPrefix         string        `json:"orderIdPrefix"`
+	OrderIdCounter        int64         `json:"orderIdCounter"`
+	MetalOptions          []MetalOption `json:"metalOptions"`
+	PlatingColors         []string      `json:"platingColors"`
+	StoneShapes           []string      `json:"stoneShapes"`
+	MaxEngravingChars     int           `json:"maxEngravingChars"`
+	UpdatedAt             string        `json:"updatedAt"`
 }
 
 // ToResponse converts StoreSettings to StoreSettingsResponse
@@ -447,6 +467,12 @@ func (s *StoreSettings) ToResponse() StoreSettingsResponse {
 		StoreAddress:          s.StoreAddress,
 		Currency:              s.Currency,
 		CurrencySymbol:        s.CurrencySymbol,
+		OrderIdPrefix:         s.OrderIdPrefix,
+		OrderIdCounter:        s.OrderIdCounter,
+		MetalOptions:          s.MetalOptions,
+		PlatingColors:         s.PlatingColors,
+		StoneShapes:           s.StoneShapes,
+		MaxEngravingChars:     s.MaxEngravingChars,
 		UpdatedAt:             s.UpdatedAt.Format(time.RFC3339),
 	}
 }
@@ -469,6 +495,16 @@ func DefaultStoreSettings() *StoreSettings {
 		StoreAddress:          "Mumbai, India",
 		Currency:              "INR",
 		CurrencySymbol:        "₹",
-		UpdatedAt:             time.Now(),
+		OrderIdPrefix:         "TJ",
+		OrderIdCounter:        1000,
+		MetalOptions: []MetalOption{
+			{Type: "Gold", Variants: []string{"9K", "14K", "18K", "22K"}},
+			{Type: "Silver", Variants: []string{"925 Sterling"}},
+			{Type: "Platinum", Variants: []string{"950 Platinum"}},
+		},
+		PlatingColors:     []string{"White Gold", "Yellow Gold", "Rose Gold", "Rustic Silver"},
+		StoneShapes:       []string{"Round", "Oval", "Princess", "Cushion", "Emerald", "Pear", "Marquise", "Heart"},
+		MaxEngravingChars: 15,
+		UpdatedAt:         time.Now(),
 	}
 }

@@ -43,6 +43,7 @@ class _CommunitySectionState extends State<CommunitySection> with SingleTickerPr
     final authProvider = Provider.of<AuthProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
     final wishlistProvider = Provider.of<WishlistProvider>(context);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Stack(
       children: [
@@ -69,7 +70,7 @@ class _CommunitySectionState extends State<CommunitySection> with SingleTickerPr
         ),
         // Floating Search Bar with Create Post Button
         Positioned(
-          bottom: 16,
+          bottom: 80 + bottomPadding, // Account for bottom navigation + safe area
           left: 16,
           right: 16,
           child: _buildFloatingSearchBar(),

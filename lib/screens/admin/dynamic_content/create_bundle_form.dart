@@ -173,183 +173,232 @@ class _CreateBundleFormState extends State<CreateBundleForm> {
   }
 
   void _showProductSelector() {
+    String searchQuery = '';
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: 600,
-          height: 700,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Header
-              Row(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Filter products based on search query
+          final filteredProducts = searchQuery.isEmpty
+              ? _availableProducts
+              : _availableProducts.where((product) {
+                  final query = searchQuery.toLowerCase();
+                  return product.name.toLowerCase().contains(query) ||
+                      product.category.toLowerCase().contains(query) ||
+                      product.description.toLowerCase().contains(query);
+                }).toList();
+
+          return Dialog(
+            child: Container(
+              width: 600,
+              height: 700,
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  Text(
-                    'Add Product to Bundle',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  // Header
+                  Row(
+                    children: [
+                      Text(
+                        'Add Product to Bundle',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  // Search field
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search products...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setDialogState(() => searchQuery = '');
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() => searchQuery = value);
+                      },
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-              // Content
-              Expanded(
-                child: _loadingProducts
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 16),
-                            Text('Loading products...'),
-                          ],
-                        ),
-                      )
-                    : _availableProducts.isEmpty
-                        ? Center(
+                  // Content
+                  Expanded(
+                    child: _loadingProducts
+                        ? const Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.inventory_2_outlined,
-                                  size: 64,
-                                  color: Colors.grey.shade400
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No Products Available',
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Please add products to your store first',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey.shade500,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 24),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _loadProducts();
-                                  },
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryGold,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text('Loading products...'),
                               ],
                             ),
                           )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(8),
-                            itemCount: _availableProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = _availableProducts[index];
-                              final isAlreadyAdded = _bundleItems.any((item) => item.product.id == product.id);
+                        : filteredProducts.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      searchQuery.isNotEmpty ? Icons.search_off : Icons.inventory_2_outlined,
+                                      size: 64,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      searchQuery.isNotEmpty ? 'No products found' : 'No Products Available',
+                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      searchQuery.isNotEmpty
+                                          ? 'Try a different search term'
+                                          : 'Please add products to your store first',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: Colors.grey.shade500,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    if (searchQuery.isEmpty) ...[
+                                      const SizedBox(height: 24),
+                                      ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          _loadProducts();
+                                        },
+                                        icon: const Icon(Icons.refresh),
+                                        label: const Text('Retry'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryGold,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(8),
+                                itemCount: filteredProducts.length,
+                                itemBuilder: (context, index) {
+                                  final product = filteredProducts[index];
+                                  final isAlreadyAdded = _bundleItems.any((item) => item.product.id == product.id);
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                elevation: 2,
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.all(12),
-                                  leading: product.images.isNotEmpty
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.network(
-                                            product.images.first,
-                                            width: 60,
-                                            height: 60,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container(
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    elevation: 2,
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.all(12),
+                                      leading: product.images.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Image.network(
+                                                product.images.first,
                                                 width: 60,
                                                 height: 60,
-                                                color: Colors.grey.shade200,
-                                                child: const Icon(Icons.image),
-                                              );
-                                            },
-                                          ),
-                                        )
-                                      : Container(
-                                          width: 60,
-                                          height: 60,
-                                          color: Colors.grey.shade200,
-                                          child: const Icon(Icons.inventory_2),
-                                        ),
-                                  title: Text(
-                                    product.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '\$${product.price.toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                            color: AppTheme.primaryGold,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Stock: ${product.stock}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  trailing: isAlreadyAdded
-                                      ? Icon(Icons.check_circle, color: AppTheme.primaryGold, size: 32)
-                                      : Container(
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryGold,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const IconButton(
-                                            icon: Icon(Icons.add, color: Colors.white),
-                                            onPressed: null,
-                                          ),
-                                        ),
-                                  enabled: !isAlreadyAdded,
-                                  onTap: isAlreadyAdded ? null : () {
-                                    setState(() {
-                                      _bundleItems.add(BundleItemData(product: product));
-                                    });
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('${product.name} added to bundle'),
-                                        backgroundColor: Colors.green,
-                                        duration: const Duration(seconds: 2),
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Container(
+                                                    width: 60,
+                                                    height: 60,
+                                                    color: Colors.grey.shade200,
+                                                    child: const Icon(Icons.image),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          : Container(
+                                              width: 60,
+                                              height: 60,
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.inventory_2),
+                                            ),
+                                      title: Text(
+                                        product.name,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
                                       ),
-                                    );
-                                  },
-                                ),
-                              );
-                            },
-                          ),
+                                      subtitle: Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '₹${product.price.toStringAsFixed(2)}',
+                                              style: TextStyle(
+                                                color: AppTheme.primaryGold,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Stock: ${product.stock}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      trailing: isAlreadyAdded
+                                          ? Icon(Icons.check_circle, color: AppTheme.primaryGold, size: 32)
+                                          : Container(
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primaryGold,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const IconButton(
+                                                icon: Icon(Icons.add, color: Colors.white),
+                                                onPressed: null,
+                                              ),
+                                            ),
+                                      enabled: !isAlreadyAdded,
+                                      onTap: isAlreadyAdded ? null : () {
+                                        setState(() {
+                                          _bundleItems.add(BundleItemData(product: product));
+                                        });
+                                        Navigator.pop(context);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('${product.name} added to bundle'),
+                                            backgroundColor: Colors.green,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

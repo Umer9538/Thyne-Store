@@ -28,13 +28,15 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
 
-  // Address form
+  // Address form - Detailed Indian address fields
   final _addressFormKey = GlobalKey<FormState>();
-  final _streetController = TextEditingController();
+  final _houseNoFloorController = TextEditingController();
+  final _buildingBlockController = TextEditingController();
+  final _landmarkAreaController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
-  final _zipController = TextEditingController();
-  final _countryController = TextEditingController(text: 'India');
+  final _pincodeController = TextEditingController();
+  String _selectedAddressLabel = 'Home';
 
   // Login form
   final _loginFormKey = GlobalKey<FormState>();
@@ -53,11 +55,12 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _nameController.dispose();
-    _streetController.dispose();
+    _houseNoFloorController.dispose();
+    _buildingBlockController.dispose();
+    _landmarkAreaController.dispose();
     _cityController.dispose();
     _stateController.dispose();
-    _zipController.dispose();
-    _countryController.dispose();
+    _pincodeController.dispose();
     _loginEmailController.dispose();
     _loginPasswordController.dispose();
     _registerNameController.dispose();
@@ -604,45 +607,86 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
           key: _addressFormKey,
           child: Column(
             children: [
+              // House No. & Floor
               TextFormField(
-                controller: _streetController,
+                controller: _houseNoFloorController,
                 decoration: const InputDecoration(
-                  labelText: 'Street Address',
+                  labelText: 'House No. & Floor *',
+                  hintText: 'e.g., 12A, 3rd Floor',
+                  prefixIcon: Icon(Icons.home_outlined),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter street address';
+                    return 'Please enter house no. & floor';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
+
+              // Building & Block Number
+              TextFormField(
+                controller: _buildingBlockController,
+                decoration: const InputDecoration(
+                  labelText: 'Building & Block Number *',
+                  hintText: 'e.g., Tower B, Block 5',
+                  prefixIcon: Icon(Icons.apartment_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter building & block number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Landmark & Area
+              TextFormField(
+                controller: _landmarkAreaController,
+                decoration: const InputDecoration(
+                  labelText: 'Landmark & Area *',
+                  hintText: 'e.g., Near City Mall, Sector 18',
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter landmark & area';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // City & State Row
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
                       controller: _cityController,
                       decoration: const InputDecoration(
-                        labelText: 'City',
+                        labelText: 'City *',
+                        prefixIcon: Icon(Icons.location_city_outlined),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter city';
+                          return 'Enter city';
                         }
                         return null;
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       controller: _stateController,
                       decoration: const InputDecoration(
-                        labelText: 'State',
+                        labelText: 'State *',
+                        prefixIcon: Icon(Icons.map_outlined),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter state';
+                          return 'Enter state';
                         }
                         return null;
                       },
@@ -651,33 +695,78 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+
+              // Pincode & Country Row
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
-                      controller: _zipController,
+                      controller: _pincodeController,
                       decoration: const InputDecoration(
-                        labelText: 'ZIP Code',
+                        labelText: 'Pincode *',
+                        prefixIcon: Icon(Icons.pin_drop_outlined),
+                        counterText: '',
                       ),
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter ZIP code';
+                          return 'Enter pincode';
+                        }
+                        if (value.length != 6) {
+                          return 'Invalid pincode';
                         }
                         return null;
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Country',
+                        prefixIcon: Icon(Icons.flag_outlined),
                         enabled: false,
                       ),
-                      controller: _countryController,
-                     ),
+                      controller: TextEditingController(text: 'India'),
+                    ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+
+              // Address Label
+              DropdownButtonFormField<String>(
+                value: _selectedAddressLabel,
+                decoration: const InputDecoration(
+                  labelText: 'Address Label *',
+                  prefixIcon: Icon(Icons.label_outlined),
+                ),
+                items: ['Home', 'Work', 'Other'].map((label) {
+                  return DropdownMenuItem(
+                    value: label,
+                    child: Row(
+                      children: [
+                        Icon(
+                          label == 'Home'
+                              ? Icons.home
+                              : label == 'Work'
+                                  ? Icons.work
+                                  : Icons.location_on,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(label),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedAddressLabel = value ?? 'Home';
+                  });
+                },
               ),
             ],
           ),
@@ -915,13 +1004,29 @@ class _GuestCheckoutScreenState extends State<GuestCheckoutScreen> {
     }
 
     try {
+      // Convert address label string to enum
+      AddressLabel addressLabel;
+      switch (_selectedAddressLabel) {
+        case 'Home':
+          addressLabel = AddressLabel.home;
+          break;
+        case 'Work':
+          addressLabel = AddressLabel.work;
+          break;
+        default:
+          addressLabel = AddressLabel.other;
+      }
+
       final shippingAddress = Address(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        street: _streetController.text,
+        houseNoFloor: _houseNoFloorController.text,
+        buildingBlock: _buildingBlockController.text,
+        landmarkArea: _landmarkAreaController.text,
         city: _cityController.text,
         state: _stateController.text,
-        zipCode: _zipController.text,
+        pincode: _pincodeController.text,
         country: 'India',
+        label: addressLabel,
       );
 
       String userId;

@@ -44,11 +44,15 @@ class AddressProvider with ChangeNotifier {
   }
 
   Future<bool> addAddress({
-    required String street,
+    required String houseNoFloor,
+    required String buildingBlock,
+    required String landmarkArea,
     required String city,
     required String state,
-    required String zipCode,
-    required String country,
+    required String pincode,
+    required String label,
+    String? recipientName,
+    String? recipientPhone,
     bool isDefault = false,
   }) async {
     _isLoading = true;
@@ -57,11 +61,15 @@ class AddressProvider with ChangeNotifier {
 
     try {
       final response = await ApiService.addAddress(
-        street: street,
+        houseNoFloor: houseNoFloor,
+        buildingBlock: buildingBlock,
+        landmarkArea: landmarkArea,
         city: city,
         state: state,
-        zipCode: zipCode,
-        country: country,
+        pincode: pincode,
+        label: label,
+        recipientName: recipientName,
+        recipientPhone: recipientPhone,
         isDefault: isDefault,
       );
 
@@ -83,11 +91,15 @@ class AddressProvider with ChangeNotifier {
 
   Future<bool> updateAddress({
     required String addressId,
-    required String street,
+    required String houseNoFloor,
+    required String buildingBlock,
+    required String landmarkArea,
     required String city,
     required String state,
-    required String zipCode,
-    required String country,
+    required String pincode,
+    required String label,
+    String? recipientName,
+    String? recipientPhone,
     bool isDefault = false,
   }) async {
     _isLoading = true;
@@ -97,11 +109,15 @@ class AddressProvider with ChangeNotifier {
     try {
       final response = await ApiService.updateAddress(
         addressId: addressId,
-        street: street,
+        houseNoFloor: houseNoFloor,
+        buildingBlock: buildingBlock,
+        landmarkArea: landmarkArea,
         city: city,
         state: state,
-        zipCode: zipCode,
-        country: country,
+        pincode: pincode,
+        label: label,
+        recipientName: recipientName,
+        recipientPhone: recipientPhone,
         isDefault: isDefault,
       );
 

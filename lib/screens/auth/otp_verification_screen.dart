@@ -88,9 +88,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     final otp = _getOTP();
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter complete OTP'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text(
+            'Please enter complete OTP',
+            style: TextStyle(color: Colors.black),
+          ),
+          backgroundColor: Colors.red.shade100,
         ),
       );
       return;
@@ -115,9 +118,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid OTP. Please try again.'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text(
+              'Invalid OTP. Please try again.',
+              style: TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.red.shade100,
           ),
         );
       }
@@ -125,8 +131,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'Error: ${e.toString()}',
+              style: const TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.red.shade100,
           ),
         );
       }
@@ -148,9 +157,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OTP sent successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text(
+              'OTP sent successfully',
+              style: TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.green.shade100,
           ),
         );
         _startResendTimer();
@@ -161,9 +173,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         _focusNodes[0].requestFocus();
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to resend OTP. Please try again.'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text(
+              'Failed to resend OTP. Please try again.',
+              style: TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.red.shade100,
           ),
         );
       }
@@ -171,8 +186,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'Error: ${e.toString()}',
+              style: const TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.red.shade100,
           ),
         );
       }
@@ -184,19 +202,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Widget _buildOTPField(int index) {
-    return Container(
-      width: 45,
-      height: 55,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _otpControllers[index].text.isNotEmpty
-              ? const Color(0xFF094010)
-              : const Color(0xFFE5E5E5),
-          width: 1,
-        ),
-      ),
+    final hasValue = _otpControllers[index].text.isNotEmpty;
+    final isFocused = _focusNodes[index].hasFocus;
+
+    return SizedBox(
+      width: 50,
+      height: 60,
       child: TextField(
         controller: _otpControllers[index],
         focusNode: _focusNodes[index],
@@ -204,17 +215,33 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         keyboardType: TextInputType.number,
         maxLength: 1,
         style: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF1A1A1A),
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
         ),
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
           LengthLimitingTextInputFormatter(1),
         ],
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           counterText: '',
-          border: InputBorder.none,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: hasValue ? const Color(0xFF094010) : const Color(0xFFE5E5E5),
+              width: hasValue ? 2 : 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(
+              color: Color(0xFF094010),
+              width: 2,
+            ),
+          ),
         ),
         onChanged: (value) {
           if (value.isNotEmpty && index < 5) {

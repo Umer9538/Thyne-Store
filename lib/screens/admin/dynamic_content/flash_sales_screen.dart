@@ -14,6 +14,8 @@ class FlashSalesScreen extends StatefulWidget {
 class _FlashSalesScreenState extends State<FlashSalesScreen> {
   bool _loading = true;
   List<FlashSale> _sales = [];
+  String _searchQuery = '';
+  String _statusFilter = 'All'; // All, Live, Ended
 
   @override
   void initState() {
@@ -25,20 +27,52 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
     setState(() => _loading = true);
 
     try {
-      final response = await ApiService.getHomepage();
+      // Use getAllFlashSales to get all flash sales (including inactive) for admin management
+      final response = await ApiService.getAllFlashSales();
       if (response['success'] == true && response['data'] != null) {
-        final homepage = response['data'] as Map<String, dynamic>;
-        if (homepage['activeFlashSales'] != null) {
-          _sales = (homepage['activeFlashSales'] as List)
-              .map((s) => FlashSale.fromJson(s))
-              .toList();
+        final salesList = response['data'] as List;
+        _sales = salesList
+            .map((s) => FlashSale.fromJson(s as Map<String, dynamic>))
+            .toList();
+      } else {
+        // Fallback to homepage data if admin endpoint fails
+        final homepageResponse = await ApiService.getHomepage();
+        if (homepageResponse['success'] == true && homepageResponse['data'] != null) {
+          final homepage = homepageResponse['data'] as Map<String, dynamic>;
+          if (homepage['activeFlashSales'] != null) {
+            _sales = (homepage['activeFlashSales'] as List)
+                .map((s) => FlashSale.fromJson(s as Map<String, dynamic>))
+                .toList();
+          }
         }
       }
     } catch (e) {
-      print('Error loading flash sales: $e');
+      debugPrint('Error loading flash sales: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading flash sales: $e')),
+        );
+      }
     }
 
     setState(() => _loading = false);
+  }
+
+  List<FlashSale> get _filteredSales {
+    return _sales.where((sale) {
+      // Filter by search query
+      final query = _searchQuery.toLowerCase();
+      final matchesSearch = query.isEmpty ||
+          sale.title.toLowerCase().contains(query) ||
+          sale.description.toLowerCase().contains(query);
+
+      // Filter by status
+      final matchesStatus = _statusFilter == 'All' ||
+          (_statusFilter == 'Live' && sale.isLive) ||
+          (_statusFilter == 'Ended' && !sale.isLive);
+
+      return matchesSearch && matchesStatus;
+    }).toList();
   }
 
   @override
@@ -60,13 +94,102 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _sales.isEmpty
               ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadFlashSales,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _sales.length,
-                    itemBuilder: (context, index) => _buildSaleCard(_sales[index]),
-                  ),
+              : Column(
+                  children: [
+                    // Search and Filter Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      color: Colors.grey.shade50,
+                      child: Column(
+                        children: [
+                          // Search Bar
+                          TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search flash sales...',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onChanged: (value) {
+                              setState(() => _searchQuery = value);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // Status Filter Chips
+                          Row(
+                            children: [
+                              _buildFilterChip('All', _statusFilter == 'All'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('Live', _statusFilter == 'Live'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('Ended', _statusFilter == 'Ended'),
+                              const Spacer(),
+                              Text(
+                                '${_filteredSales.length} of ${_sales.length}',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Flash Sales List
+                    Expanded(
+                      child: _filteredSales.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No flash sales found',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Try a different search term or filter',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadFlashSales,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _filteredSales.length,
+                                itemBuilder: (context, index) => _buildSaleCard(_filteredSales[index]),
+                              ),
+                            ),
+                    ),
+                  ],
                 ),
     );
   }
@@ -240,6 +363,32 @@ class _FlashSalesScreenState extends State<FlashSalesScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _statusFilter = label);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryGold : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryGold : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }

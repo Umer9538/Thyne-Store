@@ -32,15 +32,18 @@ func NewLoyaltyService(
 
 // GetLoyaltyProgram gets user's loyalty program
 func (s *LoyaltyService) GetLoyaltyProgram(ctx context.Context, userID primitive.ObjectID) (*models.LoyaltyProgram, error) {
-	_, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
+	program, err := s.loyaltyRepo.GetProgramByUserID(ctx, userID)
 	if err != nil {
 		// Create new loyalty program if doesn't exist
 		return s.CreateLoyaltyProgram(ctx, userID)
 	}
 
-	// Check and update daily login
+	// Check and update daily login (non-blocking - don't fail if this fails)
 	if err := s.CheckDailyLogin(ctx, userID); err != nil {
-		return nil, fmt.Errorf("failed to check daily login: %w", err)
+		// Log the error but continue - daily login is not critical
+		fmt.Printf("Warning: failed to check daily login for user %s: %v\n", userID.Hex(), err)
+		// Return the existing program anyway
+		return program, nil
 	}
 
 	// Refresh data after potential daily login update

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+    "fmt"
     "net/http"
     "thyne-jewels-backend/internal/services"
     "github.com/gin-gonic/gin"
@@ -41,11 +42,16 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		return
 	}
 
-    created, err := h.categoryService.CreateCategory(c.Request.Context(), req.Name, req.Description)
+    fmt.Printf("[DEBUG] CreateCategory - Name: %s, Description: %s, Subcategories: %v (len=%d, nil=%v)\n",
+        req.Name, req.Description, req.Subcategories, len(req.Subcategories), req.Subcategories == nil)
+
+    created, err := h.categoryService.CreateCategory(c.Request.Context(), req.Name, req.Description, req.Subcategories)
     if err != nil {
+        fmt.Printf("[DEBUG] CreateCategory error: %v\n", err)
         c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create category", "code": "CREATE_FAILED"})
         return
     }
+    fmt.Printf("[DEBUG] Created category: %+v\n", created)
     c.JSON(http.StatusCreated, gin.H{"success": true, "data": created, "message": "Category created successfully"})
 }
 
@@ -76,11 +82,16 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 		return
 	}
 
-    updated, err := h.categoryService.UpdateCategory(c.Request.Context(), categoryID, req.Name, req.Description)
+    fmt.Printf("[DEBUG] UpdateCategory - ID: %s, Name: %s, Description: %s, Subcategories: %v (len=%d, nil=%v)\n",
+        categoryID, req.Name, req.Description, req.Subcategories, len(req.Subcategories), req.Subcategories == nil)
+
+    updated, err := h.categoryService.UpdateCategory(c.Request.Context(), categoryID, req.Name, req.Description, req.Subcategories)
     if err != nil {
+        fmt.Printf("[DEBUG] UpdateCategory error: %v\n", err)
         c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to update category", "code": "UPDATE_FAILED"})
         return
     }
+    fmt.Printf("[DEBUG] Updated category: %+v\n", updated)
     c.JSON(http.StatusOK, gin.H{"success": true, "data": updated, "message": "Category updated successfully"})
 }
 

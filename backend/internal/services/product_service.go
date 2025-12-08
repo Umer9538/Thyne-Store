@@ -74,6 +74,12 @@ func (s *productService) SearchProducts(query string) ([]models.Product, error) 
 
 // Admin methods implementation
 func (s *productService) CreateProduct(ctx context.Context, req *models.CreateProductRequest) (*models.Product, error) {
+	// Default to stocked if not specified
+	stockType := req.StockType
+	if stockType == "" {
+		stockType = models.StockTypeStocked
+	}
+
 	product := &models.Product{
 		ID:             primitive.NewObjectID(),
 		Name:           req.Name,
@@ -87,14 +93,33 @@ func (s *productService) CreateProduct(ctx context.Context, req *models.CreatePr
 		StoneType:      req.StoneType,
 		Weight:         req.Weight,
 		Size:           req.Size,
+		StockType:      stockType,
 		StockQuantity:  req.StockQuantity,
 		Rating:         0.0,
 		ReviewCount:    0,
 		Tags:           req.Tags,
+		Gender:         req.Gender,
 		IsAvailable:    req.IsAvailable,
 		IsFeatured:     req.IsFeatured,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		// Legacy customization options
+		AvailableColors:       req.AvailableColors,
+		AvailablePolishTypes:  req.AvailablePolishTypes,
+		AvailableStoneColors:  req.AvailableStoneColors,
+		AvailableGemstones:    req.AvailableGemstones,
+		// Enhanced customization options (Diamondere style)
+		AvailableMetals:        req.AvailableMetals,
+		AvailablePlatingColors: req.AvailablePlatingColors,
+		Stones:                 req.Stones,
+		AvailableSizes:         req.AvailableSizes,
+		EngravingEnabled:       req.EngravingEnabled,
+		MaxEngravingChars:      req.MaxEngravingChars,
+		EngravingPrice:         req.EngravingPrice,
+		MinThickness:           req.MinThickness,
+		MaxThickness:           req.MaxThickness,
+		MetalPriceModifiers:    req.MetalPriceModifiers,
+		PlatingPriceModifiers:  req.PlatingPriceModifiers,
+		CreatedAt:              time.Now(),
+		UpdatedAt:              time.Now(),
 	}
 
 	err := s.productRepo.Create(ctx, product)
@@ -151,6 +176,9 @@ func (s *productService) UpdateProduct(ctx context.Context, id string, req *mode
 	if req.Size != nil {
 		existingProduct.Size = req.Size
 	}
+	if req.StockType != nil {
+		existingProduct.StockType = *req.StockType
+	}
 	if req.StockQuantity != nil {
 		existingProduct.StockQuantity = *req.StockQuantity
 	}
@@ -162,6 +190,53 @@ func (s *productService) UpdateProduct(ctx context.Context, id string, req *mode
 	}
 	if req.IsFeatured != nil {
 		existingProduct.IsFeatured = *req.IsFeatured
+	}
+	// Legacy customization options
+	if req.AvailableColors != nil {
+		existingProduct.AvailableColors = req.AvailableColors
+	}
+	if req.AvailablePolishTypes != nil {
+		existingProduct.AvailablePolishTypes = req.AvailablePolishTypes
+	}
+	if req.AvailableStoneColors != nil {
+		existingProduct.AvailableStoneColors = req.AvailableStoneColors
+	}
+	if req.AvailableGemstones != nil {
+		existingProduct.AvailableGemstones = req.AvailableGemstones
+	}
+	// Enhanced customization options (Diamondere style)
+	if req.AvailableMetals != nil {
+		existingProduct.AvailableMetals = req.AvailableMetals
+	}
+	if req.AvailablePlatingColors != nil {
+		existingProduct.AvailablePlatingColors = req.AvailablePlatingColors
+	}
+	if req.Stones != nil {
+		existingProduct.Stones = req.Stones
+	}
+	if req.AvailableSizes != nil {
+		existingProduct.AvailableSizes = req.AvailableSizes
+	}
+	if req.EngravingEnabled != nil {
+		existingProduct.EngravingEnabled = *req.EngravingEnabled
+	}
+	if req.MaxEngravingChars != nil {
+		existingProduct.MaxEngravingChars = *req.MaxEngravingChars
+	}
+	if req.EngravingPrice != nil {
+		existingProduct.EngravingPrice = *req.EngravingPrice
+	}
+	if req.MinThickness != nil {
+		existingProduct.MinThickness = req.MinThickness
+	}
+	if req.MaxThickness != nil {
+		existingProduct.MaxThickness = req.MaxThickness
+	}
+	if req.MetalPriceModifiers != nil {
+		existingProduct.MetalPriceModifiers = req.MetalPriceModifiers
+	}
+	if req.PlatingPriceModifiers != nil {
+		existingProduct.PlatingPriceModifiers = req.PlatingPriceModifiers
 	}
 	existingProduct.UpdatedAt = time.Now()
 
@@ -262,6 +337,12 @@ func (s *productService) BulkCreateProducts(ctx context.Context, products []mode
 			continue
 		}
 
+		// Default stock type
+		stockType := productReq.StockType
+		if stockType == "" {
+			stockType = models.StockTypeStocked
+		}
+
 		// Create the product
 		product := &models.Product{
 			ID:            primitive.NewObjectID(),
@@ -276,14 +357,33 @@ func (s *productService) BulkCreateProducts(ctx context.Context, products []mode
 			StoneType:     productReq.StoneType,
 			Weight:        productReq.Weight,
 			Size:          productReq.Size,
+			StockType:     stockType,
 			StockQuantity: productReq.StockQuantity,
 			Tags:          productReq.Tags,
+			Gender:        productReq.Gender,
 			IsAvailable:   productReq.IsAvailable,
 			IsFeatured:    productReq.IsFeatured,
-			Rating:        0.0,
-			ReviewCount:   0,
-			CreatedAt:     time.Now(),
-			UpdatedAt:     time.Now(),
+			// Legacy customization options
+			AvailableColors:       productReq.AvailableColors,
+			AvailablePolishTypes:  productReq.AvailablePolishTypes,
+			AvailableStoneColors:  productReq.AvailableStoneColors,
+			AvailableGemstones:    productReq.AvailableGemstones,
+			// Enhanced customization options (Diamondere style)
+			AvailableMetals:        productReq.AvailableMetals,
+			AvailablePlatingColors: productReq.AvailablePlatingColors,
+			Stones:                 productReq.Stones,
+			AvailableSizes:         productReq.AvailableSizes,
+			EngravingEnabled:       productReq.EngravingEnabled,
+			MaxEngravingChars:      productReq.MaxEngravingChars,
+			EngravingPrice:         productReq.EngravingPrice,
+			MinThickness:           productReq.MinThickness,
+			MaxThickness:           productReq.MaxThickness,
+			MetalPriceModifiers:    productReq.MetalPriceModifiers,
+			PlatingPriceModifiers:  productReq.PlatingPriceModifiers,
+			Rating:                 0.0,
+			ReviewCount:            0,
+			CreatedAt:              time.Now(),
+			UpdatedAt:              time.Now(),
 		}
 
 		// Attempt to create the product in the database

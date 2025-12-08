@@ -54,7 +54,7 @@ func (r *communityRepository) GetPostByID(ctx context.Context, id primitive.Obje
 	return &post, nil
 }
 
-// GetAllPosts retrieves all posts with pagination
+// GetAllPosts retrieves all approved posts with pagination (public feed only shows approved posts)
 func (r *communityRepository) GetAllPosts(ctx context.Context, page, limit int, sortBy string) ([]*models.CommunityPost, int64, error) {
 	skip := (page - 1) * limit
 
@@ -77,7 +77,16 @@ func (r *communityRepository) GetAllPosts(ctx context.Context, page, limit int, 
 		SetLimit(int64(limit)).
 		SetSort(bson.D{{Key: sortField, Value: sortOrder}})
 
-	cursor, err := r.postsCollection.Find(ctx, bson.M{}, opts)
+	// Only show approved posts in public feed (or posts without moderation status for backwards compatibility)
+	filter := bson.M{
+		"$or": []bson.M{
+			{"moderationStatus": models.ModerationStatusApproved},
+			{"moderationStatus": bson.M{"$exists": false}}, // Backwards compatibility for old posts
+			{"moderationStatus": ""},                        // Empty string fallback
+		},
+	}
+
+	cursor, err := r.postsCollection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -88,7 +97,7 @@ func (r *communityRepository) GetAllPosts(ctx context.Context, page, limit int, 
 		return nil, 0, err
 	}
 
-	total, err := r.postsCollection.CountDocuments(ctx, bson.M{})
+	total, err := r.postsCollection.CountDocuments(ctx, filter)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -353,4 +362,40 @@ func (r *communityRepository) UnlinkInstagram(ctx context.Context, userID primit
 	update := bson.M{"$set": bson.M{"isActive": false, "updatedAt": time.Now()}}
 	_, err := r.instagramCollection.UpdateOne(ctx, filter, update)
 	return err
+}
+
+// GetPostsByModerationStatus retrieves posts by moderation status (for admin moderation queue)
+func (r *communityRepository) GetPostsByModerationStatus(ctx context.Context, status models.ModerationStatus, page, limit int) ([]*models.CommunityPost, int64, error) {
+	skip := (page - 1) * limit
+
+	opts := options.Find().
+		SetSkip(int64(skip)).
+		SetLimit(int64(limit)).
+		SetSort(bson.D{{Key: "createdAt", Value: -1}}) // Most recent first
+
+	filter := bson.M{"moderationStatus": status}
+
+	cursor, err := r.postsCollection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var posts []*models.CommunityPost
+	if err = cursor.All(ctx, &posts); err != nil {
+		return nil, 0, err
+	}
+
+	total, err := r.postsCollection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return posts, total, nil
+}
+
+// CountPostsByModerationStatus counts posts by moderation status
+func (r *communityRepository) CountPostsByModerationStatus(ctx context.Context, status models.ModerationStatus) (int64, error) {
+	filter := bson.M{"moderationStatus": status}
+	return r.postsCollection.CountDocuments(ctx, filter)
 }

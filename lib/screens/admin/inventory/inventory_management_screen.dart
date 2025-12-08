@@ -4,6 +4,7 @@ import '../../../utils/theme.dart';
 import '../../../providers/product_provider.dart';
 import '../../../models/product.dart';
 import '../../../services/api_service.dart';
+import '../products/add_edit_product_screen.dart';
 
 class InventoryManagementScreen extends StatefulWidget {
   const InventoryManagementScreen({super.key});
@@ -50,7 +51,23 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Add New Product',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddEditProductScreen(),
+                ),
+              ).then((_) {
+                // Refresh products after adding
+                Provider.of<ProductProvider>(context, listen: false).loadProducts();
+              });
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.download),
+            tooltip: 'Export Report',
             onPressed: _exportInventoryReport,
           ),
         ],
@@ -123,10 +140,24 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showBulkUpdateDialog,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddEditProductScreen(),
+            ),
+          ).then((_) {
+            // Refresh products after adding
+            Provider.of<ProductProvider>(context, listen: false).loadProducts();
+          });
+        },
         backgroundColor: AppTheme.primaryGold,
-        child: const Icon(Icons.edit, color: Colors.white),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Add Product',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }

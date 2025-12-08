@@ -13,11 +13,40 @@ class BrandsScreen extends StatefulWidget {
 class _BrandsScreenState extends State<BrandsScreen> {
   bool _loading = true;
   List<Brand> _brands = [];
+  List<Brand> _filteredBrands = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadBrands();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+      _filterBrands();
+    });
+  }
+
+  void _filterBrands() {
+    if (_searchQuery.isEmpty) {
+      _filteredBrands = List.from(_brands);
+    } else {
+      _filteredBrands = _brands.where((brand) {
+        return brand.name.toLowerCase().contains(_searchQuery) ||
+            brand.description.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
   }
 
   Future<void> _loadBrands() async {
@@ -31,6 +60,7 @@ class _BrandsScreenState extends State<BrandsScreen> {
           _brands = (homepage['brands'] as List)
               .map((b) => Brand.fromJson(b))
               .toList();
+          _filterBrands();
         }
       }
     } catch (e) {
@@ -55,18 +85,70 @@ class _BrandsScreenState extends State<BrandsScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _brands.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadBrands,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _brands.length,
-                    itemBuilder: (context, index) => _buildBrandCard(_brands[index]),
-                  ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search brands...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _brands.isEmpty
+                    ? _buildEmptyState()
+                    : _filteredBrands.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No results found',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                ),
+                                Text(
+                                  'Try a different search term',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.grey.shade500,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadBrands,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: _filteredBrands.length,
+                              itemBuilder: (context, index) => _buildBrandCard(_filteredBrands[index]),
+                            ),
+                          ),
+          ),
+        ],
+      ),
     );
   }
 

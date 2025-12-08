@@ -75,14 +75,16 @@ type Order struct {
 
 // OrderItem represents an item in an order
 type OrderItem struct {
-	ProductID       primitive.ObjectID `json:"productId" bson:"productId" validate:"required"`
-	Quantity        int                `json:"quantity" bson:"quantity" validate:"required,min=1"`
-	Price           float64            `json:"price" bson:"price" validate:"required,min=0"`
-	OriginalPrice   *float64           `json:"originalPrice,omitempty" bson:"originalPrice,omitempty"`
-	SalePrice       *float64           `json:"salePrice,omitempty" bson:"salePrice,omitempty"`
-	DiscountPercent *int               `json:"discountPercent,omitempty" bson:"discountPercent,omitempty"`
-	Name            string             `json:"name" bson:"name" validate:"required"`
-	Image           string             `json:"image" bson:"image"`
+	ProductID       primitive.ObjectID    `json:"productId" bson:"productId" validate:"required"`
+	Quantity        int                   `json:"quantity" bson:"quantity" validate:"required,min=1"`
+	Price           float64               `json:"price" bson:"price" validate:"required,min=0"`
+	OriginalPrice   *float64              `json:"originalPrice,omitempty" bson:"originalPrice,omitempty"`
+	SalePrice       *float64              `json:"salePrice,omitempty" bson:"salePrice,omitempty"`
+	DiscountPercent *int                  `json:"discountPercent,omitempty" bson:"discountPercent,omitempty"`
+	Name            string                `json:"name" bson:"name" validate:"required"`
+	Image           string                `json:"image" bson:"image"`
+	// Customization details (Diamondere style)
+	Customization   *ProductCustomization `json:"customization,omitempty" bson:"customization,omitempty"`
 }
 
 // CreateOrderRequest represents the request to create an order

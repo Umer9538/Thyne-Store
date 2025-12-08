@@ -116,16 +116,23 @@ class CommunityProvider with ChangeNotifier {
     List<String>? images,
     List<String>? videos,
     List<String>? tags,
+    List<ProductTag>? products,
+    OrderTag? order,
+    PostTagSource? tagSource,
   }) async {
     try {
       debugPrint('Creating post with content: ${content.substring(0, content.length > 50 ? 50 : content.length)}...');
       debugPrint('Images: ${images?.length ?? 0}, Videos: ${videos?.length ?? 0}, Tags: ${tags?.length ?? 0}');
+      debugPrint('Products: ${products?.length ?? 0}, Order: ${order != null ? 'Yes' : 'No'}');
 
       final response = await ApiService.createCommunityPost(
         content: content,
         images: images,
         videos: videos,
         tags: tags,
+        products: products?.map((p) => p.toJson()).toList(),
+        order: order?.toJson(),
+        tagSource: tagSource,
       );
 
       debugPrint('Create post response: $response');
@@ -416,5 +423,177 @@ class CommunityProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // ==================== Admin Moderation Methods ====================
+
+  List<CommunityPost> _pendingPosts = [];
+  List<CommunityPost> _rejectedPosts = [];
+  ModerationStats? _moderationStats;
+  bool _isModerationLoading = false;
+  int _pendingPage = 1;
+  int _pendingTotalPages = 1;
+  int _rejectedPage = 1;
+  int _rejectedTotalPages = 1;
+
+  List<CommunityPost> get pendingPosts => _pendingPosts;
+  List<CommunityPost> get rejectedPosts => _rejectedPosts;
+  ModerationStats? get moderationStats => _moderationStats;
+  bool get isModerationLoading => _isModerationLoading;
+  bool get hasMorePending => _pendingPage < _pendingTotalPages;
+  bool get hasMoreRejected => _rejectedPage < _rejectedTotalPages;
+
+  // Fetch pending posts for moderation
+  Future<void> fetchPendingPosts({bool refresh = false}) async {
+    if (refresh) {
+      _pendingPage = 1;
+      _pendingPosts = [];
+    }
+
+    if (_isModerationLoading) return;
+
+    _isModerationLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.getPendingPosts(
+        page: _pendingPage,
+        limit: 20,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final feedData = CommunityFeedResponse.fromJson(response['data']);
+
+        if (refresh) {
+          _pendingPosts = feedData.posts;
+        } else {
+          _pendingPosts.addAll(feedData.posts);
+        }
+
+        _pendingTotalPages = feedData.totalPages;
+        _pendingPage++;
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isModerationLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Fetch rejected posts
+  Future<void> fetchRejectedPosts({bool refresh = false}) async {
+    if (refresh) {
+      _rejectedPage = 1;
+      _rejectedPosts = [];
+    }
+
+    if (_isModerationLoading) return;
+
+    _isModerationLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.getRejectedPosts(
+        page: _rejectedPage,
+        limit: 20,
+      );
+
+      if (response['success'] == true && response['data'] != null) {
+        final feedData = CommunityFeedResponse.fromJson(response['data']);
+
+        if (refresh) {
+          _rejectedPosts = feedData.posts;
+        } else {
+          _rejectedPosts.addAll(feedData.posts);
+        }
+
+        _rejectedTotalPages = feedData.totalPages;
+        _rejectedPage++;
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isModerationLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Fetch moderation statistics
+  Future<void> fetchModerationStats() async {
+    try {
+      final response = await ApiService.getModerationStats();
+
+      if (response['success'] == true && response['data'] != null) {
+        _moderationStats = ModerationStats.fromJson(response['data']);
+        notifyListeners();
+      }
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  // Approve a post
+  Future<bool> approvePost(String postId) async {
+    try {
+      final response = await ApiService.moderatePost(
+        postId: postId,
+        action: 'approve',
+      );
+
+      if (response['success'] == true) {
+        // Remove from pending list
+        _pendingPosts.removeWhere((p) => p.id == postId);
+        // Refresh stats
+        await fetchModerationStats();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Reject a post
+  Future<bool> rejectPost(String postId, String reason) async {
+    try {
+      final response = await ApiService.moderatePost(
+        postId: postId,
+        action: 'reject',
+        reason: reason,
+      );
+
+      if (response['success'] == true) {
+        // Remove from pending list
+        _pendingPosts.removeWhere((p) => p.id == postId);
+        // Refresh stats
+        await fetchModerationStats();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Load more pending posts
+  Future<void> loadMorePending() async {
+    if (!hasMorePending || _isModerationLoading) return;
+    await fetchPendingPosts();
+  }
+
+  // Load more rejected posts
+  Future<void> loadMoreRejected() async {
+    if (!hasMoreRejected || _isModerationLoading) return;
+    await fetchRejectedPosts();
   }
 }

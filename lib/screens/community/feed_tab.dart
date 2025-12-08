@@ -5,6 +5,9 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../providers/community_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/community.dart';
+import '../../models/product.dart';
+import '../../services/api_service.dart';
+import '../product/product_detail_screen.dart';
 import 'create_post_screen.dart';
 
 class FeedTab extends StatefulWidget {
@@ -216,8 +219,8 @@ class _FeedTabState extends State<FeedTab> {
           // Caption with username
           if (post.content.isNotEmpty) _buildCaption(post),
 
-          // Tagged Products
-          if (post.products != null && post.products!.isNotEmpty)
+          // Tagged Products (from direct tagging or orders)
+          if (post.hasTaggedItem)
             _buildTaggedProducts(post),
 
           const SizedBox(height: 12),
@@ -476,65 +479,226 @@ class _FeedTabState extends State<FeedTab> {
   }
 
   Widget _buildTaggedProducts(CommunityPost post) {
-    return Container(
-      height: 80,
-      margin: const EdgeInsets.only(top: 12),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: post.products!.length,
-        itemBuilder: (context, index) {
-          final product = post.products![index];
-          return GestureDetector(
-            onTap: () {
-              // Navigate to product detail
-              Navigator.pushNamed(context, '/product/${product.id}');
-            },
-            child: Container(
-              width: 70,
-              margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                children: [
-                  // Product image
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: ClipOval(
-                      child: product.imageUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: product.imageUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  Container(color: Colors.grey[200]),
-                              errorWidget: (context, url, error) =>
-                                  const Icon(Icons.image, size: 24),
-                            )
-                          : Container(
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.shopping_bag, size: 24),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // Product name
-                  Text(
-                    product.name,
-                    style: const TextStyle(fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+    // Get all tagged products (from direct tagging or order)
+    final products = post.allTaggedProducts;
+    if (products.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 8),
+          child: Row(
+            children: [
+              Icon(Icons.shopping_bag_outlined, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                post.tagSource == PostTagSource.order
+                    ? 'Products from Order'
+                    : 'Tagged Products',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[700],
+                ),
               ),
-            ),
-          );
-        },
+              if (post.order != null) ...[
+                const Spacer(),
+                Text(
+                  '#${post.order!.orderNumber}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // Product list
+        SizedBox(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: products.length,
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return GestureDetector(
+                onTap: () => _navigateToProductWithCustomization(product),
+                child: Container(
+                  width: 80,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: Column(
+                    children: [
+                      // Product image with customization badge
+                      Stack(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: product.customization != null &&
+                                        product.customization!.hasCustomizations
+                                    ? const Color(0xFF3D1F1F)
+                                    : Colors.grey.shade300,
+                                width: product.customization != null &&
+                                        product.customization!.hasCustomizations
+                                    ? 2
+                                    : 1,
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: product.imageUrl.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: product.imageUrl,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          Container(color: Colors.grey[200]),
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(Icons.image, size: 24),
+                                    )
+                                  : Container(
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.shopping_bag, size: 24),
+                                    ),
+                            ),
+                          ),
+                          // Customization indicator
+                          if (product.customization != null &&
+                              product.customization!.hasCustomizations)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF3D1F1F),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.tune,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Product name
+                      Text(
+                        product.name,
+                        style: const TextStyle(fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                      // Show customization summary if available
+                      if (product.customization != null &&
+                          product.customization!.hasCustomizations)
+                        Text(
+                          product.customization!.summary,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey[500],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _navigateToProductWithCustomization(ProductTag productTag) async {
+    // Build customization arguments to pass to the product detail screen
+    final Map<String, dynamic> customizationArgs = {};
+
+    if (productTag.customization != null && productTag.customization!.hasCustomizations) {
+      final customization = productTag.customization!;
+      if (customization.selectedMetal != null) {
+        customizationArgs['selectedMetal'] = customization.selectedMetal;
+      }
+      if (customization.selectedPlating != null) {
+        customizationArgs['selectedPlating'] = customization.selectedPlating;
+      }
+      if (customization.stoneColors != null) {
+        customizationArgs['stoneColors'] = customization.stoneColors;
+      }
+      if (customization.selectedSize != null) {
+        customizationArgs['selectedSize'] = customization.selectedSize;
+      }
+      if (customization.engravingText != null) {
+        customizationArgs['engravingText'] = customization.engravingText;
+      }
+      if (customization.thickness != null) {
+        customizationArgs['thickness'] = customization.thickness;
+      }
+    }
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
+          ),
+        ),
       ),
     );
+
+    try {
+      // Fetch the full product details
+      final response = await ApiService.getProduct(productId: productTag.id);
+      if (mounted) Navigator.pop(context); // Close loading dialog
+
+      if (response['success'] == true && response['data'] != null) {
+        final product = Product.fromJson(response['data']);
+        if (!mounted) return;
+
+        // Navigate to product detail with customization intent
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailScreen(
+              product: product,
+              customizationIntent: customizationArgs.isNotEmpty ? customizationArgs : null,
+            ),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load product details'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading dialog
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _handleLike(String postId, CommunityProvider provider) async {

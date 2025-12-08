@@ -1,3 +1,11 @@
+import 'store_settings.dart';
+
+/// Stock type enum for product inventory management
+enum StockType {
+  stocked,      // Regular inventory with limited quantity
+  madeToOrder,  // Custom/on-demand, always available
+}
+
 class Product {
   final String id;
   final String name;
@@ -12,6 +20,7 @@ class Product {
   final String? stoneType;
   final double? weight;
   final String? size;
+  final StockType stockType;  // "stocked" or "made_to_order"
   final int stockQuantity;
   final int stock;
   final double rating;
@@ -22,11 +31,24 @@ class Product {
   final bool isAvailable;
   final bool isFeatured;
   final bool isNewArrival;
-  // Customization options
+  // Customization options (legacy - kept for compatibility)
   final List<String> availableColors;
   final List<String> availablePolishTypes;
   final List<String> availableStoneColors;
   final List<String> availableGemstones;
+  // Enhanced customization options (Diamondere style)
+  final List<String> availableMetals; // e.g., ["14K Gold", "18K Gold", "925 Silver"]
+  final List<String> availablePlatingColors; // e.g., ["White Gold", "Rose Gold"]
+  final List<StoneConfig> stones; // Multiple stones with shape + colors
+  final List<String> availableSizes; // Ring sizes
+  final bool engravingEnabled;
+  final int maxEngravingChars;
+  final double? minThickness;
+  final double? maxThickness;
+  // Price modifiers for customization options
+  final Map<String, double> metalPriceModifiers; // metal -> price modifier (e.g., "18K Gold" -> 5000)
+  final Map<String, double> platingPriceModifiers; // plating -> price modifier
+  final double engravingPrice; // Price for adding engraving
   final DateTime createdAt;
 
   Product({
@@ -43,6 +65,7 @@ class Product {
     this.stoneType,
     this.weight,
     this.size,
+    this.stockType = StockType.stocked,
     required this.stockQuantity,
     int? stock,
     this.rating = 0.0,
@@ -56,10 +79,23 @@ class Product {
     this.availablePolishTypes = const [],
     this.availableStoneColors = const [],
     this.availableGemstones = const [],
+    this.availableMetals = const [],
+    this.availablePlatingColors = const [],
+    this.stones = const [],
+    this.availableSizes = const [],
+    this.engravingEnabled = false,
+    this.maxEngravingChars = 15,
+    this.minThickness,
+    this.maxThickness,
+    Map<String, double>? metalPriceModifiers,
+    Map<String, double>? platingPriceModifiers,
+    this.engravingPrice = 500.0,
     DateTime? createdAt,
     bool? isNewArrival,
   }) : stock = stock ?? stockQuantity,
        ratingCount = ratingCount ?? reviewCount,
+       metalPriceModifiers = metalPriceModifiers ?? const {},
+       platingPriceModifiers = platingPriceModifiers ?? const {},
        createdAt = createdAt ?? DateTime.now(),
        isNewArrival = isNewArrival ?? false;
 
@@ -71,6 +107,13 @@ class Product {
   }
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    // Parse stock type from JSON
+    StockType stockType = StockType.stocked;
+    final stockTypeStr = json['stockType']?.toString();
+    if (stockTypeStr == 'made_to_order') {
+      stockType = StockType.madeToOrder;
+    }
+
     return Product(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -85,6 +128,7 @@ class Product {
       stoneType: json['stoneType']?.toString(),
       weight: json['weight']?.toDouble(),
       size: json['size']?.toString(),
+      stockType: stockType,
       stockQuantity: json['stockQuantity'] ?? 0,
       rating: json['rating']?.toDouble() ?? 0.0,
       reviewCount: json['reviewCount'] ?? 0,
@@ -96,6 +140,31 @@ class Product {
       availablePolishTypes: List<String>.from(json['availablePolishTypes'] ?? []),
       availableStoneColors: List<String>.from(json['availableStoneColors'] ?? []),
       availableGemstones: List<String>.from(json['availableGemstones'] ?? []),
+      availableMetals: List<String>.from(json['availableMetals'] ?? []),
+      availablePlatingColors: List<String>.from(json['availablePlatingColors'] ?? []),
+      stones: json['stones'] != null
+          ? (json['stones'] as List).map((s) => StoneConfig.fromJson(s)).toList()
+          : [],
+      availableSizes: List<String>.from(json['availableSizes'] ?? []),
+      engravingEnabled: json['engravingEnabled'] ?? false,
+      maxEngravingChars: json['maxEngravingChars'] ?? 15,
+      minThickness: json['minThickness']?.toDouble(),
+      maxThickness: json['maxThickness']?.toDouble(),
+      metalPriceModifiers: json['metalPriceModifiers'] != null
+          ? Map<String, double>.from(
+              (json['metalPriceModifiers'] as Map).map(
+                (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+              ),
+            )
+          : null,
+      platingPriceModifiers: json['platingPriceModifiers'] != null
+          ? Map<String, double>.from(
+              (json['platingPriceModifiers'] as Map).map(
+                (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+              ),
+            )
+          : null,
+      engravingPrice: (json['engravingPrice'] ?? 500.0).toDouble(),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
@@ -117,19 +186,77 @@ class Product {
       'stoneType': stoneType,
       'weight': weight,
       'size': size,
+      'stockType': stockType == StockType.madeToOrder ? 'made_to_order' : 'stocked',
       'stockQuantity': stockQuantity,
       'rating': rating,
       'reviewCount': reviewCount,
       'tags': tags,
+      'gender': gender,
       'isAvailable': isAvailable,
       'isFeatured': isFeatured,
       'availableColors': availableColors,
       'availablePolishTypes': availablePolishTypes,
       'availableStoneColors': availableStoneColors,
       'availableGemstones': availableGemstones,
+      'availableMetals': availableMetals,
+      'availablePlatingColors': availablePlatingColors,
+      'stones': stones.map((s) => s.toJson()).toList(),
+      'availableSizes': availableSizes,
+      'engravingEnabled': engravingEnabled,
+      'maxEngravingChars': maxEngravingChars,
+      'minThickness': minThickness,
+      'maxThickness': maxThickness,
+      'metalPriceModifiers': metalPriceModifiers,
+      'platingPriceModifiers': platingPriceModifiers,
+      'engravingPrice': engravingPrice,
       'createdAt': createdAt.toIso8601String(),
     };
   }
+
+  /// Calculate price with customizations
+  double calculateCustomizedPrice(ProductCustomization? customization) {
+    if (customization == null) return price;
+
+    double totalPrice = price;
+
+    // Add metal price modifier
+    if (customization.metalType != null && metalPriceModifiers.containsKey(customization.metalType)) {
+      totalPrice += metalPriceModifiers[customization.metalType]!;
+    }
+
+    // Add plating price modifier
+    if (customization.platingColor != null && platingPriceModifiers.containsKey(customization.platingColor)) {
+      totalPrice += platingPriceModifiers[customization.platingColor]!;
+    }
+
+    // Add stone color price modifiers
+    if (customization.stoneColorSelections != null) {
+      for (final entry in customization.stoneColorSelections!.entries) {
+        final stone = stones.firstWhere(
+          (s) => s.name == entry.key,
+          orElse: () => const StoneConfig(name: '', shape: '', availableColors: []),
+        );
+        if (stone.name.isNotEmpty) {
+          totalPrice += stone.getPriceModifier(entry.value);
+        }
+      }
+    }
+
+    // Add engraving price
+    if (customization.engraving != null && customization.engraving!.isNotEmpty && engravingEnabled) {
+      totalPrice += engravingPrice;
+    }
+
+    return totalPrice;
+  }
+
+  /// Check if product has any customization options
+  bool get hasCustomization =>
+      availableMetals.isNotEmpty ||
+      availablePlatingColors.isNotEmpty ||
+      stones.isNotEmpty ||
+      availableSizes.isNotEmpty ||
+      engravingEnabled;
 }
 
 class Review {

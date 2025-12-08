@@ -45,7 +45,8 @@ func (r *productRepository) GetAll(ctx context.Context, filter models.ProductFil
 	mongoFilter := bson.M{}
 
 	if filter.Category != "" && filter.Category != "All" {
-		mongoFilter["category"] = filter.Category
+		// Case-insensitive category matching using regex
+		mongoFilter["category"] = bson.M{"$regex": "^" + filter.Category + "$", "$options": "i"}
 	}
 	if filter.Subcategory != "" {
 		mongoFilter["subcategory"] = filter.Subcategory

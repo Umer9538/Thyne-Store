@@ -14,6 +14,8 @@ class AuthProvider extends ChangeNotifier {
   
   // Callback for triggering loyalty program loading after login
   void Function(String userId)? _onLoginSuccess;
+  // Callback for cleanup on logout
+  void Function()? _onLogout;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
@@ -23,6 +25,11 @@ class AuthProvider extends ChangeNotifier {
   // Set callback for loyalty program loading
   void setOnLoginSuccess(void Function(String userId) callback) {
     _onLoginSuccess = callback;
+  }
+
+  // Set callback for logout cleanup
+  void setOnLogout(void Function() callback) {
+    _onLogout = callback;
   }
 
   Future<void> login(String email, String password) async {
@@ -117,6 +124,8 @@ class AuthProvider extends ChangeNotifier {
     await _storage.delete(key: 'refresh_token');
     await _storage.delete(key: 'user_id');
     await StorageService.clearCurrentUser();
+    // Trigger logout cleanup callback
+    _onLogout?.call();
     notifyListeners();
   }
 
@@ -260,10 +269,8 @@ class AuthProvider extends ChangeNotifier {
       // Store phone number temporarily
       await _storage.write(key: 'temp_phone', value: phoneNumber);
 
-      // In development, we can use a fixed OTP for testing
-      if (kDebugMode) {
-        debugPrint('OTP sent to $phoneNumber: 123456');
-      }
+      // Hardcoded OTP for development/testing: 950138
+      debugPrint('OTP sent to $phoneNumber');
 
       return true;
     } catch (e) {
@@ -286,8 +293,8 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
 
     try {
-      // In development, accept '123456' as valid OTP
-      if (kDebugMode && otp == '123456') {
+      // Hardcoded OTP for development/testing: 950138
+      if (otp == '950138') {
         // Check if user exists with this phone number
         // If not, create new user
         final userData = {
@@ -352,16 +359,34 @@ class AuthProvider extends ChangeNotifier {
         final sessionUser = await StorageService.getCurrentUser();
         
         if (sessionUser != null) {
+          // Handle isAdmin which could be bool, int (1/0), or String
+          bool isAdmin = false;
+          final adminValue = sessionUser['isAdmin'];
+          if (adminValue is bool) {
+            isAdmin = adminValue;
+          } else if (adminValue is int) {
+            isAdmin = adminValue == 1;
+          } else if (adminValue is String) {
+            isAdmin = adminValue.toLowerCase() == 'true' || adminValue == '1';
+          }
+
           _user = User(
             id: sessionUser['id'].toString(),
-            name: sessionUser['name'] as String,
-            email: sessionUser['email'] as String,
-            phone: sessionUser['phone'] as String,
-            profileImage: sessionUser['profileImage'] as String?,
-            createdAt: DateTime.parse(sessionUser['createdAt'] as String),
-            isAdmin: sessionUser['isAdmin'] == 1,
+            name: sessionUser['name']?.toString() ?? '',
+            email: sessionUser['email']?.toString() ?? '',
+            phone: sessionUser['phone']?.toString() ?? '',
+            profileImage: sessionUser['profileImage']?.toString(),
+            createdAt: sessionUser['createdAt'] != null
+                ? DateTime.parse(sessionUser['createdAt'].toString())
+                : DateTime.now(),
+            isAdmin: isAdmin,
+            role: sessionUser['role']?.toString(),
           );
           notifyListeners();
+
+          // Trigger loyalty program loading for returning user
+          _onLoginSuccess?.call(_user!.id);
+
           return;
         }
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -698,10 +699,12 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 
 	users, total, err := h.userService.GetAllUsers(page, limit)
 	if err != nil {
+		log.Printf("GetAllUsers error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"error":   "Failed to fetch users",
 			"code":    "FETCH_FAILED",
+			"details": err.Error(),
 		})
 		return
 	}
