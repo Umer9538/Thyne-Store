@@ -2410,6 +2410,61 @@ class ApiService {
     }
   }
 
+  // Upload AI-generated image (stored in S3 under ai-generated folder)
+  static Future<Map<String, dynamic>> uploadAIImage(String base64Image, {String? prompt}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/upload/ai-image'),
+        headers: await _getHeaders(requireAuth: true),
+        body: jsonEncode({
+          'image': base64Image,
+          'prompt': prompt,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Upload image with folder specification (for products, categories, banners, etc.)
+  static Future<Map<String, dynamic>> uploadImageBase64({
+    required String base64Image,
+    String? fileName,
+    String folder = 'products',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/upload/image-base64'),
+        headers: await _getHeaders(requireAuth: true),
+        body: jsonEncode({
+          'image': base64Image,
+          'filename': fileName,
+          'folder': folder,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Delete an image (works for both S3 and local storage)
+  static Future<Map<String, dynamic>> deleteImage(String imageUrl) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/upload/image'),
+        headers: await _getHeaders(requireAuth: true),
+        body: jsonEncode({
+          'url': imageUrl,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // Create community post
   static Future<Map<String, dynamic>> createCommunityPost({
     required String content,
