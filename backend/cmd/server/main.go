@@ -100,6 +100,12 @@ func main() {
 	aiService := services.NewAIService(aiRepo)
 	customOrderService := services.NewCustomOrderService(customOrderRepo)
 
+	// Initialize S3 service for image storage
+	s3Service, err := services.NewS3Service()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize S3 service: %v (falling back to local storage)", err)
+	}
+
 	// Initialize notification service (without Firebase credentials for now)
     // notifications disabled for build-only profile
 
@@ -141,8 +147,8 @@ func main() {
 	// Initialize storefront handler (repo already initialized earlier for order ID generation)
 	storefrontDataHandler := handlers.NewStorefrontDataHandler(storefrontDataRepo)
 
-	// Initialize upload handler
-	uploadHandler := handlers.NewUploadHandler()
+	// Initialize upload handler with S3 service
+	uploadHandler := handlers.NewUploadHandler(s3Service)
 
     // Initialize notification handler if service is available
     // var notificationHandler *handlers.NotificationHandler
@@ -349,6 +355,8 @@ func main() {
 		{
 			upload.POST("/image", uploadHandler.UploadImage)
 			upload.POST("/image-base64", uploadHandler.UploadImageBase64)
+			upload.POST("/ai-image", uploadHandler.UploadAIImage)
+			upload.DELETE("/image", uploadHandler.DeleteImage)
 		}
 
 		// Community routes
