@@ -9,11 +9,13 @@ import '../../widgets/product_card.dart';
 import '../../constants/sort_options.dart';
 import '../../constants/filter_options.dart';
 import '../../constants/app_spacing.dart';
+import '../../constants/style_options.dart';
 import 'product_detail_screen.dart';
 import 'filter_bottom_sheet.dart';
 
 class ProductListScreen extends StatefulWidget {
   final String? category;
+  final String? styleTag;  // Style tag for filtering (e.g., 'traditional', 'contemporary')
   final bool isEmbedded;
   final int? minPrice;
   final int? maxPrice;
@@ -23,6 +25,7 @@ class ProductListScreen extends StatefulWidget {
   const ProductListScreen({
     super.key,
     this.category,
+    this.styleTag,
     this.isEmbedded = false,
     this.minPrice,
     this.maxPrice,
@@ -45,10 +48,25 @@ class _ProductListScreenState extends State<ProductListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
 
+      // IMPORTANT: Clear all previous filters before applying new ones
+      // This prevents stale filter state from previous navigations
+      productProvider.clearFilters();
+
       // Apply search query filter (takes priority)
       if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
         productProvider.searchProducts(widget.searchQuery!);
         return; // Don't apply other filters when searching
+      }
+
+      // Apply style tag filter (e.g., 'traditional', 'contemporary')
+      if (widget.styleTag != null) {
+        productProvider.filterByTag(widget.styleTag!);
+        // Also apply gender filter if provided with style
+        if (widget.gender != null) {
+          productProvider.filterByGender(widget.gender!);
+          setState(() => _selectedGender = GenderFilter.fromValue(widget.gender));
+        }
+        return; // Style tag filter is standalone
       }
 
       // Apply category filter
@@ -291,6 +309,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
     String appBarTitle;
     if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
       appBarTitle = 'Results for "${widget.searchQuery}"';
+    } else if (widget.styleTag != null) {
+      // Get display name for style tag
+      final style = ProductStyles.getBySlug(widget.styleTag!);
+      appBarTitle = style?.name ?? widget.styleTag!;
     } else if (widget.category != null) {
       appBarTitle = widget.category!;
     } else {

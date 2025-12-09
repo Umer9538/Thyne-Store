@@ -27,13 +27,15 @@ func (r *categoryRepository) Create(ctx context.Context, category *models.Catego
 func (r *categoryRepository) Update(ctx context.Context, category *models.Category) error {
 	filter := bson.M{"_id": category.ID}
 	update := bson.M{"$set": bson.M{
-		"name":        category.Name,
-		"slug":        category.Slug,
-		"description": category.Description,
-		"image":       category.Image,
-		"isActive":    category.IsActive,
-		"sortOrder":   category.SortOrder,
-		"updatedAt":   category.UpdatedAt,
+		"name":          category.Name,
+		"slug":          category.Slug,
+		"description":   category.Description,
+		"subcategories": category.Subcategories,  // Fixed: was missing!
+		"image":         category.Image,
+		"gender":        category.Gender,         // Fixed: was missing!
+		"isActive":      category.IsActive,
+		"sortOrder":     category.SortOrder,
+		"updatedAt":     category.UpdatedAt,
 	}}
 	_, err := r.collection.UpdateOne(ctx, filter, update)
 	return err

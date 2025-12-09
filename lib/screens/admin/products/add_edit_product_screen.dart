@@ -5,6 +5,7 @@ import '../../../utils/theme.dart';
 import '../../../models/product.dart';
 import '../../../models/store_settings.dart';
 import '../../../services/api_service.dart';
+import '../../../constants/style_options.dart';
 
 // Import StockType from product model
 
@@ -33,6 +34,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   String _selectedMetalType = 'Gold';
   String _selectedStoneType = 'Diamond';
   List<String> _selectedGenders = [];
+  List<String> _selectedStyles = [];  // Selected style tags
+  List<String> _customTags = [];       // Non-style tags entered by user
   bool _isAvailable = true;
   bool _isFeatured = false;
   StockType _selectedStockType = StockType.stocked;  // Stock type selector
@@ -324,6 +327,14 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       _stockController.text = '∞';
     }
 
+    // Extract styles and custom tags from product tags
+    if (product.tags.isNotEmpty) {
+      _selectedStyles = ProductStyles.extractStyleTags(product.tags);
+      _customTags = ProductStyles.extractNonStyleTags(product.tags);
+      print('📝 Extracted styles: $_selectedStyles');
+      print('📝 Extracted custom tags: $_customTags');
+    }
+
     // Video URL
     if (product.videos.isNotEmpty) {
       _videoUrl = product.videos.first;
@@ -492,6 +503,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               _buildSectionHeader('Target Audience'),
               const SizedBox(height: 12),
               _buildGenderSelection(),
+              const SizedBox(height: 24),
+
+              // Style Section
+              _buildSectionHeader('Product Styles'),
+              const SizedBox(height: 12),
+              _buildStyleSelection(),
               const SizedBox(height: 24),
 
               // Pricing Section
@@ -1482,6 +1499,181 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     );
   }
 
+  Widget _buildStyleSelection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select styles that describe this product (helps with filtering)',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: ProductStyles.all.map((style) {
+              final isSelected = _selectedStyles.contains(style.slug);
+              return FilterChip(
+                label: Text(style.name),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedStyles.add(style.slug);
+                    } else {
+                      _selectedStyles.remove(style.slug);
+                    }
+                  });
+                },
+                selectedColor: AppTheme.primaryGold.withValues(alpha: 0.3),
+                checkmarkColor: AppTheme.primaryGold,
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: isSelected ? AppTheme.primaryGold : Colors.grey.shade300,
+                ),
+                labelStyle: TextStyle(
+                  color: isSelected ? AppTheme.primaryGold : Colors.black87,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                tooltip: style.description,
+              );
+            }).toList(),
+          ),
+          if (_selectedStyles.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGold.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, size: 16, color: AppTheme.primaryGold),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Selected: ${_selectedStyles.map((s) => ProductStyles.getBySlug(s)?.name ?? s).join(", ")}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primaryGold,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          // Custom tags input
+          Row(
+            children: [
+              const Text(
+                'Custom Tags',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '(for search & SEO)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold),
+                onPressed: _showAddTagDialog,
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_customTags.isEmpty)
+            Text(
+              'No custom tags added',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _customTags.map((tag) {
+                return InputChip(
+                  label: Text(tag),
+                  onDeleted: () {
+                    setState(() {
+                      _customTags.remove(tag);
+                    });
+                  },
+                  backgroundColor: Colors.blue.shade50,
+                  deleteIconColor: Colors.blue.shade700,
+                  labelStyle: TextStyle(color: Colors.blue.shade700),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddTagDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add Custom Tag'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Tag',
+            hintText: 'e.g., wedding, gift, anniversary',
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final tag = controller.text.trim().toLowerCase();
+              if (tag.isNotEmpty && !_customTags.contains(tag)) {
+                setState(() {
+                  _customTags.add(tag);
+                });
+              }
+              Navigator.pop(dialogContext);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGold,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCustomizationSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2104,7 +2296,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           'videoUrl': _videoUrl,
           'isAvailable': _isAvailable,
           'isFeatured': _isFeatured,
-          'tags': [], // Add tags if needed
+          'tags': [..._selectedStyles, ..._customTags], // Combine styles and custom tags
           'gender': _selectedGenders,
           // Customization options
           'availableMetals': _availableMetals,
