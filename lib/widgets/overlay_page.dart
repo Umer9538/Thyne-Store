@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import '../utils/theme.dart';
 import 'package:provider/provider.dart';
+import '../utils/theme.dart';
 import '../providers/product_provider.dart';
 import '../providers/wishlist_provider.dart';
 import '../widgets/product_card.dart';
 import '../screens/product/product_detail_screen.dart';
+import '../constants/sort_options.dart';
+import '../constants/filter_options.dart';
+import '../constants/app_spacing.dart';
 
 /// A widget that displays content as an overlay on top of the current screen
 /// instead of navigating to a new route. This creates a "page upon page" effect.
@@ -156,8 +159,8 @@ class OverlayProductList extends StatefulWidget {
 
 class _OverlayProductListState extends State<OverlayProductList> {
   bool _isGridView = true;
-  String _sortBy = 'popularity';
-  String? _selectedGender;
+  SortOption _sortBy = SortOption.popularity;
+  GenderFilter _selectedGender = GenderFilter.all;
 
   @override
   void initState() {
@@ -176,7 +179,7 @@ class _OverlayProductListState extends State<OverlayProductList> {
       builder: (context) => SafeArea(
         child: SingleChildScrollView(
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: AppSpacing.paddingAllLg,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,16 +188,9 @@ class _OverlayProductListState extends State<OverlayProductList> {
                   'Sort By',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 16),
-                _buildSortOption('Popularity', 'popularity'),
-                _buildSortOption('Price: Low to High', 'price_low'),
-                _buildSortOption('Price: High to Low', 'price_high'),
-                _buildSortOption('Customer Rating', 'rating'),
-                _buildSortOption('Newest First', 'newest'),
-                _buildSortOption('Name: A to Z', 'name_asc'),
-                _buildSortOption('Name: Z to A', 'name_desc'),
-                _buildSortOption('Discount: High to Low', 'discount'),
-                const SizedBox(height: 16),
+                AppSpacing.verticalLg,
+                ...SortOption.values.map((option) => _buildSortOption(option)),
+                AppSpacing.verticalLg,
               ],
             ),
           ),
@@ -203,17 +199,18 @@ class _OverlayProductListState extends State<OverlayProductList> {
     );
   }
 
-  Widget _buildSortOption(String title, String value) {
+  Widget _buildSortOption(SortOption option) {
+    final isSelected = _sortBy == option;
     return ListTile(
-      title: Text(title),
-      trailing: _sortBy == value
+      title: Text(option.displayName),
+      trailing: isSelected
           ? const Icon(Icons.check, color: AppTheme.primaryGold)
           : null,
       onTap: () {
         setState(() {
-          _sortBy = value;
+          _sortBy = option;
         });
-        Provider.of<ProductProvider>(context, listen: false).sortProducts(value);
+        Provider.of<ProductProvider>(context, listen: false).sortProducts(option.value);
         Navigator.pop(context);
       },
     );
@@ -227,20 +224,17 @@ class _OverlayProductListState extends State<OverlayProductList> {
       children: [
         // Gender Filter Chips
         Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: ListView(
+          height: AppSpacing.filterBarHeight,
+          padding: AppSpacing.paddingVerticalSm,
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              _buildQuickFilterChip('All', null, true),
-              const SizedBox(width: 8),
-              _buildQuickFilterChip('Men', 'Male', false, Icons.man),
-              const SizedBox(width: 8),
-              _buildQuickFilterChip('Women', 'Female', false, Icons.woman),
-              const SizedBox(width: 8),
-              _buildQuickFilterChip('Child', 'Child', false, Icons.child_care),
-            ],
+            padding: AppSpacing.paddingHorizontalLg,
+            itemCount: GenderFilter.values.length - 1, // Exclude unisex
+            separatorBuilder: (_, __) => AppSpacing.horizontalSm,
+            itemBuilder: (context, index) {
+              final filter = GenderFilter.values[index];
+              return _buildGenderFilterChip(filter);
+            },
           ),
         ),
 
@@ -438,36 +432,36 @@ class _OverlayProductListState extends State<OverlayProductList> {
     );
   }
 
-  Widget _buildQuickFilterChip(String title, String? gender, bool isAll, [IconData? icon]) {
-    final isSelected = _selectedGender == gender || (isAll && _selectedGender == null);
+  Widget _buildGenderFilterChip(GenderFilter filter) {
+    final isSelected = _selectedGender == filter;
 
     return ChoiceChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
+          if (filter.icon != null) ...[
             Icon(
-              icon,
-              size: 16,
+              filter.icon,
+              size: AppSpacing.iconSm,
               color: isSelected ? Colors.white : AppTheme.primaryGold,
             ),
-            const SizedBox(width: 4),
+            AppSpacing.horizontalXs,
           ],
-          Text(title),
+          Text(filter.displayName),
         ],
       ),
       selected: isSelected,
       onSelected: (selected) {
         setState(() {
-          _selectedGender = isAll ? null : gender;
+          _selectedGender = filter;
         });
 
         // Apply gender filter
         final productProvider = Provider.of<ProductProvider>(context, listen: false);
-        if (isAll) {
+        if (filter.isAll) {
           productProvider.clearGenderFilter();
         } else {
-          productProvider.filterByGender(gender!);
+          productProvider.filterByGender(filter.value!);
         }
       },
       selectedColor: AppTheme.primaryGold,
@@ -479,5 +473,3 @@ class _OverlayProductListState extends State<OverlayProductList> {
     );
   }
 }
-
-// Add required imports

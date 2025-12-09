@@ -4,6 +4,9 @@ import '../../providers/order_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/order.dart';
 import '../../utils/theme.dart';
+import '../../constants/order_constants.dart';
+import '../../constants/app_spacing.dart';
+import '../../constants/routes.dart';
 import 'order_tracking_screen.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
@@ -14,16 +17,7 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  String _selectedFilter = 'all';
-  final List<String> _filters = [
-    'all',
-    'placed',
-    'confirmed',
-    'processing',
-    'shipped',
-    'delivered',
-    'cancelled',
-  ];
+  String _selectedFilter = OrderFilters.all;
 
   @override
   void initState() {
@@ -57,29 +51,27 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         children: [
           // Filter chips
           Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
+            height: AppSpacing.filterBarHeight,
+            padding: AppSpacing.paddingVerticalSm,
+            child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filters.length,
+              padding: AppSpacing.paddingHorizontalLg,
+              itemCount: OrderFilters.historyFilters.length,
+              separatorBuilder: (_, __) => AppSpacing.horizontalSm,
               itemBuilder: (context, index) {
-                final filter = _filters[index];
+                final filter = OrderFilters.historyFilters[index];
                 final isSelected = _selectedFilter == filter;
-                
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(_getFilterDisplayName(filter)),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedFilter = filter;
-                      });
-                    },
-                    selectedColor: AppTheme.primaryGold.withOpacity(0.2),
-                    checkmarkColor: AppTheme.primaryGold,
-                  ),
+
+                return FilterChip(
+                  label: Text(OrderFilters.getDisplayName(filter)),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilter = filter;
+                    });
+                  },
+                  selectedColor: AppTheme.primaryGold.withOpacity(0.2),
+                  checkmarkColor: AppTheme.primaryGold,
                 );
               },
             ),
@@ -106,25 +98,25 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                           size: 100,
                           color: Colors.grey.shade300,
                         ),
-                        const SizedBox(height: 24),
+                        AppSpacing.verticalXxl,
                         Text(
-                          _selectedFilter == 'all' 
+                          _selectedFilter == OrderFilters.all
                               ? 'No orders found'
-                              : 'No ${_getFilterDisplayName(_selectedFilter).toLowerCase()} orders',
+                              : 'No ${OrderFilters.getDisplayName(_selectedFilter).toLowerCase()} orders',
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                        const SizedBox(height: 8),
+                        AppSpacing.verticalSm,
                         Text(
-                          _selectedFilter == 'all'
+                          _selectedFilter == OrderFilters.all
                               ? 'Your order history will appear here'
                               : 'Try selecting a different filter',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: AppTheme.textSecondary,
                               ),
                         ),
-                        const SizedBox(height: 24),
+                        AppSpacing.verticalXxl,
                         ElevatedButton(
-                          onPressed: () => Navigator.pushNamed(context, '/home'),
+                          onPressed: () => Navigator.pushNamed(context, Routes.home),
                           child: const Text('Start Shopping'),
                         ),
                       ],
@@ -316,23 +308,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   }
 
   List<Order> _filterOrders(List<Order> orders) {
-    if (_selectedFilter == 'all') {
+    if (_selectedFilter == OrderFilters.all) {
       return orders;
     }
-    
+
     return orders.where((order) {
       switch (_selectedFilter) {
-        case 'placed':
+        case OrderFilters.placed:
           return order.status == OrderStatus.placed;
-        case 'confirmed':
+        case OrderFilters.confirmed:
           return order.status == OrderStatus.confirmed;
-        case 'processing':
+        case OrderFilters.processing:
           return order.status == OrderStatus.processing;
-        case 'shipped':
+        case OrderFilters.shipped:
           return order.status == OrderStatus.shipped;
-        case 'delivered':
+        case OrderFilters.delivered:
           return order.status == OrderStatus.delivered;
-        case 'cancelled':
+        case OrderFilters.cancelled:
           return order.status == OrderStatus.cancelled;
         default:
           return true;
@@ -340,48 +332,28 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     }).toList();
   }
 
-  String _getFilterDisplayName(String filter) {
-    switch (filter) {
-      case 'all':
-        return 'All';
-      case 'placed':
-        return 'Placed';
-      case 'confirmed':
-        return 'Confirmed';
-      case 'processing':
-        return 'Processing';
-      case 'shipped':
-        return 'Shipped';
-      case 'delivered':
-        return 'Delivered';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return filter;
-    }
-  }
-
   Color _getStatusColor(OrderStatus status) {
     switch (status) {
       case OrderStatus.placed:
-        return Colors.blue;
+        return OrderStatusColors.placed;
       case OrderStatus.confirmed:
-        return Colors.indigo;
+        return OrderStatusColors.confirmed;
       case OrderStatus.processing:
-        return Colors.orange;
+        return OrderStatusColors.processing;
       case OrderStatus.shipped:
-        return Colors.purple;
+        return OrderStatusColors.shipped;
       case OrderStatus.outForDelivery:
-        return Colors.deepPurple;
+        return OrderStatusColors.outForDelivery;
       case OrderStatus.delivered:
-        return Colors.green;
+        return OrderStatusColors.delivered;
       case OrderStatus.cancelled:
-        return Colors.red;
+        return OrderStatusColors.cancelled;
       case OrderStatus.returnRequested:
+        return OrderStatusColors.returnRequested;
       case OrderStatus.returned:
-        return Colors.orange;
+        return OrderStatusColors.returned;
       case OrderStatus.refunded:
-        return Colors.grey;
+        return OrderStatusColors.refunded;
     }
   }
 

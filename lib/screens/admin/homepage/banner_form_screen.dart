@@ -17,6 +17,8 @@ class BannerFormScreen extends StatefulWidget {
 class _BannerFormScreenState extends State<BannerFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
+  final _subtitleController = TextEditingController();
+  final _ctaTextController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _imageUrlController = TextEditingController();
   final _targetUrlController = TextEditingController();
@@ -60,6 +62,8 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
   void _loadBannerData() {
     final banner = widget.banner!;
     _titleController.text = banner.title;
+    _subtitleController.text = banner.subtitle ?? banner.description ?? '';
+    _ctaTextController.text = banner.ctaText ?? 'SHOP NOW';
     _descriptionController.text = banner.description ?? '';
     _imageUrlController.text = banner.imageUrl;
     _targetUrlController.text = banner.targetUrl ?? '';
@@ -74,6 +78,8 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _subtitleController.dispose();
+    _ctaTextController.dispose();
     _descriptionController.dispose();
     _imageUrlController.dispose();
     _targetUrlController.dispose();
@@ -138,6 +144,12 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
 
       final bannerData = {
         'title': _titleController.text,
+        'subtitle': _subtitleController.text.isEmpty
+            ? null
+            : _subtitleController.text,
+        'ctaText': _ctaTextController.text.isEmpty
+            ? 'SHOP NOW'
+            : _ctaTextController.text,
         'description': _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
@@ -295,6 +307,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Banner Title',
                 prefixIcon: Icon(Icons.title),
+                hintText: 'e.g., Begin Your Bridal Journey',
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -305,14 +318,38 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Description
+            // Subtitle (shown on banner)
+            TextFormField(
+              controller: _subtitleController,
+              decoration: const InputDecoration(
+                labelText: 'Subtitle',
+                prefixIcon: Icon(Icons.subtitles),
+                hintText: 'Short description shown on the banner',
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+
+            // CTA Button Text
+            TextFormField(
+              controller: _ctaTextController,
+              decoration: const InputDecoration(
+                labelText: 'Button Text',
+                prefixIcon: Icon(Icons.smart_button),
+                hintText: 'e.g., SHOP NOW, EXPLORE',
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Description (internal)
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'Description (Optional)',
+                labelText: 'Internal Description (Optional)',
                 prefixIcon: Icon(Icons.description),
+                hintText: 'For admin reference only',
               ),
-              maxLines: 3,
+              maxLines: 2,
             ),
             const SizedBox(height: 16),
 

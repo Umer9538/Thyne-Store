@@ -244,12 +244,142 @@ func (r *userRepository) GetAll(ctx context.Context, page, limit int) ([]models.
 	}
 	defer cursor.Close(ctx)
 
+	// Decode documents manually to handle malformed addresses
 	var users []models.User
-	if err = cursor.All(ctx, &users); err != nil {
+	for cursor.Next(ctx) {
+		var rawDoc bson.M
+		if err := cursor.Decode(&rawDoc); err != nil {
+			continue // Skip malformed documents
+		}
+
+		user := r.parseUserFromRawDoc(rawDoc)
+		users = append(users, user)
+	}
+
+	if err := cursor.Err(); err != nil {
 		return nil, 0, err
 	}
 
 	return users, total, nil
+}
+
+// parseUserFromRawDoc safely parses a raw BSON document into a User struct
+// This handles cases where addresses might be stored as strings instead of objects
+func (r *userRepository) parseUserFromRawDoc(doc bson.M) models.User {
+	user := models.User{}
+
+	// Parse ID
+	if id, ok := doc["_id"].(primitive.ObjectID); ok {
+		user.ID = id
+	}
+
+	// Parse basic fields
+	if name, ok := doc["name"].(string); ok {
+		user.Name = name
+	}
+	if email, ok := doc["email"].(string); ok {
+		user.Email = email
+	}
+	if phone, ok := doc["phone"].(string); ok {
+		user.Phone = phone
+	}
+	if password, ok := doc["password"].(string); ok {
+		user.Password = password
+	}
+	if profileImage, ok := doc["profileImage"].(string); ok {
+		user.ProfileImage = profileImage
+	}
+	if isActive, ok := doc["isActive"].(bool); ok {
+		user.IsActive = isActive
+	}
+	if isVerified, ok := doc["isVerified"].(bool); ok {
+		user.IsVerified = isVerified
+	}
+	if isAdmin, ok := doc["isAdmin"].(bool); ok {
+		user.IsAdmin = isAdmin
+	}
+
+	// Parse dates
+	if createdAt, ok := doc["createdAt"].(primitive.DateTime); ok {
+		user.CreatedAt = createdAt.Time()
+	}
+	if updatedAt, ok := doc["updatedAt"].(primitive.DateTime); ok {
+		user.UpdatedAt = updatedAt.Time()
+	}
+
+	// Safely parse addresses - handle both proper objects and strings
+	user.Addresses = []models.Address{} // Default to empty array
+	if addresses, ok := doc["addresses"].(primitive.A); ok {
+		for _, addrItem := range addresses {
+			// Try to parse as proper Address object
+			if addrDoc, ok := addrItem.(bson.M); ok {
+				addr := r.parseAddressFromRawDoc(addrDoc)
+				user.Addresses = append(user.Addresses, addr)
+			}
+			// If it's a string or other type, skip it (malformed data)
+		}
+	}
+
+	return user
+}
+
+// parseAddressFromRawDoc safely parses a raw BSON document into an Address struct
+func (r *userRepository) parseAddressFromRawDoc(doc bson.M) models.Address {
+	addr := models.Address{}
+
+	if id, ok := doc["_id"].(primitive.ObjectID); ok {
+		addr.ID = id
+	}
+	if userID, ok := doc["userId"].(primitive.ObjectID); ok {
+		addr.UserID = userID
+	}
+	if houseNoFloor, ok := doc["houseNoFloor"].(string); ok {
+		addr.HouseNoFloor = houseNoFloor
+	}
+	if buildingBlock, ok := doc["buildingBlock"].(string); ok {
+		addr.BuildingBlock = buildingBlock
+	}
+	if landmarkArea, ok := doc["landmarkArea"].(string); ok {
+		addr.LandmarkArea = landmarkArea
+	}
+	if city, ok := doc["city"].(string); ok {
+		addr.City = city
+	}
+	if state, ok := doc["state"].(string); ok {
+		addr.State = state
+	}
+	if pincode, ok := doc["pincode"].(string); ok {
+		addr.Pincode = pincode
+	}
+	if country, ok := doc["country"].(string); ok {
+		addr.Country = country
+	}
+	if label, ok := doc["label"].(string); ok {
+		addr.Label = label
+	}
+	if recipientName, ok := doc["recipientName"].(string); ok {
+		addr.RecipientName = recipientName
+	}
+	if recipientPhone, ok := doc["recipientPhone"].(string); ok {
+		addr.RecipientPhone = recipientPhone
+	}
+	if isDefault, ok := doc["isDefault"].(bool); ok {
+		addr.IsDefault = isDefault
+	}
+	if street, ok := doc["street"].(string); ok {
+		addr.Street = street
+	}
+	if zipCode, ok := doc["zipCode"].(string); ok {
+		addr.ZipCode = zipCode
+	}
+	if createdAt, ok := doc["createdAt"].(primitive.DateTime); ok {
+		addr.CreatedAt = createdAt.Time()
+	}
+	if updatedAt, ok := doc["updatedAt"].(primitive.DateTime); ok {
+		addr.UpdatedAt = updatedAt.Time()
+	}
+
+	return addr
 }
 
 func (r *userRepository) Search(ctx context.Context, query string, page, limit int) ([]models.User, int64, error) {
@@ -283,8 +413,19 @@ func (r *userRepository) Search(ctx context.Context, query string, page, limit i
 	}
 	defer cursor.Close(ctx)
 
+	// Decode documents manually to handle malformed addresses
 	var users []models.User
-	if err = cursor.All(ctx, &users); err != nil {
+	for cursor.Next(ctx) {
+		var rawDoc bson.M
+		if err := cursor.Decode(&rawDoc); err != nil {
+			continue // Skip malformed documents
+		}
+
+		user := r.parseUserFromRawDoc(rawDoc)
+		users = append(users, user)
+	}
+
+	if err := cursor.Err(); err != nil {
 		return nil, 0, err
 	}
 

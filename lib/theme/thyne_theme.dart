@@ -23,6 +23,32 @@ class ThyneTheme {
   static const Color primaryRed = Color(0xFFdc2626); // Red for errors/warnings
   static const Color primaryGold = Color(0xFFd4af37); // Gold accent color
 
+  // Secondary/Accent Colors
+  static const Color darkMaroon = Color(0xFF3D1F1F); // Dark maroon for branding
+  static const Color darkGreen = Color(0xFF2D5016); // Variant green
+  static const Color saddleBrown = Color(0xFF8B4513); // Brown accent
+  static const Color slateGray = Color(0xFF708090); // Slate gray
+
+  // Social Media Colors
+  static const Color instagramPink = Color(0xFFE1306C);
+  static const Color facebookBlue = Color(0xFF3897F0);
+  static const Color twitterBlue = Color(0xFF1DA1F2);
+  static const Color whatsappGreen = Color(0xFF25D366);
+
+  // Status Colors
+  static const Color success = Color(0xFF22c55e);
+  static const Color warning = Color(0xFFf59e0b);
+  static const Color info = Color(0xFF3b82f6);
+  static const Color error = Color(0xFFef4444);
+
+  // Order Status Colors
+  static const Color orderPlaced = Color(0xFF3b82f6); // Blue
+  static const Color orderConfirmed = Color(0xFF6366f1); // Indigo
+  static const Color orderProcessing = Color(0xFFf97316); // Orange
+  static const Color orderShipped = Color(0xFF8b5cf6); // Purple
+  static const Color orderDelivered = Color(0xFF22c55e); // Green
+  static const Color orderCancelled = Color(0xFFef4444); // Red
+
   // Typography Scale (matching Figma)
   static const double textDisplay = 40.0; // 2.5rem
   static const double textHeadingLg = 28.0; // 1.75rem
