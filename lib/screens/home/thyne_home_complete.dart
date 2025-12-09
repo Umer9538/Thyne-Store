@@ -19,6 +19,7 @@ import '../../services/api_service.dart';
 import '../../utils/currency_formatter.dart';
 import '../../constants/navigation_tabs.dart';
 import '../../constants/app_spacing.dart';
+import '../../constants/style_options.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_list_screen.dart';
 import '../cart/cart_screen.dart';
@@ -3603,15 +3604,8 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
   }
 
   Widget _buildShopByPrice() {
-    // Style options for Shop By Style
-    final List<Map<String, String>> styleOptions = [
-      {'name': 'Traditional', 'slug': 'traditional'},
-      {'name': 'Contemporary', 'slug': 'contemporary'},
-      {'name': 'Minimalist', 'slug': 'minimalist'},
-      {'name': 'Statement', 'slug': 'statement'},
-      {'name': 'Vintage', 'slug': 'vintage'},
-      {'name': 'Everyday', 'slug': 'everyday'},
-    ];
+    // Use style options from constants (first 6 for compact display)
+    final displayStyles = ProductStyles.all.take(6).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -3702,7 +3696,7 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
               childAspectRatio: 2.5,
-              children: styleOptions.map((style) => _buildStyleChip(style['name']!, style['slug']!)).toList(),
+              children: displayStyles.map((style) => _buildStyleChip(style.name, style.slug)).toList(),
             ),
         ],
       ),
@@ -3712,12 +3706,12 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
   Widget _buildStyleChip(String label, String slug) {
     return GestureDetector(
       onTap: () {
-        // Navigate to product list with style filter
+        // Navigate to product list with style tag filter
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ProductListScreen(
-              category: slug,
+              styleTag: slug,  // Use styleTag for filtering by product tags
               gender: selectedFilter == 'all' ? null : selectedFilter,
             ),
           ),

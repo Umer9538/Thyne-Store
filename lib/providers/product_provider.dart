@@ -14,8 +14,10 @@ class ProductProvider extends ChangeNotifier {
   Map<String, dynamic> _filters = {};
   double? _minPrice;
   double? _maxPrice;
+  bool _isFilterActive = false;  // Track if any filter is applied
 
-  List<Product> get products => _filteredProducts.isEmpty ? _products : _filteredProducts;
+  // Return filtered products when filter is active, even if empty (shows "no results")
+  List<Product> get products => _isFilterActive ? _filteredProducts : _products;
   List<Product> get featuredProducts => _products.where((p) => p.isFeatured).toList();
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
@@ -60,6 +62,8 @@ class ProductProvider extends ChangeNotifier {
 
   void filterByCategory(String category) {
     _selectedCategory = category;
+    _selectedTag = null;  // Clear tag filter when switching categories
+    _isFilterActive = category != 'All';
     _applyFiltersAndSort();
   }
 
@@ -76,7 +80,14 @@ class ProductProvider extends ChangeNotifier {
   void filterByPriceRange({double? minPrice, double? maxPrice}) {
     _minPrice = minPrice;
     _maxPrice = maxPrice;
+    _isFilterActive = minPrice != null || maxPrice != null;
+
+    debugPrint('💰 filterByPriceRange: min=$minPrice, max=$maxPrice');
+    debugPrint('💰 Total products before filter: ${_products.length}');
+
     _applyFiltersAndSort();
+
+    debugPrint('💰 Filtered products count: ${_filteredProducts.length}');
   }
 
   void clearPriceFilter() {
@@ -85,7 +96,76 @@ class ProductProvider extends ChangeNotifier {
     _applyFiltersAndSort();
   }
 
+  String? _selectedTag;
+  String? get selectedTag => _selectedTag;
+
+  /// Filter products by a tag (e.g., style tags like 'traditional', 'contemporary')
+  void filterByTag(String tag) {
+    _selectedTag = tag.toLowerCase();
+    _selectedCategory = 'All';  // Clear category filter when filtering by tag
+    _isFilterActive = true;  // Mark filter as active
+
+    debugPrint('🏷️ filterByTag called with: $tag');
+    debugPrint('🏷️ Total products: ${_products.length}');
+
+    // Debug: Print all product tags to see what's available
+    for (var product in _products.take(5)) {
+      debugPrint('🏷️ Product "${product.name}" tags: ${product.tags}');
+    }
+
+    _filteredProducts = _products.where((product) {
+      // Check if product has the tag
+      final hasTag = product.tags.any((t) => t.toLowerCase() == _selectedTag);
+      return hasTag;
+    }).toList();
+
+    debugPrint('🏷️ Filtered products count: ${_filteredProducts.length}');
+
+    // Apply other active filters
+    if (_selectedGender != null) {
+      _filteredProducts = _filteredProducts.where((product) {
+        final productGenders = product.gender.map((g) => g.toLowerCase()).toList();
+        final genderFilter = _selectedGender!.toLowerCase();
+
+        // Check product's gender field
+        if (productGenders.isNotEmpty) {
+          return productGenders.contains(genderFilter) ||
+                 productGenders.contains('unisex');
+        }
+        return true; // If no gender specified, include product
+      }).toList();
+    }
+
+    if (_minPrice != null || _maxPrice != null) {
+      _filteredProducts = _filteredProducts.where((product) {
+        if (_minPrice != null && product.price < _minPrice!) return false;
+        if (_maxPrice != null && product.price > _maxPrice!) return false;
+        return true;
+      }).toList();
+    }
+
+    _applySorting();
+    notifyListeners();
+  }
+
+  void clearTagFilter() {
+    _selectedTag = null;
+    // Check if any other filters are still active
+    _isFilterActive = _selectedCategory != 'All' ||
+                      _selectedGender != null ||
+                      _minPrice != null ||
+                      _maxPrice != null;
+    _applyFiltersAndSort();
+  }
+
   void _applyFiltersAndSort() {
+    // Update _isFilterActive based on current filter state
+    _isFilterActive = _selectedCategory != 'All' ||
+                      _selectedGender != null ||
+                      _selectedTag != null ||
+                      _minPrice != null ||
+                      _maxPrice != null;
+
     _filteredProducts = _products.where((product) {
       // Category filter
       if (_selectedCategory != 'All' && product.category != _selectedCategory) {
@@ -132,12 +212,14 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> searchProducts(String query) async {
     if (query.isEmpty) {
+      _isFilterActive = false;
       _filteredProducts = _products;
       notifyListeners();
       return;
     }
 
     _setLoading(true);
+    _isFilterActive = true;  // Mark filter active for search
 
     try {
       // Try backend search first
@@ -169,6 +251,7 @@ class ProductProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Search error: $e');
       // On error, show all products
+      _isFilterActive = false;
       _filteredProducts = _products;
       notifyListeners();
     } finally {
@@ -178,12 +261,14 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> enhancedSearch(String query) async {
     if (query.isEmpty) {
+      _isFilterActive = false;
       _filteredProducts = _products;
       notifyListeners();
       return;
     }
 
     _setLoading(true);
+    _isFilterActive = true;  // Mark filter active for search
 
     try {
       // Try backend search first
@@ -287,12 +372,14 @@ class ProductProvider extends ChangeNotifier {
   }
 
   void clearSearch() {
+    _isFilterActive = false;
     _filteredProducts = _products;
     notifyListeners();
   }
 
   void applyFilters(Map<String, dynamic> filters) {
     _filters = filters;
+    _isFilterActive = filters.isNotEmpty;  // Mark filter active when filters are applied
     _filteredProducts = _products.where((product) {
       // Category filter (from quick filters or advanced filters)
       if (_selectedCategory != 'All' && product.category != _selectedCategory) {
@@ -449,6 +536,10 @@ class ProductProvider extends ChangeNotifier {
     _filters = {};
     _selectedCategory = 'All';
     _selectedGender = null;
+    _selectedTag = null;
+    _minPrice = null;
+    _maxPrice = null;
+    _isFilterActive = false;  // Reset filter active flag
     _filteredProducts = _products;
     _applySorting();
     notifyListeners();
