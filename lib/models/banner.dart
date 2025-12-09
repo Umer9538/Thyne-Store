@@ -1,6 +1,8 @@
 class Banner {
   final String id;
   final String title;
+  final String? subtitle;  // Text shown below title on the banner
+  final String? ctaText;   // Call-to-action button text (e.g., "SHOP NOW")
   final String imageUrl;
   final String? description;
   final String type; // 'main', 'promotional', 'festival', 'flash_sale'
@@ -18,6 +20,8 @@ class Banner {
   Banner({
     required this.id,
     required this.title,
+    this.subtitle,
+    this.ctaText,
     required this.imageUrl,
     this.description,
     required this.type,
@@ -37,6 +41,8 @@ class Banner {
     return Banner(
       id: json['id'] ?? json['_id'] ?? '',
       title: json['title'] ?? '',
+      subtitle: json['subtitle'] ?? json['description'],  // Fallback to description
+      ctaText: json['ctaText'] ?? json['buttonText'] ?? 'SHOP NOW',
       imageUrl: json['imageUrl'] ?? '',
       description: json['description'],
       type: json['type'] ?? 'main',
@@ -65,6 +71,8 @@ class Banner {
     return {
       'id': id,
       'title': title,
+      'subtitle': subtitle,
+      'ctaText': ctaText,
       'imageUrl': imageUrl,
       'description': description,
       'type': type,

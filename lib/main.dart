@@ -4,6 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Constants
+import 'constants/routes.dart';
+
+// Providers
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/cart_provider.dart';
@@ -13,17 +19,52 @@ import 'providers/wishlist_provider.dart';
 import 'providers/address_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/recently_viewed_provider.dart';
+import 'providers/loyalty_provider.dart';
+import 'providers/community_provider.dart';
+import 'providers/ai_provider.dart';
+import 'providers/store_settings_provider.dart';
+
+// Theme
+import 'theme/thyne_theme.dart';
 import 'utils/theme.dart';
+
+// Services
+import 'services/notification_service.dart';
+import 'services/storage_service.dart';
+
+// Screens - Auth
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/admin_login_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
+
+// Screens - Home & Navigation
 import 'widgets/main_navigation.dart';
 import 'widgets/three_section_navigation.dart';
 import 'screens/home/thyne_home_figma.dart';
 import 'screens/home/thyne_home_complete.dart';
-import 'theme/thyne_theme.dart';
+
+// Screens - Shopping
 import 'screens/cart/cart_screen.dart';
 import 'screens/checkout/checkout_screen.dart';
 import 'screens/checkout/guest_checkout_screen.dart';
+import 'screens/search/enhanced_search_screen.dart';
+import 'screens/wishlist/wishlist_screen.dart';
+import 'screens/loyalty/loyalty_screen.dart';
+
+// Screens - Orders
+import 'screens/orders/order_history_screen.dart';
+import 'screens/orders/track_order_screen.dart';
+import 'screens/orders/my_orders_screen.dart';
+
+// Screens - Profile
+import 'screens/profile/addresses_screen.dart';
+import 'screens/profile/profile_screen.dart';
+
+// Screens - Community
+import 'screens/community/community_feed_screen.dart';
+import 'screens/community/create_post_screen.dart';
+
+// Screens - Admin
 import 'screens/admin/admin_dashboard.dart';
 import 'screens/admin/users/user_management_screen.dart';
 import 'screens/admin/products/product_management_screen.dart';
@@ -32,15 +73,16 @@ import 'screens/admin/inventory/inventory_management_screen.dart';
 import 'screens/admin/orders/order_management_screen.dart';
 import 'screens/admin/orders/custom_orders_screen.dart';
 import 'screens/admin/analytics/analytics_dashboard.dart';
-import 'screens/search/enhanced_search_screen.dart';
-import 'screens/loyalty/loyalty_screen.dart';
 import 'screens/admin/storefront/storefront_management_screen.dart';
 import 'screens/admin/storefront/storefront_data_management_screen.dart';
 import 'screens/admin/events/event_calendar_screen.dart';
 import 'screens/admin/homepage/homepage_manager_screen.dart';
 import 'screens/admin/homepage/layout_manager_screen.dart';
 import 'screens/admin/theme/theme_switcher_screen.dart';
-import 'screens/wishlist/wishlist_screen.dart';
+import 'screens/admin/community/admin_community_dashboard.dart';
+import 'screens/admin/settings/store_settings_screen.dart';
+
+// Screens - Admin Dynamic Content
 import 'screens/admin/dynamic_content/dynamic_content_dashboard.dart';
 import 'screens/admin/dynamic_content/deals_of_day_screen.dart';
 import 'screens/admin/dynamic_content/bundle_deals_screen.dart';
@@ -51,23 +93,6 @@ import 'screens/admin/dynamic_content/create_deal_form.dart';
 import 'screens/admin/dynamic_content/create_flash_sale_form.dart';
 import 'screens/admin/dynamic_content/create_showcase_form.dart';
 import 'screens/admin/dynamic_content/create_bundle_form.dart';
-import 'screens/orders/order_history_screen.dart';
-import 'screens/orders/track_order_screen.dart';
-import 'screens/orders/my_orders_screen.dart';
-import 'screens/profile/addresses_screen.dart';
-import 'screens/profile/profile_screen.dart';
-import 'screens/community/community_feed_screen.dart';
-import 'screens/community/create_post_screen.dart';
-import 'screens/admin/community/admin_community_dashboard.dart';
-import 'screens/onboarding/onboarding_screen.dart';
-import 'providers/loyalty_provider.dart';
-import 'providers/community_provider.dart';
-import 'providers/ai_provider.dart';
-import 'providers/store_settings_provider.dart';
-import 'services/notification_service.dart';
-import 'services/storage_service.dart';
-import 'screens/admin/settings/store_settings_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -187,54 +212,60 @@ class MyApp extends StatelessWidget {
                 home: const AppWrapper(),
                 routes: {
               // Auth routes
-              '/onboarding': (context) => const OnboardingScreen(),
-              '/login': (context) => const LoginScreen(),
-              '/admin-login': (context) => const AdminLoginScreen(),
+              Routes.onboarding: (context) => const OnboardingScreen(),
+              Routes.login: (context) => const LoginScreen(),
+              Routes.adminLogin: (context) => const AdminLoginScreen(),
               // Main home - production screen
-              '/home': (context) => const ThyneHomeComplete(),
-              // Legacy routes - kept for testing/comparison only (can be removed in production)
-              '/home-figma': (context) => const ThyneHomeFigma(),
-              '/home-old': (context) => const ThreeSectionNavigation(),
-              '/home-legacy': (context) => const MainNavigation(),
-              '/cart': (context) => const CartScreen(),
-              '/checkout': (context) => const CheckoutScreen(),
-              '/guest-checkout': (context) => const GuestCheckoutScreen(),
-              '/admin': (context) => const AdminDashboard(),
-              '/admin/products': (context) => const ProductManagementScreen(),
-              '/admin/categories': (context) => const CategoryManagementScreen(),
-              '/admin/inventory': (context) => const InventoryManagementScreen(),
-              '/admin/orders': (context) => const OrderManagementScreen(),
-              '/admin/custom-orders': (context) => const CustomOrdersScreen(),
-              '/admin/analytics': (context) => const AnalyticsDashboard(),
-              '/admin/customers': (context) => const UserManagementScreen(),
-              '/search': (context) => const EnhancedSearchScreen(),
-              '/loyalty': (context) => const LoyaltyScreen(),
-              '/admin/storefront': (context) => const StorefrontManagementScreen(),
-              '/admin/storefront-data': (context) => const StorefrontDataManagementScreen(),
-              '/admin/events': (context) => const EventCalendarScreen(),
-              '/admin/banners': (context) => const HomepageManagerScreen(),
-              '/admin/homepage-layout': (context) => const LayoutManagerScreen(),
-              '/admin/themes': (context) => const ThemeSwitcherScreen(),
-              '/admin/dynamic-content': (context) => const DynamicContentDashboard(),
-              '/admin/deals-of-day': (context) => const DealsOfDayScreen(),
-              '/admin/deals-of-day/create': (context) => const CreateDealForm(),
-              '/admin/bundle-deals': (context) => const BundleDealsScreen(),
-              '/admin/bundle-deals/create': (context) => const CreateBundleForm(),
-              '/admin/flash-sales': (context) => const FlashSalesScreen(),
-              '/admin/flash-sales/create': (context) => const CreateFlashSaleForm(),
-              '/admin/showcases-360': (context) => const Showcases360Screen(),
-              '/admin/showcases-360/create': (context) => const CreateShowcaseForm(),
-              '/admin/brands': (context) => const BrandsScreen(),
-              '/wishlist': (context) => const WishlistScreen(),
-              '/orders': (context) => const MyOrdersScreen(),
-              '/order-history': (context) => const OrderHistoryScreen(),
-              '/track-order': (context) => const TrackOrderScreen(),
-              '/profile': (context) => const ProfileScreen(),
-              '/addresses': (context) => const AddressesScreen(),
-              '/community': (context) => const CommunityFeedScreen(),
-              '/community/create': (context) => const CreatePostScreen(),
-              '/admin/community': (context) => const AdminCommunityDashboard(),
-              '/admin/store-settings': (context) => const StoreSettingsScreen(),
+              Routes.home: (context) => const ThyneHomeComplete(),
+              // Legacy routes - kept for testing/comparison only
+              Routes.homeFigma: (context) => const ThyneHomeFigma(),
+              Routes.homeOld: (context) => const ThreeSectionNavigation(),
+              Routes.homeLegacy: (context) => const MainNavigation(),
+              // Shopping routes
+              Routes.cart: (context) => const CartScreen(),
+              Routes.checkout: (context) => const CheckoutScreen(),
+              Routes.guestCheckout: (context) => const GuestCheckoutScreen(),
+              Routes.search: (context) => const EnhancedSearchScreen(),
+              Routes.wishlist: (context) => const WishlistScreen(),
+              Routes.loyalty: (context) => const LoyaltyScreen(),
+              // Order routes
+              Routes.orders: (context) => const MyOrdersScreen(),
+              Routes.orderHistory: (context) => const OrderHistoryScreen(),
+              Routes.trackOrder: (context) => const TrackOrderScreen(),
+              // Profile routes
+              Routes.profile: (context) => const ProfileScreen(),
+              Routes.addresses: (context) => const AddressesScreen(),
+              // Community routes
+              Routes.community: (context) => const CommunityFeedScreen(),
+              Routes.communityCreate: (context) => const CreatePostScreen(),
+              // Admin routes
+              Routes.admin: (context) => const AdminDashboard(),
+              Routes.adminProducts: (context) => const ProductManagementScreen(),
+              Routes.adminCategories: (context) => const CategoryManagementScreen(),
+              Routes.adminInventory: (context) => const InventoryManagementScreen(),
+              Routes.adminOrders: (context) => const OrderManagementScreen(),
+              Routes.adminCustomOrders: (context) => const CustomOrdersScreen(),
+              Routes.adminAnalytics: (context) => const AnalyticsDashboard(),
+              Routes.adminCustomers: (context) => const UserManagementScreen(),
+              Routes.adminStorefront: (context) => const StorefrontManagementScreen(),
+              Routes.adminStorefrontData: (context) => const StorefrontDataManagementScreen(),
+              Routes.adminEvents: (context) => const EventCalendarScreen(),
+              Routes.adminBanners: (context) => const HomepageManagerScreen(),
+              Routes.adminHomepageLayout: (context) => const LayoutManagerScreen(),
+              Routes.adminThemes: (context) => const ThemeSwitcherScreen(),
+              Routes.adminCommunity: (context) => const AdminCommunityDashboard(),
+              Routes.adminStoreSettings: (context) => const StoreSettingsScreen(),
+              // Admin Dynamic Content routes
+              Routes.adminDynamicContent: (context) => const DynamicContentDashboard(),
+              Routes.adminDealsOfDay: (context) => const DealsOfDayScreen(),
+              Routes.adminDealsOfDayCreate: (context) => const CreateDealForm(),
+              Routes.adminBundleDeals: (context) => const BundleDealsScreen(),
+              Routes.adminBundleDealsCreate: (context) => const CreateBundleForm(),
+              Routes.adminFlashSales: (context) => const FlashSalesScreen(),
+              Routes.adminFlashSalesCreate: (context) => const CreateFlashSaleForm(),
+              Routes.adminShowcases360: (context) => const Showcases360Screen(),
+              Routes.adminShowcases360Create: (context) => const CreateShowcaseForm(),
+              Routes.adminBrands: (context) => const BrandsScreen(),
             },
               );
             },

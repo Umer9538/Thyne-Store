@@ -17,6 +17,8 @@ import '../../models/category.dart';
 import '../../models/collection.dart';
 import '../../services/api_service.dart';
 import '../../utils/currency_formatter.dart';
+import '../../constants/navigation_tabs.dart';
+import '../../constants/app_spacing.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_list_screen.dart';
 import '../cart/cart_screen.dart';
@@ -36,9 +38,9 @@ class ThyneHomeComplete extends StatefulWidget {
 }
 
 class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProviderStateMixin {
-  // Navigation State
-  String selectedTab = 'shop';
-  String selectedFilter = 'all';
+  // Navigation State - using string values from NavigationTab enum
+  String selectedTab = NavigationTab.shop.value;
+  String selectedFilter = ShopFilter.all.value;
   int currentCarouselIndex = 0;
   final ScrollController _scrollController = ScrollController();
 
@@ -104,7 +106,16 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
       ]);
 
       setState(() {
-        _banners = results[0]['data'] ?? _getDefaultBanners();
+        // Transform API banners to match expected format and filter only live ones
+        final apiBanners = results[0]['data'] as List<dynamic>? ?? [];
+        final transformedBanners = apiBanners
+            .map((banner) => _transformBanner(banner))
+            .where((banner) => banner['isLive'] == true)
+            .toList();
+        _banners = transformedBanners.isNotEmpty
+            ? transformedBanners
+            : _getDefaultBanners();
+        debugPrint('🎯 Banners loaded: ${apiBanners.length} from API, ${transformedBanners.length} live, displaying ${_banners.length}');
         _flashSales = results[1]['data'] ?? [];
         // Deal of day is a single object, not a list
         _dealOfDay = results[2]['data'] as Map<String, dynamic>?;
@@ -182,6 +193,44 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
         'ctaText': 'VIEW COLLECTION',
       },
     ];
+  }
+
+  /// Transform API banner data to match expected format for display
+  Map<String, dynamic> _transformBanner(dynamic banner) {
+    if (banner is! Map) return {};
+
+    // Check if banner is active and within date range
+    final now = DateTime.now();
+    final startDate = banner['startDate'] != null
+        ? DateTime.tryParse(banner['startDate'].toString())
+        : null;
+    final endDate = banner['endDate'] != null
+        ? DateTime.tryParse(banner['endDate'].toString())
+        : null;
+
+    final isActive = banner['isActive'] == true;
+    final isLive = isActive &&
+        (startDate == null || now.isAfter(startDate)) &&
+        (endDate == null || now.isBefore(endDate));
+
+    if (!isLive) {
+      debugPrint('⚠️ Banner "${banner['title']}" is not live (isActive: $isActive, startDate: $startDate, endDate: $endDate)');
+    }
+
+    return {
+      'id': banner['id']?.toString() ?? banner['_id']?.toString() ?? '',
+      'imageUrl': banner['imageUrl']?.toString() ?? '',
+      'title': banner['title']?.toString() ?? '',
+      'subtitle': banner['subtitle']?.toString() ??
+                  banner['description']?.toString() ?? '',  // Fallback to description
+      'ctaText': banner['ctaText']?.toString() ??
+                 banner['buttonText']?.toString() ?? 'SHOP NOW',  // Default CTA
+      'targetUrl': banner['targetUrl']?.toString() ?? '',
+      'targetCategory': banner['targetCategory']?.toString() ?? '',
+      'targetProductId': banner['targetProductId']?.toString() ?? '',
+      'type': banner['type']?.toString() ?? 'main',
+      'isLive': isLive,
+    };
   }
 
   List<Category> _getDefaultCategories() {
@@ -727,103 +776,160 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
               },
             ),
             items: banners.map((banner) {
-              return Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  image: DecorationImage(
-                    image: NetworkImage(banner['imageUrl'] ?? ''),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.75),
-                      ],
-                      stops: const [0.4, 1.0],
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          banner['title'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            height: 1.2,
-                            letterSpacing: 0.5,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Flexible(
-                        child: Text(
-                          banner['subtitle'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            color: Colors.white.withOpacity(0.95),
-                            height: 1.4,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1A1A1A),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 28,
-                            vertical: 14,
-                          ),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+              final imageUrl = banner['imageUrl']?.toString() ?? '';
+              final isValidImageUrl = imageUrl.isNotEmpty &&
+                  (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) &&
+                  !imageUrl.contains('unsplash.com/photos/'); // Block page URLs
+
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Background image with error handling
+                    if (isValidImageUrl)
+                      CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: const Color(0xFF2A2A2A),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white54,
+                              strokeWidth: 2,
+                            ),
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                banner['ctaText'] ?? 'SHOP NOW',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1A1A1A),
-                                  letterSpacing: 1.0,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                        errorWidget: (context, url, error) {
+                          debugPrint('❌ Banner image error: $error for URL: $url');
+                          return Container(
+                            color: const Color(0xFF2A2A2A),
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.white38,
+                                size: 48,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              CupertinoIcons.arrow_right,
-                              size: 16,
-                              color: Color(0xFF1A1A1A),
-                            ),
-                          ],
+                          );
+                        },
+                      )
+                    else
+                      Container(
+                        color: const Color(0xFF2A2A2A),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white38,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Invalid image URL',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+                    // Gradient overlay
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.75),
+                          ],
+                          stops: const [0.4, 1.0],
+                        ),
+                      ),
+                    ),
+                    // Text content overlay
+                    Positioned(
+                      left: 32,
+                      right: 32,
+                      bottom: 32,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            banner['title']?.toString() ?? '',
+                            style: GoogleFonts.inter(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              height: 1.2,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            banner['subtitle']?.toString() ?? '',
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: Colors.white.withOpacity(0.95),
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: () {
+                              // Navigate based on targetUrl or targetCategory
+                              final targetUrl = banner['targetUrl']?.toString();
+                              if (targetUrl != null && targetUrl.isNotEmpty) {
+                                // Handle navigation
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF1A1A1A),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 14,
+                              ),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  banner['ctaText']?.toString() ?? 'SHOP NOW',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF1A1A1A),
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  CupertinoIcons.arrow_right,
+                                  size: 16,
+                                  color: Color(0xFF1A1A1A),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             }).toList(),
