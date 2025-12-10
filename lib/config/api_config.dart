@@ -2,13 +2,23 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiConfig {
+  // Production Server URL
+  static const String productionUrl = 'http://13.203.247.178:8080/api/v1';
+
+  // Set to true to use production server, false for local development
+  static const bool useProductionServer = true;
+
   // Backend API Configuration
-  // Use environment variable for production, default to localhost:8080 for development
   static String get baseUrl {
     // Check for environment override first
     const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (envUrl.isNotEmpty) {
       return envUrl;
+    }
+
+    // Use production server if enabled
+    if (useProductionServer) {
+      return productionUrl;
     }
 
     // Auto-detect platform for development

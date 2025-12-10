@@ -25,6 +25,7 @@ type OrderService interface {
 	RefundOrder(orderID string, reason string) error
 	UpdateOrderStatus(orderID string, status models.OrderStatus, trackingNumber *string) error
 	CompleteOrder(orderID string) error
+	UpdatePaymentDetails(orderID string, paymentProviderOrderID string, paymentSessionID string) error
 }
 
 type orderService struct {
@@ -332,6 +333,26 @@ func (s *orderService) CompleteOrder(orderID string) error {
 	}
 
 	return nil
+}
+
+func (s *orderService) UpdatePaymentDetails(orderID string, paymentProviderOrderID string, paymentSessionID string) error {
+	ctx := context.Background()
+
+	objID, err := primitive.ObjectIDFromHex(orderID)
+	if err != nil {
+		return errors.New("invalid order ID")
+	}
+
+	order, err := s.orderRepo.GetByID(ctx, objID)
+	if err != nil {
+		return err
+	}
+
+	order.PaymentProviderOrderID = &paymentProviderOrderID
+	order.PaymentSessionID = &paymentSessionID
+	order.UpdatedAt = time.Now()
+
+	return s.orderRepo.Update(ctx, order)
 }
 
 func generateOrderNumber() string {

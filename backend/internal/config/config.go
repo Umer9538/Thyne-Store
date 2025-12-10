@@ -15,6 +15,7 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	Razorpay RazorpayConfig
+	Cashfree CashfreeConfig
 	AWS      AWSConfig
 	Email    EmailConfig
 	App      AppConfig
@@ -45,6 +46,13 @@ type RazorpayConfig struct {
 	KeyID     string
 	KeySecret string
 	WebhookSecret string
+}
+
+type CashfreeConfig struct {
+	AppID         string
+	SecretKey     string
+	WebhookSecret string
+	Environment   string // SANDBOX or PRODUCTION
 }
 
 type AWSConfig struct {
@@ -135,6 +143,12 @@ func Load() *Config {
 			KeyID:        getEnv("RAZORPAY_KEY_ID", ""),
 			KeySecret:    getEnv("RAZORPAY_KEY_SECRET", ""),
 			WebhookSecret: getEnv("RAZORPAY_WEBHOOK_SECRET", ""),
+		},
+		Cashfree: CashfreeConfig{
+			AppID:         getEnv("CASHFREE_APP_ID", ""),
+			SecretKey:     getEnv("CASHFREE_SECRET_KEY", ""),
+			WebhookSecret: getEnv("CASHFREE_WEBHOOK_SECRET", ""),
+			Environment:   getEnv("CASHFREE_ENVIRONMENT", "SANDBOX"),
 		},
 		AWS: AWSConfig{
 			AccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),

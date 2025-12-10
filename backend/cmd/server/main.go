@@ -106,6 +106,18 @@ func main() {
 		log.Printf("Warning: Failed to initialize S3 service: %v (falling back to local storage)", err)
 	}
 
+	// Initialize SMS service for OTP
+	smsService, err := services.NewSMSService()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize SMS service: %v (OTP features disabled)", err)
+	}
+
+	// Initialize Cashfree payment service
+	cashfreeService := services.NewCashfreeService(cfg.Cashfree)
+	if !cashfreeService.IsEnabled() {
+		log.Printf("Warning: Cashfree service not configured (payment features limited)")
+	}
+
 	// Initialize notification service (without Firebase credentials for now)
     // notifications disabled for build-only profile
 
@@ -149,6 +161,12 @@ func main() {
 
 	// Initialize upload handler with S3 service
 	uploadHandler := handlers.NewUploadHandler(s3Service)
+
+	// Initialize OTP handler with SMS service
+	otpHandler := handlers.NewOTPHandler(smsService)
+
+	// Initialize Cashfree handler
+	cashfreeHandler := handlers.NewCashfreeHandler(cashfreeService, orderService, authService)
 
     // Initialize notification handler if service is available
     // var notificationHandler *handlers.NotificationHandler
@@ -288,13 +306,25 @@ func main() {
 			guest.DELETE("/session/:id", guestHandler.DeleteSession)
 		}
 
-		// Payment routes
+		// Payment routes (Razorpay)
 		payment := api.Group("/payment")
 		payment.Use(middleware.OptionalAuth(authService))
 		{
 			payment.POST("/create-order", orderHandler.CreatePaymentOrder)
 			payment.POST("/verify", orderHandler.VerifyPayment)
 			payment.POST("/webhook", orderHandler.HandleWebhook)
+		}
+
+		// Cashfree Payment routes
+		cashfree := api.Group("/payment/cashfree")
+		cashfree.Use(middleware.OptionalAuth(authService))
+		{
+			cashfree.POST("/create-order", cashfreeHandler.CreatePaymentOrder)
+			cashfree.POST("/verify", cashfreeHandler.VerifyPayment)
+			cashfree.GET("/status/:orderId", cashfreeHandler.GetOrderStatus)
+			cashfree.POST("/webhook", cashfreeHandler.HandleWebhook)
+			cashfree.GET("/status", cashfreeHandler.GetPaymentServiceStatus)
+			cashfree.POST("/create-link", cashfreeHandler.CreatePaymentLink)
 		}
 
         // Loyalty routes
@@ -357,6 +387,15 @@ func main() {
 			upload.POST("/image-base64", uploadHandler.UploadImageBase64)
 			upload.POST("/ai-image", uploadHandler.UploadAIImage)
 			upload.DELETE("/image", uploadHandler.DeleteImage)
+		}
+
+		// OTP routes (public - for authentication)
+		otp := api.Group("/otp")
+		{
+			otp.POST("/send", otpHandler.SendOTP)
+			otp.POST("/verify", otpHandler.VerifyOTP)
+			otp.POST("/resend", otpHandler.ResendOTP)
+			otp.GET("/status", otpHandler.GetSMSStatus)
 		}
 
 		// Community routes
@@ -538,6 +577,9 @@ func main() {
 			// Store Settings (GST, Shipping, etc.)
 			admin.GET("/store-settings", storefrontDataHandler.GetStoreSettings)
 			admin.PUT("/store-settings", storefrontDataHandler.UpdateStoreSettings)
+
+			// SMS Management (Admin only)
+			admin.POST("/sms/send", otpHandler.SendSMS)
 
             // Admin notification endpoints disabled in build-only profile
 
