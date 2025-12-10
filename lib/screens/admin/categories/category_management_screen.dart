@@ -54,17 +54,23 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       setState(() => _isLoading = true);
       final response = await ApiService.getAllCategories();
       final categoriesData = response['data'] as List;
+      print('📂 Loaded ${categoriesData.length} categories from API');
       setState(() {
-        _categories = categoriesData.map((data) => Category(
-          id: data['id'],
-          name: data['name'],
-          description: data['description'],
-          subcategories: List<String>.from(data['subcategories'] ?? []),
-        )).toList();
+        _categories = categoriesData.map((data) {
+          final subcats = List<String>.from(data['subcategories'] ?? []);
+          print('📂 Category: ${data['name']}, Subcategories: $subcats');
+          return Category(
+            id: data['id'],
+            name: data['name'],
+            description: data['description'] ?? '',
+            subcategories: subcats,
+          );
+        }).toList();
         _filterCategories();
         _isLoading = false;
       });
     } catch (e) {
+      print('📂 Error loading categories: $e');
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -581,6 +587,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
 
   void _showAddSubcategoryDialog(Category category, int index) {
     final subcategoryController = TextEditingController();
+    print('📂 Opening add subcategory dialog for ${category.name}');
+    print('📂 Current subcategories: ${category.subcategories}');
 
     showDialog(
       context: context,
@@ -602,11 +610,15 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             onPressed: () async {
               if (subcategoryController.text.isNotEmpty) {
                 try {
-                  final newSubcategories = [...category.subcategories, subcategoryController.text];
+                  // Get the latest category from the list to ensure we have updated subcategories
+                  final latestCategory = _categories.firstWhere((c) => c.id == category.id);
+                  final newSubcategories = [...latestCategory.subcategories, subcategoryController.text];
+                  print('📂 Adding subcategory: ${subcategoryController.text}');
+                  print('📂 New subcategories list: $newSubcategories');
                   await ApiService.updateCategory(
-                    categoryId: category.id,
-                    name: category.name,
-                    description: category.description,
+                    categoryId: latestCategory.id,
+                    name: latestCategory.name,
+                    description: latestCategory.description,
                     subcategories: newSubcategories,
                   );
                   Navigator.pop(context);

@@ -134,7 +134,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
     if (widget.product.availableSizes.isNotEmpty) {
-      _selectedRingSize = widget.product.availableSizes.first;
+      // Parse sizes in case they're comma-separated
+      final firstSize = widget.product.availableSizes.first;
+      if (firstSize.contains(',')) {
+        final parsed = firstSize.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        _selectedRingSize = parsed.isNotEmpty ? parsed.first : firstSize;
+      } else {
+        _selectedRingSize = firstSize;
+      }
     }
 
     // Apply customization intent from community post (if provided)
@@ -1994,7 +2001,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  /// Get parsed individual sizes from availableSizes (handles comma-separated strings)
+  List<String> _getParsedSizes() {
+    final List<String> parsedSizes = [];
+    for (final size in widget.product.availableSizes) {
+      // Split if comma-separated
+      if (size.contains(',')) {
+        parsedSizes.addAll(size.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty));
+      } else {
+        parsedSizes.add(size.trim());
+      }
+    }
+    return parsedSizes;
+  }
+
   Widget _buildRingSizeSelectionRow() {
+    final parsedSizes = _getParsedSizes();
+
     return Column(
       children: [
         InkWell(
@@ -2040,49 +2063,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
+                // Size chips - selectable
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: parsedSizes.map((size) {
+                    final isSelected = _selectedRingSize == size;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedRingSize = size;
+                        });
+                      },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        constraints: const BoxConstraints(minWidth: 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
+                          color: isSelected ? const Color(0xFF2E5339) : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF2E5339) : Colors.grey.shade400,
+                            width: isSelected ? 2 : 1,
+                          ),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedRingSize,
-                            hint: Text(_getSizeLabelName()),
-                            isExpanded: true,
-                            items: widget.product.availableSizes.map((size) {
-                              return DropdownMenuItem(
-                                value: size,
-                                child: Text(size),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedRingSize = value;
-                              });
-                            },
+                        child: Text(
+                          size,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected ? Colors.white : Colors.grey.shade800,
                           ),
                         ),
                       ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                // View Size Guide link
+                GestureDetector(
+                  onTap: () {
+                    _showRingSizeGuide();
+                  },
+                  child: Text(
+                    'View Size Guide',
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontSize: 13,
+                      decoration: TextDecoration.underline,
                     ),
-                    const SizedBox(width: 12),
-                    TextButton(
-                      onPressed: () {
-                        _showRingSizeGuide();
-                      },
-                      child: Text(
-                        'View Size Guide',
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),

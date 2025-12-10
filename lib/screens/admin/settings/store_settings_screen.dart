@@ -44,8 +44,9 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
 
   // Product Customization Options
   List<MetalOption> _metalOptions = [];
-  List<String> _platingColors = [];
-  List<String> _stoneShapes = [];
+  List<PlatingColor> _platingColors = [];
+  List<SizeOption> _sizeOptions = [];
+  List<StoneType> _stoneTypes = [];
   late TextEditingController _maxEngravingCharsController;
 
   @override
@@ -101,7 +102,8 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
         _orderIdCounterController.text = settings.orderIdCounter.toString();
         _metalOptions = List.from(settings.metalOptions);
         _platingColors = List.from(settings.platingColors);
-        _stoneShapes = List.from(settings.stoneShapes);
+        _sizeOptions = List.from(settings.sizeOptions);
+        _stoneTypes = List.from(settings.stoneTypes);
         _maxEngravingCharsController.text = settings.maxEngravingChars.toString();
       });
     }
@@ -152,7 +154,8 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
       orderIdCounter: int.tryParse(_orderIdCounterController.text) ?? 1000,
       metalOptions: _metalOptions,
       platingColors: _platingColors,
-      stoneShapes: _stoneShapes,
+      sizeOptions: _sizeOptions,
+      stoneTypes: _stoneTypes,
       maxEngravingChars: int.tryParse(_maxEngravingCharsController.text) ?? 15,
     );
 
@@ -648,35 +651,19 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
             // Plating Colors Section
             _buildSubsectionHeader('Plating Colors', Icons.palette),
             const SizedBox(height: 8),
-            _buildChipListEditor(
-              items: _platingColors,
-              hintText: 'Add plating color (e.g., Rose Gold)',
-              onAdd: (value) {
-                if (value.isNotEmpty && !_platingColors.contains(value)) {
-                  setState(() => _platingColors.add(value));
-                }
-              },
-              onRemove: (index) {
-                setState(() => _platingColors.removeAt(index));
-              },
-            ),
+            _buildPlatingColorsEditor(),
             const SizedBox(height: 20),
 
-            // Stone Shapes Section
-            _buildSubsectionHeader('Stone Shapes', Icons.diamond),
+            // Stone Types Summary (read-only display)
+            _buildSubsectionHeader('Stone Types', Icons.diamond),
             const SizedBox(height: 8),
-            _buildChipListEditor(
-              items: _stoneShapes,
-              hintText: 'Add stone shape (e.g., Oval)',
-              onAdd: (value) {
-                if (value.isNotEmpty && !_stoneShapes.contains(value)) {
-                  setState(() => _stoneShapes.add(value));
-                }
-              },
-              onRemove: (index) {
-                setState(() => _stoneShapes.removeAt(index));
-              },
-            ),
+            _buildStoneTypesSummary(),
+            const SizedBox(height: 20),
+
+            // Size Options Summary (read-only display)
+            _buildSubsectionHeader('Size Options', Icons.straighten),
+            const SizedBox(height: 8),
+            _buildSizeOptionsSummary(),
             const SizedBox(height: 20),
 
             // Max Engraving Characters
@@ -762,19 +749,19 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    ...metal.variants.map((variant) => Chip(
-                      label: Text(variant, style: const TextStyle(fontSize: 12)),
+                    ...metal.subtypes.map((subtype) => Chip(
+                      label: Text(subtype.name, style: const TextStyle(fontSize: 12)),
                       deleteIcon: const Icon(Icons.close, size: 16),
                       onDeleted: () {
                         setState(() {
-                          final newVariants = List<String>.from(metal.variants);
-                          newVariants.remove(variant);
-                          if (newVariants.isEmpty) {
+                          final newSubtypes = List<MetalSubtype>.from(metal.subtypes);
+                          newSubtypes.removeWhere((s) => s.name == subtype.name);
+                          if (newSubtypes.isEmpty) {
                             _metalOptions.removeAt(index);
                           } else {
                             _metalOptions[index] = MetalOption(
                               type: metal.type,
-                              variants: newVariants,
+                              subtypes: newSubtypes,
                             );
                           }
                         });
@@ -801,6 +788,195 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPlatingColorsEditor() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ..._platingColors.asMap().entries.map((entry) {
+              final color = entry.value;
+              return Chip(
+                avatar: color.hexColor != null
+                    ? Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: _hexToColor(color.hexColor!),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                      )
+                    : null,
+                label: Text(color.name),
+                deleteIcon: const Icon(Icons.close, size: 18),
+                onDeleted: () => setState(() => _platingColors.removeAt(entry.key)),
+              );
+            }),
+          ],
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _showAddPlatingColorDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Plating Color'),
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryGold),
+        ),
+      ],
+    );
+  }
+
+  Color _hexToColor(String hex) {
+    hex = hex.replaceFirst('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
+  }
+
+  void _showAddPlatingColorDialog() {
+    final nameController = TextEditingController();
+    final hexController = TextEditingController(text: '#FFD700');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Plating Color'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Color Name',
+                hintText: 'e.g., Rose Gold',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: hexController,
+              decoration: const InputDecoration(
+                labelText: 'Hex Color (optional)',
+                hintText: '#FFD700',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isNotEmpty) {
+                setState(() {
+                  _platingColors.add(PlatingColor(
+                    name: nameController.text.trim(),
+                    hexColor: hexController.text.trim().isNotEmpty
+                        ? hexController.text.trim()
+                        : null,
+                  ));
+                });
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGold),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoneTypesSummary() {
+    final categories = <String, List<StoneType>>{};
+    for (final stone in _stoneTypes) {
+      categories.putIfAbsent(stone.category, () => []).add(stone);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: categories.entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.key,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: entry.value.map((stone) => Chip(
+                    label: Text(stone.name, style: const TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: stone.isActive ? null : Colors.grey.shade300,
+                  )).toList(),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSizeOptionsSummary() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _sizeOptions.map((option) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option.category,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: option.sizes.map((size) => Chip(
+                    label: Text(size.name, style: const TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                  )).toList(),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -937,7 +1113,7 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
                   setState(() {
                     _metalOptions.add(MetalOption(
                       type: typeController.text.trim(),
-                      variants: variants,
+                      subtypes: variants.map((v) => MetalSubtype(name: v)).toList(),
                     ));
                   });
                   Navigator.pop(context);
@@ -979,11 +1155,11 @@ class _StoreSettingsScreenState extends State<StoreSettingsScreen> {
               if (controller.text.trim().isNotEmpty) {
                 setState(() {
                   final metal = _metalOptions[metalIndex];
-                  final newVariants = List<String>.from(metal.variants);
-                  newVariants.add(controller.text.trim());
+                  final newSubtypes = List<MetalSubtype>.from(metal.subtypes);
+                  newSubtypes.add(MetalSubtype(name: controller.text.trim()));
                   _metalOptions[metalIndex] = MetalOption(
                     type: metal.type,
-                    variants: newVariants,
+                    subtypes: newSubtypes,
                   );
                 });
                 Navigator.pop(context);

@@ -58,6 +58,12 @@ backend/*.pid
 .env.*.local
 backend/.env
 
+# Credentials files (NEVER commit these)
+AWS_DEPLOYMENT_CREDENTIALS.md
+developer_credentials.csv
+*credentials*.csv
+*credentials*.md
+
 # Keep example file for reference
 !.env.example
 !backend/.env.example

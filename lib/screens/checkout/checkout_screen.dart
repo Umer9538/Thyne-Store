@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../services/cashfree_service.dart';
 import '../../utils/theme.dart';
 import '../../models/user.dart';
 import '../orders/order_success_screen.dart';
@@ -16,8 +19,10 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   int _currentStep = 0;
-  String _selectedPaymentMethod = 'razorpay';
+  String _selectedPaymentMethod = 'cashfree';
   Address? _selectedAddress;
+  final CashfreeService _cashfreeService = CashfreeService();
+  bool _isProcessingPayment = false;
 
   final _addressFormKey = GlobalKey<FormState>();
   // Detailed address fields
@@ -44,11 +49,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (currentStep == 0) {
       // Validate address step
       if (_selectedAddress == null) {
-        // If no saved address is selected, validate the new address form
-        if (_addressFormKey.currentState?.validate() ?? false) {
+        // Validate using both form validation AND controller values directly
+        final formValid = _addressFormKey.currentState?.validate() ?? false;
+        final hasValidControllerValues = _houseNoFloorController.text.trim().isNotEmpty &&
+            _buildingBlockController.text.trim().isNotEmpty &&
+            _landmarkAreaController.text.trim().isNotEmpty &&
+            _cityController.text.trim().isNotEmpty &&
+            _stateController.text.trim().isNotEmpty &&
+            _pincodeController.text.trim().length == 6;
+
+        if (formValid && hasValidControllerValues) {
           setState(() {
             _currentStep = currentStep + 1;
           });
+        } else if (!hasValidControllerValues) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please fill all address fields correctly'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       } else {
         // If a saved address is selected, proceed to next step
@@ -106,10 +126,10 @@ return Row(
                   ),
                 if (details.stepIndex == 2)
                   ElevatedButton(
-                    onPressed: orderProvider.isLoading
+                    onPressed: (orderProvider.isLoading || _isProcessingPayment)
                         ? null
                         : () => _placeOrder(context),
-                    child: orderProvider.isLoading
+                    child: (orderProvider.isLoading || _isProcessingPayment)
                         ? const SizedBox(
                             width: 20,
                             height: 20,
@@ -120,7 +140,7 @@ return Row(
                               ),
                             ),
                           )
-                        : const Text('Place Order'),
+                        : const Text('Pay & Place Order'),
                   ),
                 const SizedBox(width: 8),
                 if (details.stepIndex > 0)
@@ -422,10 +442,10 @@ return Row(
     return Column(
       children: [
         _buildPaymentOption(
-          'razorpay',
-          'Card / UPI / Netbanking',
-          Icons.credit_card,
-          'Pay securely with Razorpay',
+          'cashfree',
+          'Card / UPI / Netbanking / Wallets',
+          Icons.payment,
+          'Pay securely with Cashfree',
         ),
       ],
     );
@@ -455,7 +475,7 @@ return Row(
           children: [
             Icon(icon, color: isSelected ? AppTheme.primaryGold : Colors.grey),
             const SizedBox(width: 12),
-            Text(title),
+            Expanded(child: Text(title, overflow: TextOverflow.ellipsis)),
           ],
         ),
         subtitle: Text(subtitle),
@@ -633,12 +653,35 @@ return Row(
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
-    if (_selectedAddress == null && !_addressFormKey.currentState!.validate()) {
-      setState(() {
-        _currentStep = 0;
-      });
-      return;
+    // Validate address - check both form validation and controller values directly
+    if (_selectedAddress == null) {
+      // Check controller values directly (more reliable than form validation when form is not visible)
+      final hasValidAddress = _houseNoFloorController.text.trim().isNotEmpty &&
+          _buildingBlockController.text.trim().isNotEmpty &&
+          _landmarkAreaController.text.trim().isNotEmpty &&
+          _cityController.text.trim().isNotEmpty &&
+          _stateController.text.trim().isNotEmpty &&
+          _pincodeController.text.trim().length == 6;
+
+      if (!hasValidAddress) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill all address fields correctly'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _currentStep = 0;
+        });
+        return;
+      }
     }
+
+    if (_isProcessingPayment) return;
+
+    setState(() {
+      _isProcessingPayment = true;
+    });
 
     try {
       // Convert address label string to enum
@@ -657,12 +700,12 @@ return Row(
       final shippingAddress = _selectedAddress ??
           Address(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
-            houseNoFloor: _houseNoFloorController.text,
-            buildingBlock: _buildingBlockController.text,
-            landmarkArea: _landmarkAreaController.text,
-            city: _cityController.text,
-            state: _stateController.text,
-            pincode: _pincodeController.text,
+            houseNoFloor: _houseNoFloorController.text.trim(),
+            buildingBlock: _buildingBlockController.text.trim(),
+            landmarkArea: _landmarkAreaController.text.trim(),
+            city: _cityController.text.trim(),
+            state: _stateController.text.trim(),
+            pincode: _pincodeController.text.trim(),
             country: 'India',
             label: addressLabel,
           );
@@ -675,9 +718,13 @@ return Row(
             backgroundColor: Colors.red,
           ),
         );
+        setState(() {
+          _isProcessingPayment = false;
+        });
         return;
       }
 
+      // Step 1: Create order in backend (status: pending)
       await orderProvider.placeOrder(
         userId: authProvider.user!.id,
         items: cartProvider.items,
@@ -690,18 +737,86 @@ return Row(
         total: cartProvider.total,
       );
 
-      cartProvider.clearCart();
-
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OrderSuccessScreen(
-              order: orderProvider.currentOrder!,
-            ),
-          ),
-        );
+      final order = orderProvider.currentOrder;
+      if (order == null) {
+        throw Exception('Failed to create order');
       }
+
+      // Step 2: Create Cashfree payment order
+      // Add timestamp to make order ID unique (Cashfree requires unique order IDs)
+      final paymentOrderId = '${order.id}_${DateTime.now().millisecondsSinceEpoch}';
+      final cashfreeOrder = await _cashfreeService.createPaymentOrder(
+        orderId: paymentOrderId,
+        amount: cartProvider.total,
+        customerPhone: authProvider.user!.phone ?? '9999999999',
+        customerEmail: authProvider.user!.email,
+        customerName: authProvider.user!.name,
+      );
+
+      if (cashfreeOrder == null) {
+        throw Exception('Failed to create payment order');
+      }
+
+      // Step 3: Get environment (SANDBOX or PRODUCTION)
+      final environment = await _cashfreeService.getEnvironment();
+
+      // Step 4: Start Cashfree payment
+      if (!mounted) return;
+
+      await _cashfreeService.startPayment(
+        context: context,
+        orderId: cashfreeOrder.orderId, // Use the order ID from Cashfree response
+        paymentSessionId: cashfreeOrder.paymentSessionId,
+        environment: environment,
+        onSuccess: (paymentOrderId) async {
+          // Step 5: Verify payment
+          final verifyResponse = await _cashfreeService.verifyPayment(paymentOrderId);
+
+          if (verifyResponse?.success == true) {
+            // Payment successful - clear cart and navigate
+            cartProvider.clearCart();
+
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderSuccessScreen(
+                    order: order,
+                  ),
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(verifyResponse?.message ?? 'Payment verification failed'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _isProcessingPayment = false;
+            });
+          }
+        },
+        onFailure: (CFErrorResponse error, String orderId) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Payment failed: ${error.getMessage()}'),
+                backgroundColor: AppTheme.errorRed,
+              ),
+            );
+            setState(() {
+              _isProcessingPayment = false;
+            });
+          }
+        },
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -710,6 +825,9 @@ return Row(
             backgroundColor: AppTheme.errorRed,
           ),
         );
+        setState(() {
+          _isProcessingPayment = false;
+        });
       }
     }
   }

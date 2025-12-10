@@ -380,10 +380,60 @@ func (c *Collection) ToResponse() CollectionResponse {
 	}
 }
 
+// MetalSubtype represents a specific purity/karat level
+type MetalSubtype struct {
+	Name            string   `json:"name" bson:"name"`                                   // e.g., "9K", "14K", "925 Sterling Silver"
+	Code            string   `json:"code,omitempty" bson:"code,omitempty"`               // Internal code
+	PriceMultiplier *float64 `json:"priceMultiplier,omitempty" bson:"priceMultiplier,omitempty"` // Price adjustment factor
+}
+
 // MetalOption represents a metal type with its variants (karats/purity)
 type MetalOption struct {
-	Type     string   `json:"type" bson:"type"`         // Gold, Silver, Platinum
-	Variants []string `json:"variants" bson:"variants"` // 9K, 14K, 22K for Gold; 925 for Silver
+	ID           string         `json:"id,omitempty" bson:"id,omitempty"`
+	Type         string         `json:"type" bson:"type"`                 // Gold, Silver, Platinum
+	Subtypes     []MetalSubtype `json:"subtypes" bson:"subtypes"`         // Detailed purity variants
+	Variants     []string       `json:"variants" bson:"variants"`         // Legacy support - 9K, 14K, 22K for Gold
+	InternalCode string         `json:"internalCode,omitempty" bson:"internalCode,omitempty"`
+	IsActive     bool           `json:"isActive" bson:"isActive"`
+	SortOrder    int            `json:"sortOrder" bson:"sortOrder"`
+}
+
+// PlatingColor represents plating color options
+type PlatingColor struct {
+	ID        string `json:"id,omitempty" bson:"id,omitempty"`
+	Name      string `json:"name" bson:"name"`                             // Yellow Gold, Rose Gold, etc.
+	HexColor  string `json:"hexColor,omitempty" bson:"hexColor,omitempty"` // For UI display
+	Code      string `json:"code,omitempty" bson:"code,omitempty"`         // Internal code
+	IsActive  bool   `json:"isActive" bson:"isActive"`
+	SortOrder int    `json:"sortOrder" bson:"sortOrder"`
+}
+
+// SizeValue represents an individual size option
+type SizeValue struct {
+	Name         string   `json:"name" bson:"name"`                               // Display name (e.g., "US 6")
+	Value        string   `json:"value" bson:"value"`                             // Value for storage
+	MmEquivalent *float64 `json:"mmEquivalent,omitempty" bson:"mmEquivalent,omitempty"` // Millimeter equivalent
+	Code         string   `json:"code,omitempty" bson:"code,omitempty"`           // Internal code
+}
+
+// SizeOption represents size options for a jewelry category
+type SizeOption struct {
+	ID       string      `json:"id,omitempty" bson:"id,omitempty"`
+	Category string      `json:"category" bson:"category"` // Ring, Chain, Bracelet, Bangle
+	Sizes    []SizeValue `json:"sizes" bson:"sizes"`
+	IsActive bool        `json:"isActive" bson:"isActive"`
+}
+
+// StoneType represents a type of stone available
+type StoneType struct {
+	ID              string   `json:"id,omitempty" bson:"id,omitempty"`
+	Name            string   `json:"name" bson:"name"`                               // Diamond, Moissanite, CZ, etc.
+	Category        string   `json:"category" bson:"category"`                       // Precious, Semi-Precious, Lab-Grown, Artificial
+	AvailableCuts   []string `json:"availableCuts" bson:"availableCuts"`             // Round, Oval, Princess, etc.
+	AvailableColors []string `json:"availableColors" bson:"availableColors"`         // Color options
+	Code            string   `json:"code,omitempty" bson:"code,omitempty"`           // Internal code
+	IsActive        bool     `json:"isActive" bson:"isActive"`
+	SortOrder       int      `json:"sortOrder" bson:"sortOrder"`
 }
 
 // StoreSettings represents configurable store settings (GST, shipping, etc.)
@@ -413,8 +463,9 @@ type StoreSettings struct {
 	OrderIdCounter        int64              `json:"orderIdCounter" bson:"orderIdCounter"`               // Current counter for order numbers
 	// Product Customization Options (Admin Editable)
 	MetalOptions          []MetalOption      `json:"metalOptions" bson:"metalOptions"`                   // Available metal types with variants
-	PlatingColors         []string           `json:"platingColors" bson:"platingColors"`                 // White Gold, Yellow Gold, Rose Gold, etc.
-	StoneShapes           []string           `json:"stoneShapes" bson:"stoneShapes"`                     // Round, Oval, Princess, etc.
+	PlatingColors         []PlatingColor     `json:"platingColors" bson:"platingColors"`                 // Plating color options
+	SizeOptions           []SizeOption       `json:"sizeOptions" bson:"sizeOptions"`                     // Size options by category
+	StoneTypes            []StoneType        `json:"stoneTypes" bson:"stoneTypes"`                       // Available stone types
 	MaxEngravingChars     int                `json:"maxEngravingChars" bson:"maxEngravingChars"`         // Default max engraving characters
 	// Metadata
 	UpdatedAt             time.Time          `json:"updatedAt" bson:"updatedAt"`
@@ -423,29 +474,30 @@ type StoreSettings struct {
 
 // StoreSettingsResponse for API
 type StoreSettingsResponse struct {
-	ID                    string        `json:"id"`
-	GSTRate               float64       `json:"gstRate"`
-	GSTNumber             string        `json:"gstNumber"`
-	EnableGST             bool          `json:"enableGst"`
-	FreeShippingThreshold float64       `json:"freeShippingThreshold"`
-	ShippingCost          float64       `json:"shippingCost"`
-	EnableFreeShipping    bool          `json:"enableFreeShipping"`
-	EnableCOD             bool          `json:"enableCod"`
-	CODCharge             float64       `json:"codCharge"`
-	CODMaxAmount          float64       `json:"codMaxAmount"`
-	StoreName             string        `json:"storeName"`
-	StoreEmail            string        `json:"storeEmail"`
-	StorePhone            string        `json:"storePhone"`
-	StoreAddress          string        `json:"storeAddress"`
-	Currency              string        `json:"currency"`
-	CurrencySymbol        string        `json:"currencySymbol"`
-	OrderIdPrefix         string        `json:"orderIdPrefix"`
-	OrderIdCounter        int64         `json:"orderIdCounter"`
-	MetalOptions          []MetalOption `json:"metalOptions"`
-	PlatingColors         []string      `json:"platingColors"`
-	StoneShapes           []string      `json:"stoneShapes"`
-	MaxEngravingChars     int           `json:"maxEngravingChars"`
-	UpdatedAt             string        `json:"updatedAt"`
+	ID                    string         `json:"id"`
+	GSTRate               float64        `json:"gstRate"`
+	GSTNumber             string         `json:"gstNumber"`
+	EnableGST             bool           `json:"enableGst"`
+	FreeShippingThreshold float64        `json:"freeShippingThreshold"`
+	ShippingCost          float64        `json:"shippingCost"`
+	EnableFreeShipping    bool           `json:"enableFreeShipping"`
+	EnableCOD             bool           `json:"enableCod"`
+	CODCharge             float64        `json:"codCharge"`
+	CODMaxAmount          float64        `json:"codMaxAmount"`
+	StoreName             string         `json:"storeName"`
+	StoreEmail            string         `json:"storeEmail"`
+	StorePhone            string         `json:"storePhone"`
+	StoreAddress          string         `json:"storeAddress"`
+	Currency              string         `json:"currency"`
+	CurrencySymbol        string         `json:"currencySymbol"`
+	OrderIdPrefix         string         `json:"orderIdPrefix"`
+	OrderIdCounter        int64          `json:"orderIdCounter"`
+	MetalOptions          []MetalOption  `json:"metalOptions"`
+	PlatingColors         []PlatingColor `json:"platingColors"`
+	SizeOptions           []SizeOption   `json:"sizeOptions"`
+	StoneTypes            []StoneType    `json:"stoneTypes"`
+	MaxEngravingChars     int            `json:"maxEngravingChars"`
+	UpdatedAt             string         `json:"updatedAt"`
 }
 
 // ToResponse converts StoreSettings to StoreSettingsResponse
@@ -471,7 +523,8 @@ func (s *StoreSettings) ToResponse() StoreSettingsResponse {
 		OrderIdCounter:        s.OrderIdCounter,
 		MetalOptions:          s.MetalOptions,
 		PlatingColors:         s.PlatingColors,
-		StoneShapes:           s.StoneShapes,
+		SizeOptions:           s.SizeOptions,
+		StoneTypes:            s.StoneTypes,
 		MaxEngravingChars:     s.MaxEngravingChars,
 		UpdatedAt:             s.UpdatedAt.Format(time.RFC3339),
 	}
@@ -498,13 +551,117 @@ func DefaultStoreSettings() *StoreSettings {
 		OrderIdPrefix:         "TJ",
 		OrderIdCounter:        1000,
 		MetalOptions: []MetalOption{
-			{Type: "Gold", Variants: []string{"9K", "14K", "18K", "22K"}},
-			{Type: "Silver", Variants: []string{"925 Sterling"}},
-			{Type: "Platinum", Variants: []string{"950 Platinum"}},
+			{
+				Type:     "Gold",
+				Variants: []string{"9K", "14K", "18K", "22K"},
+				Subtypes: []MetalSubtype{
+					{Name: "9K", Code: "G9K"},
+					{Name: "14K", Code: "G14K"},
+					{Name: "18K", Code: "G18K"},
+					{Name: "22K", Code: "G22K"},
+				},
+				IsActive: true,
+			},
+			{
+				Type:     "Silver",
+				Variants: []string{"925 Sterling Silver"},
+				Subtypes: []MetalSubtype{
+					{Name: "925 Sterling Silver", Code: "S925"},
+				},
+				IsActive: true,
+			},
+			{
+				Type:     "Platinum",
+				Variants: []string{"950 Platinum"},
+				Subtypes: []MetalSubtype{
+					{Name: "950 Platinum", Code: "PT950"},
+				},
+				IsActive: true,
+			},
 		},
-		PlatingColors:     []string{"White Gold", "Yellow Gold", "Rose Gold", "Rustic Silver"},
-		StoneShapes:       []string{"Round", "Oval", "Princess", "Cushion", "Emerald", "Pear", "Marquise", "Heart"},
+		PlatingColors: []PlatingColor{
+			{Name: "Yellow Gold", HexColor: "#FFD700", IsActive: true},
+			{Name: "Rose Gold", HexColor: "#B76E79", IsActive: true},
+			{Name: "White Gold", HexColor: "#E8E8E8", IsActive: true},
+			{Name: "Rhodium", HexColor: "#C0C0C0", IsActive: true},
+			{Name: "Antique", HexColor: "#8B7355", IsActive: true},
+			{Name: "Black Gold", HexColor: "#1C1C1C", IsActive: true},
+		},
+		SizeOptions: []SizeOption{
+			{
+				Category: "Ring",
+				Sizes: []SizeValue{
+					{Name: "US 4", Value: "4", MmEquivalent: floatPtr(14.9)},
+					{Name: "US 5", Value: "5", MmEquivalent: floatPtr(15.7)},
+					{Name: "US 6", Value: "6", MmEquivalent: floatPtr(16.5)},
+					{Name: "US 7", Value: "7", MmEquivalent: floatPtr(17.3)},
+					{Name: "US 8", Value: "8", MmEquivalent: floatPtr(18.1)},
+					{Name: "US 9", Value: "9", MmEquivalent: floatPtr(18.9)},
+					{Name: "US 10", Value: "10", MmEquivalent: floatPtr(19.8)},
+					{Name: "US 11", Value: "11", MmEquivalent: floatPtr(20.6)},
+					{Name: "US 12", Value: "12", MmEquivalent: floatPtr(21.4)},
+				},
+				IsActive: true,
+			},
+			{
+				Category: "Chain",
+				Sizes: []SizeValue{
+					{Name: "16 inch", Value: "16", MmEquivalent: floatPtr(406)},
+					{Name: "18 inch", Value: "18", MmEquivalent: floatPtr(457)},
+					{Name: "20 inch", Value: "20", MmEquivalent: floatPtr(508)},
+					{Name: "22 inch", Value: "22", MmEquivalent: floatPtr(559)},
+					{Name: "24 inch", Value: "24", MmEquivalent: floatPtr(610)},
+				},
+				IsActive: true,
+			},
+			{
+				Category: "Bracelet",
+				Sizes: []SizeValue{
+					{Name: "6 inch", Value: "6", MmEquivalent: floatPtr(152)},
+					{Name: "6.5 inch", Value: "6.5", MmEquivalent: floatPtr(165)},
+					{Name: "7 inch", Value: "7", MmEquivalent: floatPtr(178)},
+					{Name: "7.5 inch", Value: "7.5", MmEquivalent: floatPtr(190)},
+					{Name: "8 inch", Value: "8", MmEquivalent: floatPtr(203)},
+				},
+				IsActive: true,
+			},
+			{
+				Category: "Bangle",
+				Sizes: []SizeValue{
+					{Name: "2.2", Value: "2.2", MmEquivalent: floatPtr(56)},
+					{Name: "2.4", Value: "2.4", MmEquivalent: floatPtr(61)},
+					{Name: "2.6", Value: "2.6", MmEquivalent: floatPtr(66)},
+					{Name: "2.8", Value: "2.8", MmEquivalent: floatPtr(71)},
+					{Name: "2.10", Value: "2.10", MmEquivalent: floatPtr(76)},
+				},
+				IsActive: true,
+			},
+		},
+		StoneTypes: []StoneType{
+			// Precious
+			{Name: "Diamond", Category: "Precious", AvailableCuts: []string{"Round", "Oval", "Princess", "Cushion", "Emerald", "Pear", "Marquise", "Heart", "Radiant", "Asscher"}, AvailableColors: []string{"D (Colorless)", "E", "F", "G", "H", "I", "J", "K", "Fancy Yellow", "Fancy Pink", "Fancy Blue"}, IsActive: true},
+			{Name: "Ruby", Category: "Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear", "Heart"}, AvailableColors: []string{"Pigeon Blood Red", "Deep Red", "Pinkish Red", "Purplish Red"}, IsActive: true},
+			{Name: "Emerald", Category: "Precious", AvailableCuts: []string{"Emerald", "Oval", "Round", "Pear", "Cushion"}, AvailableColors: []string{"Deep Green", "Vivid Green", "Medium Green", "Light Green"}, IsActive: true},
+			{Name: "Sapphire", Category: "Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear", "Princess"}, AvailableColors: []string{"Blue", "Yellow", "Pink", "White", "Padparadscha"}, IsActive: true},
+			// Lab-Grown
+			{Name: "Moissanite", Category: "Lab-Grown", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear", "Princess", "Emerald", "Radiant"}, AvailableColors: []string{"DEF (Colorless)", "GHI (Near Colorless)", "Champagne", "Green", "Blue"}, IsActive: true},
+			{Name: "Lab Diamond", Category: "Lab-Grown", AvailableCuts: []string{"Round", "Oval", "Princess", "Cushion", "Emerald", "Pear", "Marquise"}, AvailableColors: []string{"D", "E", "F", "G", "H", "Fancy Yellow", "Fancy Pink"}, IsActive: true},
+			// Semi-Precious
+			{Name: "Amethyst", Category: "Semi-Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear", "Heart"}, AvailableColors: []string{"Deep Purple", "Medium Purple", "Light Purple", "Rose de France"}, IsActive: true},
+			{Name: "Blue Topaz", Category: "Semi-Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear", "Heart"}, AvailableColors: []string{"Sky Blue", "Swiss Blue", "London Blue"}, IsActive: true},
+			{Name: "Citrine", Category: "Semi-Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear"}, AvailableColors: []string{"Golden Yellow", "Orange", "Madeira"}, IsActive: true},
+			{Name: "Peridot", Category: "Semi-Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear"}, AvailableColors: []string{"Lime Green", "Olive Green", "Yellow Green"}, IsActive: true},
+			{Name: "Garnet", Category: "Semi-Precious", AvailableCuts: []string{"Round", "Oval", "Cushion", "Pear"}, AvailableColors: []string{"Deep Red", "Orange", "Green (Tsavorite)", "Purple (Rhodolite)"}, IsActive: true},
+			// Artificial
+			{Name: "Cubic Zirconia (CZ)", Category: "Artificial", AvailableCuts: []string{"Round", "Oval", "Princess", "Cushion", "Emerald", "Pear", "Heart"}, AvailableColors: []string{"Clear", "Pink", "Blue", "Green", "Yellow", "Purple", "Champagne"}, IsActive: true},
+			{Name: "AAA Crystal", Category: "Artificial", AvailableCuts: []string{"Round", "Oval", "Princess"}, AvailableColors: []string{"Clear", "Aurora Borealis", "Various"}, IsActive: true},
+		},
 		MaxEngravingChars: 15,
 		UpdatedAt:         time.Now(),
 	}
+}
+
+// Helper function for float pointers
+func floatPtr(f float64) *float64 {
+	return &f
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../../../utils/theme.dart';
 import '../../../models/product.dart';
 import '../../../models/store_settings.dart';
+import '../../../providers/store_settings_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../constants/style_options.dart';
 
@@ -49,6 +51,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   List<Map<String, dynamic>> _categories = [];
   List<String> _subcategories = [];
   bool _loadingCategories = true;
+
+  // Store settings for customization options
+  StoreSettings? _storeSettings;
+  bool _loadingSettings = true;
 
   // Available gender options
   final List<String> _genderOptions = ['Men', 'Women', 'Children', 'Unisex'];
@@ -154,6 +160,31 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   void initState() {
     super.initState();
     _loadCategories();
+    // Defer store settings loading to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStoreSettings();
+    });
+  }
+
+  Future<void> _loadStoreSettings() async {
+    try {
+      final provider = context.read<StoreSettingsProvider>();
+      await provider.loadSettings();
+      if (mounted) {
+        setState(() {
+          _storeSettings = provider.settings;
+          _loadingSettings = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading store settings: $e');
+      if (mounted) {
+        setState(() {
+          _storeSettings = StoreSettings(); // Use defaults
+          _loadingSettings = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -1675,6 +1706,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   }
 
   Widget _buildCustomizationSection() {
+    if (_loadingSettings) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final settings = _storeSettings ?? StoreSettings();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1685,84 +1722,20 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Available Metals
-          _buildChipInputSection(
-            title: 'Available Metals',
-            hint: 'e.g., 14K Gold, 18K Gold, 925 Silver',
-            items: _availableMetals,
-            onAdd: (value) {
-              setState(() {
-                if (!_availableMetals.contains(value)) {
-                  _availableMetals.add(value);
-                  _metalPriceModifiers[value] = 0.0;
-                }
-              });
-            },
-            onRemove: (value) {
-              setState(() {
-                _availableMetals.remove(value);
-                _metalPriceModifiers.remove(value);
-              });
-            },
-            priceModifiers: _metalPriceModifiers,
-            onPriceChange: (item, price) {
-              setState(() {
-                _metalPriceModifiers[item] = price;
-              });
-            },
-          ),
+          // Available Metals - Dropdown from store settings
+          _buildMetalSelectionFromSettings(settings),
           const Divider(height: 24),
 
-          // Plating Colors
-          _buildChipInputSection(
-            title: 'Plating Colors',
-            hint: 'e.g., White Gold, Rose Gold, Yellow Gold',
-            items: _availablePlatingColors,
-            onAdd: (value) {
-              setState(() {
-                if (!_availablePlatingColors.contains(value)) {
-                  _availablePlatingColors.add(value);
-                  _platingPriceModifiers[value] = 0.0;
-                }
-              });
-            },
-            onRemove: (value) {
-              setState(() {
-                _availablePlatingColors.remove(value);
-                _platingPriceModifiers.remove(value);
-              });
-            },
-            priceModifiers: _platingPriceModifiers,
-            onPriceChange: (item, price) {
-              setState(() {
-                _platingPriceModifiers[item] = price;
-              });
-            },
-          ),
+          // Plating Colors - Dropdown from store settings
+          _buildPlatingSelectionFromSettings(settings),
           const Divider(height: 24),
 
-          // Ring Sizes
-          _buildChipInputSection(
-            title: 'Available Sizes',
-            hint: 'e.g., 5, 6, 7, 8, 9',
-            items: _availableSizes,
-            onAdd: (value) {
-              setState(() {
-                if (!_availableSizes.contains(value)) {
-                  _availableSizes.add(value);
-                }
-              });
-            },
-            onRemove: (value) {
-              setState(() {
-                _availableSizes.remove(value);
-              });
-            },
-          ),
+          // Available Sizes - Dropdown from store settings
+          _buildSizeSelectionFromSettings(settings),
           const Divider(height: 24),
 
-          // Stone Configuration
-          _buildStoneConfigSection(),
+          // Stone Configuration - Dropdown from store settings
+          _buildStoneSelectionFromSettings(settings),
           const Divider(height: 24),
 
           // Engraving Options
@@ -1806,6 +1779,470 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildMetalSelectionFromSettings(StoreSettings settings) {
+    // Build flat list of metal options with subtypes
+    final List<String> allMetalOptions = [];
+    for (final metal in settings.metalOptions) {
+      for (final subtype in metal.subtypes) {
+        final optionName = '${metal.type} - ${subtype.name}';
+        allMetalOptions.add(optionName);
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Available Metals', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.select_all, size: 16),
+              label: const Text('Select All', style: TextStyle(fontSize: 12)),
+              onPressed: () {
+                setState(() {
+                  _availableMetals = List.from(allMetalOptions);
+                  for (final metal in allMetalOptions) {
+                    _metalPriceModifiers.putIfAbsent(metal, () => 0.0);
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: allMetalOptions.map((metal) {
+            final isSelected = _availableMetals.contains(metal);
+            return FilterChip(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(metal),
+                  if (isSelected && (_metalPriceModifiers[metal] ?? 0) > 0) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '+₹${_metalPriceModifiers[metal]!.toStringAsFixed(0)}',
+                      style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                    ),
+                  ],
+                ],
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _availableMetals.add(metal);
+                    _metalPriceModifiers[metal] = 0.0;
+                  } else {
+                    _availableMetals.remove(metal);
+                    _metalPriceModifiers.remove(metal);
+                  }
+                });
+              },
+              selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+              checkmarkColor: AppTheme.primaryGold,
+            );
+          }).toList(),
+        ),
+        if (_availableMetals.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Tap selected metal to set price modifier:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _availableMetals.map((metal) {
+              return ActionChip(
+                avatar: const Icon(Icons.attach_money, size: 14),
+                label: Text('${metal.split(' - ').last}: +₹${(_metalPriceModifiers[metal] ?? 0).toStringAsFixed(0)}', style: const TextStyle(fontSize: 11)),
+                onPressed: () => _showPriceModifierDialog(metal, _metalPriceModifiers[metal] ?? 0, (item, price) {
+                  setState(() => _metalPriceModifiers[item] = price);
+                }),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPlatingSelectionFromSettings(StoreSettings settings) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Plating Colors', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            TextButton.icon(
+              icon: const Icon(Icons.select_all, size: 16),
+              label: const Text('Select All', style: TextStyle(fontSize: 12)),
+              onPressed: () {
+                setState(() {
+                  _availablePlatingColors = settings.platingColors.map((c) => c.name).toList();
+                  for (final color in _availablePlatingColors) {
+                    _platingPriceModifiers.putIfAbsent(color, () => 0.0);
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: settings.platingColors.map((color) {
+            final isSelected = _availablePlatingColors.contains(color.name);
+            return FilterChip(
+              avatar: color.hexColor != null
+                  ? Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: _hexToColor(color.hexColor!),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade400, width: 0.5),
+                      ),
+                    )
+                  : null,
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(color.name),
+                  if (isSelected && (_platingPriceModifiers[color.name] ?? 0) > 0) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '+₹${_platingPriceModifiers[color.name]!.toStringAsFixed(0)}',
+                      style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                    ),
+                  ],
+                ],
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _availablePlatingColors.add(color.name);
+                    _platingPriceModifiers[color.name] = 0.0;
+                  } else {
+                    _availablePlatingColors.remove(color.name);
+                    _platingPriceModifiers.remove(color.name);
+                  }
+                });
+              },
+              selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+              checkmarkColor: AppTheme.primaryGold,
+            );
+          }).toList(),
+        ),
+        if (_availablePlatingColors.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Tap to set price modifier:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _availablePlatingColors.map((color) {
+              return ActionChip(
+                avatar: const Icon(Icons.attach_money, size: 14),
+                label: Text('$color: +₹${(_platingPriceModifiers[color] ?? 0).toStringAsFixed(0)}', style: const TextStyle(fontSize: 11)),
+                onPressed: () => _showPriceModifierDialog(color, _platingPriceModifiers[color] ?? 0, (item, price) {
+                  setState(() => _platingPriceModifiers[item] = price);
+                }),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Color _hexToColor(String hex) {
+    hex = hex.replaceFirst('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
+  }
+
+  Widget _buildSizeSelectionFromSettings(StoreSettings settings) {
+    // Determine which size category to show based on selected category
+    String sizeCategory = 'Ring'; // Default
+    String categoryName = '';
+    try {
+      final category = _categories.firstWhere((c) => c['id'] == _selectedCategoryId);
+      categoryName = category['name']?.toString().toLowerCase() ?? '';
+    } catch (_) {
+      // Category not found, use empty string
+    }
+
+    if (categoryName.contains('ring')) {
+      sizeCategory = 'Ring';
+    } else if (categoryName.contains('chain') || categoryName.contains('necklace') || categoryName.contains('pendant')) {
+      sizeCategory = 'Chain';
+    } else if (categoryName.contains('bracelet')) {
+      sizeCategory = 'Bracelet';
+    } else if (categoryName.contains('bangle')) {
+      sizeCategory = 'Bangle';
+    }
+
+    final sizeOption = settings.sizeOptions.firstWhere(
+      (s) => s.category == sizeCategory,
+      orElse: () => settings.sizeOptions.isNotEmpty ? settings.sizeOptions.first : SizeOption(category: 'Ring', sizes: []),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Available Sizes ($sizeCategory)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            // Size category selector
+            DropdownButton<String>(
+              value: sizeCategory,
+              isDense: true,
+              underline: const SizedBox(),
+              items: settings.sizeOptions.map((opt) => DropdownMenuItem(
+                value: opt.category,
+                child: Text(opt.category, style: const TextStyle(fontSize: 12)),
+              )).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _availableSizes.clear(); // Clear when changing category
+                  });
+                }
+              },
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.select_all, size: 16),
+              label: const Text('All', style: TextStyle(fontSize: 12)),
+              onPressed: () {
+                setState(() {
+                  _availableSizes = sizeOption.sizes.map((s) => s.value).toList();
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: sizeOption.sizes.map((size) {
+            final isSelected = _availableSizes.contains(size.value);
+            return FilterChip(
+              label: Text(size.name),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _availableSizes.add(size.value);
+                  } else {
+                    _availableSizes.remove(size.value);
+                  }
+                });
+              },
+              selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+              checkmarkColor: AppTheme.primaryGold,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStoneSelectionFromSettings(StoreSettings settings) {
+    // Group stones by category
+    final stonesByCategory = <String, List<StoneType>>{};
+    for (final stone in settings.stoneTypes) {
+      stonesByCategory.putIfAbsent(stone.category, () => []).add(stone);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Stone Configuration', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold),
+              onPressed: () => _showAddStoneFromSettingsDialog(settings),
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_stones.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.diamond_outlined, color: Colors.grey.shade500),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'No stones configured. Tap + to add stone options.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._stones.map((stone) => _buildStoneCard(stone)),
+      ],
+    );
+  }
+
+  void _showAddStoneFromSettingsDialog(StoreSettings settings) {
+    String? selectedStoneName;
+    String? selectedCut;
+    List<String> selectedColors = [];
+    final countController = TextEditingController();
+
+    // Get all stone names
+    final stoneNames = settings.stoneTypes.map((s) => s.name).toList();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Find selected stone type
+          final selectedStone = selectedStoneName != null
+              ? settings.stoneTypes.firstWhere((s) => s.name == selectedStoneName, orElse: () => settings.stoneTypes.first)
+              : null;
+
+          return AlertDialog(
+            title: const Text('Add Stone'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Stone Name Dropdown
+                  DropdownButtonFormField<String>(
+                    value: selectedStoneName,
+                    decoration: const InputDecoration(
+                      labelText: 'Stone Type',
+                      border: OutlineInputBorder(),
+                    ),
+                    isExpanded: true,
+                    items: stoneNames.map((name) => DropdownMenuItem(
+                      value: name,
+                      child: Text(name),
+                    )).toList(),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        selectedStoneName = value;
+                        selectedCut = null;
+                        selectedColors.clear();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Cut/Shape Dropdown
+                  if (selectedStone != null) ...[
+                    DropdownButtonFormField<String>(
+                      value: selectedCut,
+                      decoration: const InputDecoration(
+                        labelText: 'Cut/Shape',
+                        border: OutlineInputBorder(),
+                      ),
+                      isExpanded: true,
+                      items: selectedStone.availableCuts.map((cut) => DropdownMenuItem(
+                        value: cut,
+                        child: Text(cut),
+                      )).toList(),
+                      onChanged: (value) {
+                        setDialogState(() => selectedCut = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Available Colors (multi-select)
+                    const Text('Available Colors:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: selectedStone.availableColors.map((color) {
+                        final isSelected = selectedColors.contains(color);
+                        return FilterChip(
+                          label: Text(color, style: const TextStyle(fontSize: 12)),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setDialogState(() {
+                              if (selected) {
+                                selectedColors.add(color);
+                              } else {
+                                selectedColors.remove(color);
+                              }
+                            });
+                          },
+                          selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Count
+                  TextField(
+                    controller: countController,
+                    decoration: const InputDecoration(
+                      labelText: 'Count (optional)',
+                      hintText: 'e.g., 6',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (selectedStoneName != null && selectedCut != null) {
+                    final count = int.tryParse(countController.text);
+                    setState(() {
+                      _stones.add(StoneConfig(
+                        name: selectedStoneName!,
+                        shape: selectedCut!,
+                        availableColors: selectedColors,
+                        count: count,
+                      ));
+                    });
+                    Navigator.pop(dialogContext);
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGold),
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

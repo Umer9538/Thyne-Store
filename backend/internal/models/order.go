@@ -37,6 +37,7 @@ type PaymentMethod string
 
 const (
 	PaymentMethodRazorpay PaymentMethod = "razorpay"
+	PaymentMethodCashfree PaymentMethod = "cashfree"
 	PaymentMethodUPI      PaymentMethod = "upi"
 	PaymentMethodWallet   PaymentMethod = "wallet"
 	PaymentMethodCOD      PaymentMethod = "cod"
@@ -52,9 +53,11 @@ type Order struct {
 	ShippingAddress    Address           `json:"shippingAddress" bson:"shippingAddress" validate:"required"`
 	PaymentMethod      PaymentMethod     `json:"paymentMethod" bson:"paymentMethod" validate:"required"`
 	PaymentStatus      PaymentStatus     `json:"paymentStatus" bson:"paymentStatus"`
-	RazorpayOrderID    *string           `json:"razorpayOrderId,omitempty" bson:"razorpayOrderId,omitempty"`
-	RazorpayPaymentID  *string           `json:"razorpayPaymentId,omitempty" bson:"razorpayPaymentId,omitempty"`
-	Status             OrderStatus       `json:"status" bson:"status"`
+	RazorpayOrderID        *string           `json:"razorpayOrderId,omitempty" bson:"razorpayOrderId,omitempty"`
+	RazorpayPaymentID      *string           `json:"razorpayPaymentId,omitempty" bson:"razorpayPaymentId,omitempty"`
+	PaymentProviderOrderID *string           `json:"paymentProviderOrderId,omitempty" bson:"paymentProviderOrderId,omitempty"`
+	PaymentSessionID       *string           `json:"paymentSessionId,omitempty" bson:"paymentSessionId,omitempty"`
+	Status                 OrderStatus       `json:"status" bson:"status"`
 	Subtotal           float64           `json:"subtotal" bson:"subtotal" validate:"required,min=0"`
 	Tax                float64           `json:"tax" bson:"tax" validate:"required,min=0"`
 	Shipping           float64           `json:"shipping" bson:"shipping" validate:"required,min=0"`
@@ -222,6 +225,8 @@ func (o *Order) GetDisplayPaymentMethod() string {
 	switch o.PaymentMethod {
 	case PaymentMethodRazorpay:
 		return "Credit/Debit Card"
+	case PaymentMethodCashfree:
+		return "Cashfree Payment"
 	case PaymentMethodUPI:
 		return "UPI Payment"
 	case PaymentMethodWallet:
