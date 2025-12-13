@@ -229,7 +229,7 @@ class Product {
       totalPrice += platingPriceModifiers[customization.platingColor]!;
     }
 
-    // Add stone color price modifiers
+    // Add stone color price modifiers and quality multipliers
     if (customization.stoneColorSelections != null) {
       for (final entry in customization.stoneColorSelections!.entries) {
         final stone = stones.firstWhere(
@@ -237,7 +237,36 @@ class Product {
           orElse: () => const StoneConfig(name: '', shape: '', availableColors: []),
         );
         if (stone.name.isNotEmpty) {
-          totalPrice += stone.getPriceModifier(entry.value);
+          double stoneCost = stone.getPriceModifier(entry.value);
+          
+          // Apply quality multiplier if selected
+          if (customization.stoneQualitySelections != null && 
+              customization.stoneQualitySelections!.containsKey(stone.name)) {
+            final qualityName = customization.stoneQualitySelections![stone.name];
+            final quality = stone.availableQualities.firstWhere(
+              (q) => q.name == qualityName,
+              orElse: () => stone.defaultQuality,
+            );
+            // Assuming stoneCost represents the base cost of that stone option.
+            // If stoneCost is 0 (base price included), we might need a base stone price field.
+            // For now, let's assume the modifier *is* the cost of the upgrade.
+            // A better model might be: (BaseProductPrice) + (StoneBasePrice * QualityMultiplier)
+            // But preserving existing logic:
+            if (stoneCost > 0) {
+              stoneCost *= quality.priceMultiplier;
+            } else {
+               // If stone has no specific color modifier, we might apply a general markup
+               // based on the product price or a fixed amount per quality.
+               // For this implementation, we'll assume the quality adds a % of the base product price
+               // allocated to stones, or similar. 
+               // SIMPLE APPROACH: Add a fixed cost if multiplier > 1
+               if (quality.priceMultiplier > 1.0) {
+                 totalPrice += (price * 0.1) * (quality.priceMultiplier - 1.0);
+               }
+            }
+          }
+          
+          totalPrice += stoneCost;
         }
       }
     }
