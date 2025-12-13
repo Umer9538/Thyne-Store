@@ -642,11 +642,69 @@ class StoneType {
   ];
 }
 
+
+/// Stone quality definition (e.g., AAA, AAAA, Heirloom)
+class StoneQuality {
+  final String name; // e.g., "Natural AAA", "Natural AAAA", "Heirloom"
+  final double priceMultiplier; // e.g., 1.0, 1.3, 1.6
+  final String description; // e.g., "Good quality", "Best quality"
+  final String? code;
+  final String? imageUrl; // Optional icon/image for the quality
+
+  const StoneQuality({
+    required this.name,
+    this.priceMultiplier = 1.0,
+    this.description = '',
+    this.code,
+    this.imageUrl,
+  });
+
+  factory StoneQuality.fromJson(Map<String, dynamic> json) {
+    return StoneQuality(
+      name: json['name']?.toString() ?? '',
+      priceMultiplier: (json['priceMultiplier'] ?? 1.0).toDouble(),
+      description: json['description']?.toString() ?? '',
+      code: json['code']?.toString(),
+      imageUrl: json['imageUrl']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'priceMultiplier': priceMultiplier,
+      'description': description,
+      if (code != null) 'code': code,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+    };
+  }
+
+  static List<StoneQuality> get defaults => const [
+    StoneQuality(
+      name: 'Natural AAA',
+      priceMultiplier: 1.0,
+      description: 'Standard high-quality gemstones with good color and clarity.',
+    ),
+    StoneQuality(
+      name: 'Natural AAAA',
+      priceMultiplier: 1.4,
+      description: 'Top 10% of gemstones, exhibiting superior color and brilliance.',
+    ),
+    StoneQuality(
+      name: 'Heirloom',
+      priceMultiplier: 2.0,
+      description: 'The rarest 1% of gemstones, offering investment-grade quality.',
+    ),
+  ];
+}
+
 /// Stone configuration for a product (supports multiple stones with shapes and colors)
 class StoneConfig {
   final String name; // e.g., "Center Stone", "Accent Stone A"
   final String shape; // e.g., "Oval", "Round"
   final List<String> availableColors; // e.g., ["Red", "Blue", "Clear"]
+  final List<StoneQuality> availableQualities; // Categories of quality
+  final String category; // Explicit category: Precious, Semi-Precious, Lab-Grown, etc.
   final int? count; // Number of stones (for accent stones)
   final Map<String, double>? colorPriceModifiers; // color -> price modifier
 
@@ -654,6 +712,8 @@ class StoneConfig {
     required this.name,
     required this.shape,
     required this.availableColors,
+    this.availableQualities = const [],
+    this.category = 'Precious',
     this.count,
     this.colorPriceModifiers,
   });
@@ -663,6 +723,10 @@ class StoneConfig {
       name: json['name']?.toString() ?? '',
       shape: json['shape']?.toString() ?? '',
       availableColors: List<String>.from(json['availableColors'] ?? []),
+      availableQualities: json['availableQualities'] != null
+          ? (json['availableQualities'] as List).map((e) => StoneQuality.fromJson(e)).toList()
+          : [],
+      category: json['category']?.toString() ?? 'Precious',
       count: json['count'],
       colorPriceModifiers: json['colorPriceModifiers'] != null
           ? Map<String, double>.from(
@@ -679,6 +743,8 @@ class StoneConfig {
       'name': name,
       'shape': shape,
       'availableColors': availableColors,
+      'availableQualities': availableQualities.map((e) => e.toJson()).toList(),
+      'category': category,
       if (count != null) 'count': count,
       if (colorPriceModifiers != null) 'colorPriceModifiers': colorPriceModifiers,
     };
@@ -688,6 +754,11 @@ class StoneConfig {
   double getPriceModifier(String color) {
     return colorPriceModifiers?[color] ?? 0.0;
   }
+  
+  /// Get default/fallback quality if none selected
+  StoneQuality get defaultQuality => availableQualities.isNotEmpty 
+      ? availableQualities.first 
+      : StoneQuality.defaults.first;
 }
 
 /// Selected customization options for cart/order
@@ -695,6 +766,7 @@ class ProductCustomization {
   final String? metalType; // e.g., "14K Gold"
   final String? platingColor; // e.g., "Rose Gold"
   final Map<String, String>? stoneColorSelections; // stone name -> selected color
+  final Map<String, String>? stoneQualitySelections; // stone name -> selected quality name
   final String? ringSize;
   final String? engraving;
   final double? minThickness;
@@ -704,6 +776,7 @@ class ProductCustomization {
     this.metalType,
     this.platingColor,
     this.stoneColorSelections,
+    this.stoneQualitySelections,
     this.ringSize,
     this.engraving,
     this.minThickness,
@@ -717,6 +790,9 @@ class ProductCustomization {
       stoneColorSelections: json['stoneColorSelections'] != null
           ? Map<String, String>.from(json['stoneColorSelections'])
           : null,
+      stoneQualitySelections: json['stoneQualitySelections'] != null
+          ? Map<String, String>.from(json['stoneQualitySelections'])
+          : null,
       ringSize: json['ringSize']?.toString(),
       engraving: json['engraving']?.toString(),
       minThickness: json['minThickness']?.toDouble(),
@@ -729,6 +805,7 @@ class ProductCustomization {
       if (metalType != null) 'metalType': metalType,
       if (platingColor != null) 'platingColor': platingColor,
       if (stoneColorSelections != null) 'stoneColorSelections': stoneColorSelections,
+      if (stoneQualitySelections != null) 'stoneQualitySelections': stoneQualitySelections,
       if (ringSize != null) 'ringSize': ringSize,
       if (engraving != null) 'engraving': engraving,
       if (minThickness != null) 'minThickness': minThickness,

@@ -53,6 +53,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _selectedMetal;
   String? _selectedPlatingColor;
   Map<String, String> _selectedStoneColors = {}; // stone name -> selected color
+  Map<String, String> _selectedStoneQualities = {}; // stone name -> selected quality
   String? _selectedRingSize;
   String _engravingText = '';
   final TextEditingController _engravingController = TextEditingController();
@@ -131,6 +132,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     for (final stone in widget.product.stones) {
       if (stone.availableColors.isNotEmpty) {
         _selectedStoneColors[stone.name] = stone.availableColors.first;
+      }
+      // Initialize quality
+      if (stone.availableQualities.isNotEmpty) {
+        _selectedStoneQualities[stone.name] = stone.availableQualities.first.name;
+      } else {
+        // Fallback default
+        _selectedStoneQualities[stone.name] = StoneQuality.defaults.first.name;
       }
     }
     if (widget.product.availableSizes.isNotEmpty) {
@@ -1018,12 +1026,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Icon(
                     isExpanded ? Icons.expand_less : Icons.expand_more,
                     color: AppTheme.textSecondary,
@@ -1072,112 +1084,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-    );
-  }
 
-  Widget _buildCustomizationSummary() {
-    final summaryItems = <Widget>[];
-    double totalModifier = 0;
-
-    if (_selectedMetal != null) {
-      final modifier = widget.product.metalPriceModifiers[_selectedMetal] ?? 0;
-      totalModifier += modifier;
-      summaryItems.add(_buildSummaryRowWithPrice('Metal', _selectedMetal!, modifier));
-    }
-    if (_selectedPlatingColor != null) {
-      final modifier = widget.product.platingPriceModifiers[_selectedPlatingColor] ?? 0;
-      totalModifier += modifier;
-      summaryItems.add(_buildSummaryRowWithPrice('Plating', _selectedPlatingColor!, modifier));
-    }
-
-    // Stone colors
-    for (final entry in _selectedStoneColors.entries) {
-      final stone = widget.product.stones.firstWhere(
-        (s) => s.name == entry.key,
-        orElse: () => const StoneConfig(name: '', shape: '', availableColors: []),
-      );
-      if (stone.name.isNotEmpty) {
-        final modifier = stone.getPriceModifier(entry.value);
-        totalModifier += modifier;
-        summaryItems.add(_buildSummaryRowWithPrice(
-          '${stone.name} (${stone.shape}${stone.count != null ? ' ×${stone.count}' : ''})',
-          entry.value,
-          modifier,
-        ));
-      }
-    }
-
-    if (_selectedRingSize != null) {
-      summaryItems.add(_buildSummaryRow('Ring Size', _selectedRingSize!));
-    }
-
-    // Dimensions (if available)
-    if (widget.product.minThickness != null || widget.product.maxThickness != null) {
-      final thickness = '${widget.product.minThickness ?? '-'}mm - ${widget.product.maxThickness ?? '-'}mm';
-      summaryItems.add(_buildSummaryRow('Thickness', thickness));
-    }
-
-    if (_engravingText.isNotEmpty) {
-      totalModifier += widget.product.engravingPrice;
-      summaryItems.add(_buildSummaryRowWithPrice('Engraving', '"$_engravingText"', widget.product.engravingPrice));
-    }
-
-    if (summaryItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryGold.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.primaryGold.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.check_circle, size: 18, color: AppTheme.primaryGold),
-              const SizedBox(width: 8),
-              Text(
-                'Your Customization',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryGold,
-                ),
-              ),
-              const Spacer(),
-              if (totalModifier > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade600,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '+₹${totalModifier.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const Divider(height: 16),
-          ...summaryItems,
-        ],
-      ),
-    );
-  }
 
   Widget _buildSummaryRow(String label, String value) {
     return Padding(
@@ -1271,6 +1178,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       metalType: _selectedMetal,
       platingColor: _selectedPlatingColor,
       stoneColorSelections: _selectedStoneColors.isNotEmpty ? Map.from(_selectedStoneColors) : null,
+      stoneQualitySelections: _selectedStoneQualities.isNotEmpty ? Map.from(_selectedStoneQualities) : null,
       ringSize: _selectedRingSize,
       engraving: _engravingText.isNotEmpty ? _engravingText : null,
       minThickness: widget.product.minThickness,
@@ -1406,15 +1314,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'CUSTOMIZE YOUR ${_getProductTypeName().toUpperCase()}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                      letterSpacing: 0.5,
+                  Expanded(
+                    child: Text(
+                      'CUSTOMIZE YOUR ${_getProductTypeName().toUpperCase()}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade800,
+                        letterSpacing: 0.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Icon(
                     _isCustomizeExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: Colors.grey.shade600,
@@ -1505,6 +1417,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 // Group stones by category
                 _buildStoneColorGrid(stone),
 
+                // Quality Selection (New)
+                if (selectedColor != null) ...[
+                  const SizedBox(height: 16),
+                  _buildQualitySelector(stone),
+                ],
+
                 // Stone description
                 if (selectedColor != null) ...[
                   const SizedBox(height: 12),
@@ -1524,7 +1442,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               TextSpan(
                                 text: '$selectedColor: ',
                                 style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
+                                ),
                               TextSpan(
                                 text: _getStoneDescription(selectedColor),
                               ),
@@ -1534,7 +1452,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         if (stone.count != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'These ${stone.count} ${stone.shape.toLowerCase()}-cut ${selectedColor}s are of premium quality.',
+                            'These ${stone.count} ${stone.shape.toLowerCase()}-cut ${selectedColor}s are of ${getSelectedQualityName(stone.name)} quality.',
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                           ),
                         ],
@@ -1552,8 +1470,102 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  String getSelectedQualityName(String stoneName) {
+    return _selectedStoneQualities[stoneName] ?? 'Standard';
+  }
+
+  Widget _buildQualitySelector(StoneConfig stone) {
+    final selectedQualityName = _selectedStoneQualities[stone.name];
+    List<StoneQuality> qualities = stone.availableQualities.isNotEmpty
+        ? stone.availableQualities
+        : StoneQuality.defaults;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Select The Quality Of Your ${stone.name}:',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: qualities.map((quality) {
+            final isSelected = selectedQualityName == quality.name;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedStoneQualities[stone.name] = quality.name;
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.white : Colors.grey.shade50,
+                    border: Border.all(
+                      color: isSelected ? Colors.black : Colors.grey.shade300,
+                      width: isSelected ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Column(
+                    children: [
+                      // Placeholder for gem image
+                      Container(
+                        width: 24,
+                        height: 24,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: _getColorFromName(_selectedStoneColors[stone.name] ?? 'Red'), 
+                          shape: BoxShape.rectangle,
+                          borderRadius: BorderRadius.circular(4)
+                        ),
+                      ),
+                      Text(
+                        quality.name,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? Colors.black : Colors.grey.shade700,
+                        ),
+                      ),
+                      if (quality.priceMultiplier > 1.0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '+${((quality.priceMultiplier - 1.0) * 100).toInt()}%',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w500
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildStoneColorGrid(StoneConfig stone) {
-    // Categorize colors
+    // strict categorization based on data model, falling back to all
+    // For now, if we want to display distinct categories, we should ideally have them in the data model.
+    // Since StoneConfig only has a single 'category' field for the slot itself (e.g. this slot is for Precious stones),
+    // but the availableColors might be mixed? 
+    // Actually, looking at the Diamondere screenshot, 'Diamonds', 'Precious', 'Semi-Precious' are HEADERS.
+    // The user might want to pick a Diamond OR a Ruby for the SAME slot.
+    // So we need to group the `availableColors` by their type.
+    
     final diamonds = <String>[];
     final precious = <String>[];
     final semiPrecious = <String>[];
@@ -1561,16 +1573,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     for (final color in stone.availableColors) {
       final lowerColor = color.toLowerCase();
-      if (lowerColor.contains('diamond')) {
+      // Improved categorization logic
+      if (lowerColor.contains('diamond') && !lowerColor.contains('lab')) {
         diamonds.add(color);
       } else if (lowerColor.contains('ruby') || lowerColor.contains('emerald') || lowerColor.contains('sapphire')) {
         precious.add(color);
-      } else if (lowerColor.contains('lab') || lowerColor.contains('created')) {
+      } else if (lowerColor.contains('lab') || lowerColor.contains('created') || lowerColor.contains('cz')) {
         labCreated.add(color);
       } else {
         semiPrecious.add(color);
       }
     }
+    
+    // ... continue strict rendering logic
 
     // If no categorization matches, show all in one grid
     if (diamonds.isEmpty && precious.isEmpty && semiPrecious.isEmpty && labCreated.isEmpty) {
@@ -2232,14 +2247,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Customized ${_getProductTypeName()} Details',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade800,
+                  Expanded(
+                    child: Text(
+                      'Customized ${_getProductTypeName()} Details',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade800,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Icon(
                     _isRingDetailsExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: Colors.grey.shade600,
@@ -2291,14 +2310,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Customized ${_getProductTypeName()} Summary',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade800,
+                  Expanded(
+                    child: Text(
+                      'Customized ${_getProductTypeName()} Summary',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade800,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Icon(
                     _isRingSummaryExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: Colors.grey.shade600,
@@ -2481,9 +2504,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${_getSizeLabelName()} Guide',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      '${_getSizeLabelName()} Guide',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
