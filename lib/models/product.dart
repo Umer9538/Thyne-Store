@@ -46,8 +46,9 @@ class Product {
   final double? minThickness;
   final double? maxThickness;
   // Price modifiers for customization options
-  final Map<String, double> metalPriceModifiers; // metal -> price modifier (e.g., "18K Gold" -> 5000)
-  final Map<String, double> platingPriceModifiers; // plating -> price modifier
+  final Map<String, double> metalPriceModifiers;
+  final Map<String, double> platingPriceModifiers;
+
   final double engravingPrice; // Price for adding engraving
   final DateTime createdAt;
 
@@ -238,9 +239,9 @@ class Product {
         );
         if (stone.name.isNotEmpty) {
           double stoneCost = stone.getPriceModifier(entry.value);
-          
+
           // Apply quality multiplier if selected
-          if (customization.stoneQualitySelections != null && 
+          if (customization.stoneQualitySelections != null &&
               customization.stoneQualitySelections!.containsKey(stone.name)) {
             final qualityName = customization.stoneQualitySelections![stone.name];
             final quality = stone.availableQualities.firstWhere(
@@ -258,14 +259,48 @@ class Product {
                // If stone has no specific color modifier, we might apply a general markup
                // based on the product price or a fixed amount per quality.
                // For this implementation, we'll assume the quality adds a % of the base product price
-               // allocated to stones, or similar. 
+               // allocated to stones, or similar.
                // SIMPLE APPROACH: Add a fixed cost if multiplier > 1
                if (quality.priceMultiplier > 1.0) {
                  totalPrice += (price * 0.1) * (quality.priceMultiplier - 1.0);
                }
             }
           }
-          
+
+          // Apply shape price modifier
+          if (customization.stoneShapeSelections != null &&
+              customization.stoneShapeSelections!.containsKey(stone.name)) {
+            final selectedShape = customization.stoneShapeSelections![stone.name];
+            final shapeModifier = stone.getShapePriceModifier(selectedShape!);
+            stoneCost += shapeModifier;
+          }
+
+          // Apply carat weight multiplier
+          if (customization.stoneCaratWeights != null &&
+              customization.stoneCaratWeights!.containsKey(stone.name)) {
+            final caratWeight = customization.stoneCaratWeights![stone.name]!;
+            final caratMultiplier = stone.getCaratMultiplier(caratWeight);
+            // Price increases with carat weight
+            if (stone.pricePerCarat != null) {
+              stoneCost += stone.pricePerCarat! * caratWeight * caratMultiplier;
+            } else {
+              // Apply multiplier to existing stone cost
+              stoneCost *= caratMultiplier;
+            }
+          }
+
+          // Apply diamond 4Cs grading multiplier
+          if (customization.stoneDiamondGrading != null &&
+              customization.stoneDiamondGrading!.containsKey(stone.name)) {
+            final grading = customization.stoneDiamondGrading![stone.name]!;
+            final gradingMultiplier = grading.calculateMultiplier(
+              colorMultipliers: stone.colorGradePriceModifiers ?? GradingPriceTable.colorMultipliers,
+              clarityMultipliers: stone.clarityPriceModifiers ?? GradingPriceTable.clarityMultipliers,
+              cutMultipliers: stone.cutGradePriceModifiers ?? GradingPriceTable.cutMultipliers,
+            );
+            stoneCost *= gradingMultiplier;
+          }
+
           totalPrice += stoneCost;
         }
       }

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/otp_service.dart';
 import '../services/storage_service.dart';
 import 'loyalty_provider.dart';
 
@@ -256,23 +257,29 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Send OTP to phone number
-  Future<bool> sendPhoneOTP(String phoneNumber) async {
+  /// Send OTP to phone number via Mtalkz
+  Future<bool> sendPhoneOTP(String phoneNumber, {OTPChannel channel = OTPChannel.sms}) async {
     _setLoading(true);
     _error = null;
 
     try {
-      // In production, this would call the actual API
-      // For now, we'll simulate the OTP sending
-      await Future.delayed(const Duration(seconds: 1));
+      final otpService = OTPService();
+      final response = await otpService.sendOTP(
+        phone: phoneNumber,
+        channel: channel,
+        purpose: 'login',
+      );
 
-      // Store phone number temporarily
-      await _storage.write(key: 'temp_phone', value: phoneNumber);
-
-      // Hardcoded OTP for development/testing: 950138
-      debugPrint('OTP sent to $phoneNumber');
-
-      return true;
+      if (response.success) {
+        // Store phone number temporarily
+        await _storage.write(key: 'temp_phone', value: phoneNumber);
+        debugPrint('OTP sent to ${response.maskedPhone} via ${response.channel}');
+        return true;
+      } else {
+        _error = response.message;
+        notifyListeners();
+        return false;
+      }
     } catch (e) {
       _error = 'Failed to send OTP. Please try again.';
       notifyListeners();
@@ -282,7 +289,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Verify phone OTP and login/register user
+  /// Verify phone OTP and login/register user via Mtalkz
   Future<bool> verifyPhoneOTP(
     String phoneNumber,
     String otp, {
@@ -293,10 +300,17 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
 
     try {
-      // Hardcoded OTP for development/testing: 950138
-      if (otp == '950138') {
-        // Check if user exists with this phone number
-        // If not, create new user
+      // Verify OTP with backend (Mtalkz)
+      final otpService = OTPService();
+      final verifyResponse = await otpService.verifyOTP(
+        phone: phoneNumber,
+        otp: otp,
+      );
+
+      if (verifyResponse.verified) {
+        // OTP verified successfully - create/login user
+        // In production, this would call a proper auth endpoint
+        // For now, we create a local user session
         final userData = {
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
           'phone': phoneNumber,
@@ -310,9 +324,9 @@ class AuthProvider extends ChangeNotifier {
 
         _user = User.fromJson(userData);
 
-        // Generate mock tokens
-        await _storage.write(key: 'auth_token', value: 'mock_token_${phoneNumber}');
-        await _storage.write(key: 'refresh_token', value: 'mock_refresh_${phoneNumber}');
+        // Generate tokens (in production, these would come from the auth endpoint)
+        await _storage.write(key: 'auth_token', value: 'token_${phoneNumber}_${DateTime.now().millisecondsSinceEpoch}');
+        await _storage.write(key: 'refresh_token', value: 'refresh_${phoneNumber}_${DateTime.now().millisecondsSinceEpoch}');
         await _storage.write(key: 'user_id', value: _user!.id);
 
         // Save user session
@@ -325,8 +339,7 @@ class AuthProvider extends ChangeNotifier {
         return true;
       }
 
-      // In production, verify OTP with backend
-      _error = 'Invalid OTP';
+      _error = verifyResponse.message.isNotEmpty ? verifyResponse.message : 'Invalid OTP';
       notifyListeners();
       return false;
     } catch (e) {

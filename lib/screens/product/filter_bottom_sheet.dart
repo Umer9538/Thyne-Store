@@ -1,62 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/product_provider.dart';
+import '../../models/filter_params.dart';
+import '../../config/filter_config.dart';
 import '../../utils/theme.dart';
 
+/// Refactored FilterBottomSheet using generic models
+/// Easy to extend with new filter types from backend
 class FilterBottomSheet extends StatefulWidget {
-  const FilterBottomSheet({super.key});
+  /// Optional initial filter params
+  final FilterParams? initialParams;
+
+  /// Optional filter configuration (can be loaded from backend)
+  final FilterConfig? config;
+
+  const FilterBottomSheet({
+    super.key,
+    this.initialParams,
+    this.config,
+  });
 
   @override
   State<FilterBottomSheet> createState() => _FilterBottomSheetState();
 }
 
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
-  RangeValues _priceRange = const RangeValues(0, 100000);
+  late FilterConfig _config;
+  late RangeValues _priceRange;
+  final Set<GenderType> _selectedGenders = {};
+  final Set<String> _selectedCategories = {};
   final Set<String> _selectedMetalTypes = {};
   final Set<String> _selectedStoneTypes = {};
-  final Set<String> _selectedGenders = {};
-  final Set<String> _selectedCategories = {};
   bool _inStockOnly = false;
   bool _initialized = false;
 
-  final List<String> _metalTypes = [
-    '18K White Gold',
-    '18K Yellow Gold',
-    '14K Rose Gold',
-    '14K White Gold',
-    '22K Yellow Gold',
-    'Platinum',
-    'Silver',
-  ];
-
-  final List<String> _stoneTypes = [
-    'Diamond',
-    'Lab Diamond',
-    'Emerald',
-    'Ruby',
-    'Pearl',
-    'Sapphire',
-  ];
-
-  final List<String> _genders = [
-    'Men',
-    'Women',
-    'Children',
-    'Unisex',
-  ];
-
-  final List<String> _categories = [
-    'Rings',
-    'Necklaces',
-    'Earrings',
-    'Bracelets',
-    'Pendants',
-    'Bangles',
-    'Chains',
-    'Watches',
-    'Cufflinks',
-    'Brooches',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _config = widget.config ?? FilterConfig.defaultConfig;
+    _priceRange = RangeValues(_config.minPriceLimit, _config.maxPriceLimit);
+  }
 
   @override
   void didChangeDependencies() {
@@ -68,19 +51,86 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   }
 
   void _initializeFromProvider() {
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    final provider = Provider.of<ProductProvider>(context, listen: false);
 
-    // Pre-select gender from provider
-    if (productProvider.selectedGender != null) {
-      _selectedGenders.add(productProvider.selectedGender!);
+    // Initialize from widget params first, then fall back to provider
+    if (widget.initialParams != null) {
+      _initializeFromParams(widget.initialParams!);
+      return;
+    }
+
+    // Pre-select gender from provider using GenderType
+    if (provider.selectedGender != null) {
+      final gender = GenderType.fromString(provider.selectedGender);
+      if (!gender.isAll) {
+        _selectedGenders.add(gender);
+      }
     }
 
     // Pre-select category from provider
-    if (productProvider.selectedCategory != null &&
-        productProvider.selectedCategory != 'All' &&
-        _categories.contains(productProvider.selectedCategory)) {
-      _selectedCategories.add(productProvider.selectedCategory!);
+    if (provider.selectedCategory != 'All') {
+      final providerCategory = provider.selectedCategory.toLowerCase();
+      for (var cat in _config.categories) {
+        if (cat.displayName.toLowerCase() == providerCategory) {
+          _selectedCategories.add(cat.displayName);
+          break;
+        }
+      }
     }
+
+    // Pre-select price range from provider
+    if (provider.minPrice != null || provider.maxPrice != null) {
+      _priceRange = RangeValues(
+        provider.minPrice ?? _config.minPriceLimit,
+        provider.maxPrice ?? _config.maxPriceLimit,
+      );
+    }
+  }
+
+  void _initializeFromParams(FilterParams params) {
+    if (!params.gender.isAll) {
+      _selectedGenders.add(params.gender);
+    }
+
+    if (params.category != null) {
+      _selectedCategories.add(params.category!);
+    }
+
+    if (params.minPrice != null || params.maxPrice != null) {
+      _priceRange = RangeValues(
+        params.minPrice ?? _config.minPriceLimit,
+        params.maxPrice ?? _config.maxPriceLimit,
+      );
+    }
+
+    _selectedMetalTypes.addAll(params.metalTypes);
+    _selectedStoneTypes.addAll(params.stoneTypes);
+    _inStockOnly = params.inStockOnly;
+  }
+
+  void _clearAll() {
+    setState(() {
+      _priceRange = RangeValues(_config.minPriceLimit, _config.maxPriceLimit);
+      _selectedGenders.clear();
+      _selectedCategories.clear();
+      _selectedMetalTypes.clear();
+      _selectedStoneTypes.clear();
+      _inStockOnly = false;
+    });
+  }
+
+  void _applyFilters() {
+    final filters = {
+      'minPrice': _priceRange.start,
+      'maxPrice': _priceRange.end,
+      'gender': _selectedGenders.map((g) => g.value).toList(),
+      'category': _selectedCategories.toList(),
+      'metalType': _selectedMetalTypes.toList(),
+      'stoneType': _selectedStoneTypes.toList(),
+      'inStock': _inStockOnly,
+    };
+    Provider.of<ProductProvider>(context, listen: false).applyFilters(filters);
+    Navigator.pop(context);
   }
 
   @override
@@ -93,314 +143,293 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       ),
       child: Column(
         children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Filters',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _priceRange = const RangeValues(0, 100000);
-                      _selectedMetalTypes.clear();
-                      _selectedStoneTypes.clear();
-                      _selectedGenders.clear();
-                      _selectedCategories.clear();
-                      _inStockOnly = false;
-                    });
-                  },
-                  child: const Text('Clear All'),
-                ),
-              ],
-            ),
-          ),
-
+          _buildHandle(),
+          _buildHeader(),
           const Divider(),
-
-          // Filter Options
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Price Range
-                  Text(
-                    'Price Range',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  RangeSlider(
-                    values: _priceRange,
-                    min: 0,
-                    max: 100000,
-                    divisions: 20,
-                    activeColor: AppTheme.primaryGold,
-                    labels: RangeLabels(
-                      '₹${_priceRange.start.round()}',
-                      '₹${_priceRange.end.round()}',
-                    ),
-                    onChanged: (values) {
-                      setState(() {
-                        _priceRange = values;
-                      });
-                    },
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('₹${_priceRange.start.round()}'),
-                      Text('₹${_priceRange.end.round()}'),
-                    ],
-                  ),
+                  _buildPriceRangeSection(),
                   const SizedBox(height: 24),
-
-                  // Gender Filter
-                  Text(
-                    'Gender',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _genders.map((gender) {
-                      final isSelected = _selectedGenders.contains(gender);
-                      IconData icon;
-                      switch (gender) {
-                        case 'Men':
-                          icon = Icons.man;
-                          break;
-                        case 'Women':
-                          icon = Icons.woman;
-                          break;
-                        case 'Children':
-                          icon = Icons.child_care;
-                          break;
-                        case 'Unisex':
-                          icon = Icons.people;
-                          break;
-                        default:
-                          icon = Icons.person;
-                      }
-                      return ChoiceChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              icon,
-                              size: 16,
-                              color: isSelected ? Colors.white : AppTheme.primaryGold,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(gender),
-                          ],
-                        ),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedGenders.add(gender);
-                            } else {
-                              _selectedGenders.remove(gender);
-                            }
-                          });
-                        },
-                        selectedColor: AppTheme.primaryGold,
-                        backgroundColor: Colors.grey.shade100,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.textPrimary,
-                          fontSize: 12,
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  _buildGenderSection(),
                   const SizedBox(height: 24),
-
-                  // Category Filter
-                  Text(
-                    'Category',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categories.map((category) {
-                      final isSelected = _selectedCategories.contains(category);
-                      return FilterChip(
-                        label: Text(category),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedCategories.add(category);
-                            } else {
-                              _selectedCategories.remove(category);
-                            }
-                          });
-                        },
-                        selectedColor: AppTheme.primaryGold.withOpacity(0.2),
-                        checkmarkColor: AppTheme.primaryGold,
-                      );
-                    }).toList(),
-                  ),
+                  _buildCategorySection(),
                   const SizedBox(height: 24),
-
-                  // Metal Type
-                  Text(
-                    'Metal Type',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _metalTypes.map((metal) {
-                      final isSelected = _selectedMetalTypes.contains(metal);
-                      return FilterChip(
-                        label: Text(metal),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedMetalTypes.add(metal);
-                            } else {
-                              _selectedMetalTypes.remove(metal);
-                            }
-                          });
-                        },
-                        selectedColor: AppTheme.primaryGold.withOpacity(0.2),
-                        checkmarkColor: AppTheme.primaryGold,
-                      );
-                    }).toList(),
-                  ),
+                  _buildMetalTypeSection(),
                   const SizedBox(height: 24),
-
-                  // Stone Type
-                  Text(
-                    'Stone Type',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _stoneTypes.map((stone) {
-                      final isSelected = _selectedStoneTypes.contains(stone);
-                      return FilterChip(
-                        label: Text(stone),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedStoneTypes.add(stone);
-                            } else {
-                              _selectedStoneTypes.remove(stone);
-                            }
-                          });
-                        },
-                        selectedColor: AppTheme.secondaryRoseGold.withOpacity(0.2),
-                        checkmarkColor: AppTheme.secondaryRoseGold,
-                      );
-                    }).toList(),
-                  ),
+                  _buildStoneTypeSection(),
                   const SizedBox(height: 24),
-
-                  // Availability
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    child: SwitchListTile(
-                      title: const Text('In Stock Only'),
-                      subtitle: const Text('Show only available products'),
-                      value: _inStockOnly,
-                      activeColor: AppTheme.primaryGold,
-                      onChanged: (value) {
-                        setState(() {
-                          _inStockOnly = value;
-                        });
-                      },
-                    ),
-                  ),
+                  _buildAvailabilitySection(),
                 ],
               ),
             ),
           ),
+          _buildActionButtons(),
+        ],
+      ),
+    );
+  }
 
-          // Apply Button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+  Widget _buildHandle() {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      width: 40,
+      height: 4,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Filters',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          TextButton(
+            onPressed: _clearAll,
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+    );
+  }
+
+  Widget _buildPriceRangeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Price Range'),
+        const SizedBox(height: 16),
+        RangeSlider(
+          values: _priceRange,
+          min: _config.minPriceLimit,
+          max: _config.maxPriceLimit,
+          divisions: _config.priceDivisions,
+          activeColor: AppTheme.primaryGold,
+          labels: RangeLabels(
+            '₹${_priceRange.start.round()}',
+            '₹${_priceRange.end.round()}',
+          ),
+          onChanged: (values) => setState(() => _priceRange = values),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('₹${_priceRange.start.round()}'),
+            Text('₹${_priceRange.end.round()}'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenderSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Gender'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _config.genders.map((gender) {
+            final isSelected = _selectedGenders.contains(gender);
+            return ChoiceChip(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (gender.icon != null) ...[
+                    Icon(
+                      gender.icon,
+                      size: 16,
+                      color: isSelected ? Colors.white : AppTheme.primaryGold,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(gender.displayName),
+                ],
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedGenders.add(gender);
+                  } else {
+                    _selectedGenders.remove(gender);
+                  }
+                });
+              },
+              selectedColor: AppTheme.primaryGold,
+              backgroundColor: Colors.grey.shade100,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.textPrimary,
+                fontSize: 12,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategorySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Category'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _config.categories.map((category) {
+            final isSelected = _selectedCategories.contains(category.displayName);
+            return FilterChip(
+              label: Text(category.displayName),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedCategories.add(category.displayName);
+                  } else {
+                    _selectedCategories.remove(category.displayName);
+                  }
+                });
+              },
+              selectedColor: AppTheme.primaryGold.withValues(alpha: 0.2),
+              checkmarkColor: AppTheme.primaryGold,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetalTypeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Metal Type'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _config.metalTypes.map((metal) {
+            final isSelected = _selectedMetalTypes.contains(metal.displayName);
+            return FilterChip(
+              label: Text(metal.displayName),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedMetalTypes.add(metal.displayName);
+                  } else {
+                    _selectedMetalTypes.remove(metal.displayName);
+                  }
+                });
+              },
+              selectedColor: AppTheme.primaryGold.withValues(alpha: 0.2),
+              checkmarkColor: AppTheme.primaryGold,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStoneTypeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Stone Type'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _config.stoneTypes.map((stone) {
+            final isSelected = _selectedStoneTypes.contains(stone.displayName);
+            return FilterChip(
+              label: Text(stone.displayName),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _selectedStoneTypes.add(stone.displayName);
+                  } else {
+                    _selectedStoneTypes.remove(stone.displayName);
+                  }
+                });
+              },
+              selectedColor: AppTheme.secondaryRoseGold.withValues(alpha: 0.2),
+              checkmarkColor: AppTheme.secondaryRoseGold,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvailabilitySection() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: SwitchListTile(
+        title: const Text('In Stock Only'),
+        subtitle: const Text('Show only available products'),
+        value: _inStockOnly,
+        activeColor: AppTheme.primaryGold,
+        onChanged: (value) => setState(() => _inStockOnly = value),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final filters = {
-                        'minPrice': _priceRange.start,
-                        'maxPrice': _priceRange.end,
-                        'gender': _selectedGenders.toList(),
-                        'category': _selectedCategories.toList(),
-                        'metalType': _selectedMetalTypes.toList(),
-                        'stoneType': _selectedStoneTypes.toList(),
-                        'inStock': _inStockOnly,
-                      };
-                      Provider.of<ProductProvider>(context, listen: false)
-                          .applyFilters(filters);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Apply Filters'),
-                  ),
-                ),
-              ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _applyFilters,
+              child: const Text('Apply Filters'),
             ),
           ),
         ],

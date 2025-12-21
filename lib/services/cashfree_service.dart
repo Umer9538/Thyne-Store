@@ -7,6 +7,7 @@ import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart
 import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
 import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/api_config.dart';
 
 class CashfreeService {
@@ -138,6 +139,38 @@ class CashfreeService {
         CFErrorResponse('INIT_ERROR', e.toString(), 'payment', ''),
         orderId,
       );
+    }
+  }
+
+  /// Start payment in external browser (bypasses SDK trust check)
+  /// Use this for development/testing when app is not installed from Play Store
+  Future<bool> startPaymentInBrowser({
+    required String paymentSessionId,
+    required CFEnvironment environment,
+  }) async {
+    try {
+      // Construct the Cashfree payment URL
+      final baseUrl = environment == CFEnvironment.PRODUCTION
+          ? 'https://payments.cashfree.com/order'
+          : 'https://payments-test.cashfree.com/order';
+
+      final paymentUrl = Uri.parse('$baseUrl/#$paymentSessionId');
+
+      print('🌐 Opening Cashfree payment in browser: $paymentUrl');
+
+      if (await canLaunchUrl(paymentUrl)) {
+        await launchUrl(
+          paymentUrl,
+          mode: LaunchMode.externalApplication,
+        );
+        return true;
+      } else {
+        print('❌ Could not launch payment URL');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error launching payment URL: $e');
+      return false;
     }
   }
 

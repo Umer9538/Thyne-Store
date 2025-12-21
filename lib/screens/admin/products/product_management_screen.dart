@@ -417,33 +417,92 @@ class _BulkUploadDialogState extends State<BulkUploadDialog> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.blue.shade200),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.blue.shade700, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'CSV Format Requirements',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.blue.shade700, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          'CSV Format Requirements',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Required columns:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Required columns: name, description, price, category, subcategory, metalType, stockQuantity, images\n'
-                    'Optional columns: originalPrice, stoneType, weight, size, tags, isAvailable, isFeatured\n'
-                    'Use semicolon (;) to separate multiple images and tags.\n\n'
-                    'Example CSV format:\n'
-                    'name,description,price,category,subcategory,metalType,stockQuantity,images\n'
-                    'Gold Ring,Beautiful gold ring,25000,Rings,Wedding,Gold,10,image1.jpg;image2.jpg',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ],
+                    ),
+                    const Text(
+                      'name, description, price, category, subcategory, metalType, stockQuantity, images',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Optional columns:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    const Text(
+                      '• originalPrice, stoneType, weight, size\n'
+                      '• stockType: stocked (default) or made_to_order\n'
+                      '• tags, gender: women, men, kids, inclusive\n'
+                      '• isAvailable, isFeatured, isNewArrival: true/false\n'
+                      '• videos, availableSizes, availableMetals\n'
+                      '• engravingEnabled: true/false, engravingPrice',
+                      style: TextStyle(fontSize: 11, height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Multi-value fields (use semicolon ;):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    const Text(
+                      'images, videos, tags, gender, availableSizes, availableMetals',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Example:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.blue.shade100),
+                      ),
+                      child: const Text(
+                        'name,description,price,category,subcategory,metalType,stockQuantity,stockType,gender,tags,images\n'
+                        'Gold Ring,18K gold ring,25000,Rings,Wedding,18K Gold,10,stocked,women;men,wedding;luxury,img1.jpg;img2.jpg',
+                        style: TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),

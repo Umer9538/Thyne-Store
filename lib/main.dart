@@ -196,7 +196,7 @@ class MyApp extends StatelessWidget {
               return MaterialApp(
                 title: 'Thyne Jewels',
                 debugShowCheckedModeBanner: false,
-                theme: ThyneTheme.lightTheme(), // Use new Thyne theme
+                theme: ThyneTheme.lightTheme(),
                 // Enable responsive behavior
                 builder: (context, child) {
                   return MediaQuery(

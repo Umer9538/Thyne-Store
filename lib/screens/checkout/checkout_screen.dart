@@ -513,10 +513,14 @@ return Row(
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Total',
-              style: Theme.of(context).textTheme.headlineSmall,
+            Flexible(
+              child: Text(
+                'Total',
+                style: Theme.of(context).textTheme.headlineSmall,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 8),
             Text(
               '₹${cartProvider.total.toStringAsFixed(0)}',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -635,7 +639,13 @@ return Row(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             value,
             style: TextStyle(
@@ -763,14 +773,39 @@ return Row(
       // Step 4: Start Cashfree payment
       if (!mounted) return;
 
-      await _cashfreeService.startPayment(
-        context: context,
-        orderId: cashfreeOrder.orderId, // Use the order ID from Cashfree response
+      // Use browser-based checkout for development (bypasses Play Store trust check)
+      final browserLaunched = await _cashfreeService.startPaymentInBrowser(
         paymentSessionId: cashfreeOrder.paymentSessionId,
         environment: environment,
-        onSuccess: (paymentOrderId) async {
-          // Step 5: Verify payment
-          final verifyResponse = await _cashfreeService.verifyPayment(paymentOrderId);
+      );
+
+      if (browserLaunched && mounted) {
+        // Show dialog to verify payment after user returns from browser
+        final shouldVerify = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Complete Payment'),
+            content: const Text(
+              'Complete your payment in the browser.\n\n'
+              'After payment, tap "Verify Payment" to confirm your order.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Verify Payment'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldVerify == true && mounted) {
+          // Verify payment
+          final verifyResponse = await _cashfreeService.verifyPayment(cashfreeOrder.orderId);
 
           if (verifyResponse?.success == true) {
             // Payment successful - clear cart and navigate
@@ -790,33 +825,74 @@ return Row(
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(verifyResponse?.message ?? 'Payment verification failed'),
+                  content: Text(verifyResponse?.message ?? 'Payment not completed or verification failed'),
                   backgroundColor: Colors.orange,
                 ),
               );
             }
           }
+        }
 
-          if (mounted) {
-            setState(() {
-              _isProcessingPayment = false;
-            });
-          }
-        },
-        onFailure: (CFErrorResponse error, String orderId) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Payment failed: ${error.getMessage()}'),
-                backgroundColor: AppTheme.errorRed,
-              ),
-            );
-            setState(() {
-              _isProcessingPayment = false;
-            });
-          }
-        },
-      );
+        if (mounted) {
+          setState(() {
+            _isProcessingPayment = false;
+          });
+        }
+      } else {
+        // Browser launch failed, try SDK as fallback
+        await _cashfreeService.startPayment(
+          context: context,
+          orderId: cashfreeOrder.orderId,
+          paymentSessionId: cashfreeOrder.paymentSessionId,
+          environment: environment,
+          onSuccess: (paymentOrderId) async {
+            final verifyResponse = await _cashfreeService.verifyPayment(paymentOrderId);
+
+            if (verifyResponse?.success == true) {
+              cartProvider.clearCart();
+
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrderSuccessScreen(
+                      order: order,
+                    ),
+                  ),
+                );
+              }
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(verifyResponse?.message ?? 'Payment verification failed'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            }
+
+            if (mounted) {
+              setState(() {
+                _isProcessingPayment = false;
+              });
+            }
+          },
+          onFailure: (CFErrorResponse error, String orderId) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Payment failed: ${error.getMessage()}'),
+                  backgroundColor: AppTheme.errorRed,
+                ),
+              );
+              setState(() {
+                _isProcessingPayment = false;
+              });
+            }
+          },
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

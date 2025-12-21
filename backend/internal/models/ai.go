@@ -129,6 +129,52 @@ type IntentAnalysisResponse struct {
 	IsProfileView    bool       `json:"isProfileView"`
 }
 
+// ChatGenerateRequest is the request for generating a chat response
+type ChatGenerateRequest struct {
+	UserMessage    string `json:"userMessage" validate:"required,min=1"`
+	Type           string `json:"type"` // "product_recommendation" or "general"
+	ProductContext string `json:"productContext,omitempty"` // Product list for recommendations
+}
+
+// ChatGenerateResponse is the response from chat generation
+type ChatGenerateResponse struct {
+	Message string `json:"message"`
+	Success bool   `json:"success"`
+}
+
+// ChatFullRequest is the request for combined intent analysis and response
+type ChatFullRequest struct {
+	Message string `json:"message" validate:"required,min=1"`
+}
+
+// ChatFullResponse is the response for combined intent analysis and response
+type ChatFullResponse struct {
+	Message         string   `json:"message"`
+	Intent          string   `json:"intent"` // "search" or "general"
+	Confidence      float64  `json:"confidence"`
+	Category        *string  `json:"category,omitempty"`
+	MinPrice        *float64 `json:"minPrice,omitempty"`
+	MaxPrice        *float64 `json:"maxPrice,omitempty"`
+	MetalType       *string  `json:"metalType,omitempty"`
+	Success         bool     `json:"success"`
+	// Token tracking
+	TokensUsed      int64    `json:"tokensUsed"`
+	TokensRemaining int64    `json:"tokensRemaining"`
+	TokenLimit      int64    `json:"tokenLimit"`
+}
+
+// ChatGenerateResponse with token info
+type ChatGenerateResponseWithTokens struct {
+	Message         string `json:"message"`
+	Success         bool   `json:"success"`
+	TokensUsed      int64  `json:"tokensUsed"`
+	TokensRemaining int64  `json:"tokensRemaining"`
+	TokenLimit      int64  `json:"tokenLimit"`
+}
+
+// Estimated tokens per chat message (OpenAI GPT-4o-mini)
+const EstimatedTokensPerChat int64 = 500
+
 // UnifiedAIRequest is the request for the unified AI endpoint
 type UnifiedAIRequest struct {
 	Prompt string `json:"prompt" validate:"required,min=3"`

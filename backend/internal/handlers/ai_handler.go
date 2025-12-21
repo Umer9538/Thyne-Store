@@ -52,6 +52,51 @@ func (h *AIHandler) AnalyzeIntent(c *gin.Context) {
 	})
 }
 
+// GenerateChatResponse generates a chat response using OpenAI
+// POST /api/v1/ai/chat/generate
+func (h *AIHandler) GenerateChatResponse(c *gin.Context) {
+	var req models.ChatGenerateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	response, err := h.aiService.GenerateChatResponse(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": response.Success,
+		"data":    response,
+	})
+}
+
+// AnalyzeAndRespond combines intent analysis and response generation
+// POST /api/v1/ai/chat/full
+func (h *AIHandler) AnalyzeAndRespond(c *gin.Context) {
+	var req models.ChatFullRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get user ID if available (optional - for token tracking)
+	userID, _ := h.getUserID(c)
+
+	response, err := h.aiService.AnalyzeAndRespond(c.Request.Context(), &req, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": response.Success,
+		"data":    response,
+	})
+}
+
 // ==================== AI Creations ====================
 
 // SaveCreation saves a new AI creation

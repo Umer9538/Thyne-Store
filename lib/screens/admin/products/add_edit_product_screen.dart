@@ -699,22 +699,57 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Only show Stone Type dropdown when no Stone Configuration is set
+                  // Otherwise, stoneType is auto-derived from Stone Configuration
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedStoneType,
-                      decoration: _inputDecoration('Stone Type'),
-                      items: ['Diamond', 'Ruby', 'Emerald', 'Sapphire', 'Pearl', 'None']
-                          .map((stone) => DropdownMenuItem(
-                                value: stone,
-                                child: Text(stone),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedStoneType = value!;
-                        });
-                      },
-                    ),
+                    child: _stones.isEmpty
+                        ? DropdownButtonFormField<String>(
+                            value: _selectedStoneType,
+                            decoration: _inputDecoration('Stone Type'),
+                            items: ['Diamond', 'Ruby', 'Emerald', 'Sapphire', 'Pearl', 'None']
+                                .map((stone) => DropdownMenuItem(
+                                      value: stone,
+                                      child: Text(stone),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedStoneType = value!;
+                              });
+                            },
+                          )
+                        : Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade400),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.grey.shade100,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Stone Type',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _stones.first.name,
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'Auto-set from Stone Configuration',
+                                  child: Icon(Icons.auto_awesome, size: 16, color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -1793,16 +1828,44 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       }
     }
 
+    // Include custom metals that are not in store settings
+    final customMetals = _availableMetals.where((m) => !allMetalOptions.contains(m)).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text('Available Metals', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const Spacer(),
+            const Expanded(
+              child: Text('Available Metals', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold, size: 20),
+              tooltip: 'Add Custom Metal',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _showAddCustomOptionDialog(
+                title: 'Add Custom Metal',
+                hint: 'e.g., Titanium - Grade 5',
+                onAdd: (value) {
+                  setState(() {
+                    if (!_availableMetals.contains(value)) {
+                      _availableMetals.add(value);
+                      _metalPriceModifiers[value] = 0.0;
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 4),
             TextButton.icon(
               icon: const Icon(Icons.select_all, size: 16),
               label: const Text('Select All', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               onPressed: () {
                 setState(() {
                   _availableMetals = List.from(allMetalOptions);
@@ -1818,38 +1881,72 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: allMetalOptions.map((metal) {
-            final isSelected = _availableMetals.contains(metal);
-            return FilterChip(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(metal),
-                  if (isSelected && (_metalPriceModifiers[metal] ?? 0) > 0) ...[
+          children: [
+            ...allMetalOptions.map((metal) {
+              final isSelected = _availableMetals.contains(metal);
+              return FilterChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(metal),
+                    if (isSelected && (_metalPriceModifiers[metal] ?? 0) > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '+₹${_metalPriceModifiers[metal]!.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                      ),
+                    ],
+                  ],
+                ),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _availableMetals.add(metal);
+                      _metalPriceModifiers[metal] = 0.0;
+                    } else {
+                      _availableMetals.remove(metal);
+                      _metalPriceModifiers.remove(metal);
+                    }
+                  });
+                },
+                selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+                checkmarkColor: AppTheme.primaryGold,
+              );
+            }),
+            // Custom metals (not from store settings)
+            ...customMetals.map((metal) {
+              return FilterChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(metal),
+                    if ((_metalPriceModifiers[metal] ?? 0) > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '+₹${_metalPriceModifiers[metal]!.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                      ),
+                    ],
                     const SizedBox(width: 4),
-                    Text(
-                      '+₹${_metalPriceModifiers[metal]!.toStringAsFixed(0)}',
-                      style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _availableMetals.remove(metal);
+                          _metalPriceModifiers.remove(metal);
+                        });
+                      },
+                      child: Icon(Icons.close, size: 14, color: Colors.grey.shade600),
                     ),
                   ],
-                ],
-              ),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _availableMetals.add(metal);
-                    _metalPriceModifiers[metal] = 0.0;
-                  } else {
-                    _availableMetals.remove(metal);
-                    _metalPriceModifiers.remove(metal);
-                  }
-                });
-              },
-              selectedColor: AppTheme.primaryGold.withOpacity(0.3),
-              checkmarkColor: AppTheme.primaryGold,
-            );
-          }).toList(),
+                ),
+                selected: true,
+                onSelected: (_) {},
+                selectedColor: Colors.blue.shade100,
+                checkmarkColor: Colors.blue,
+              );
+            }),
+          ],
         ),
         if (_availableMetals.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -1874,16 +1971,46 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   }
 
   Widget _buildPlatingSelectionFromSettings(StoreSettings settings) {
+    // Get store plating color names
+    final storePlatingNames = settings.platingColors.map((c) => c.name).toList();
+    // Include custom plating colors that are not in store settings
+    final customPlatingColors = _availablePlatingColors.where((c) => !storePlatingNames.contains(c)).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text('Plating Colors', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const Spacer(),
+            const Expanded(
+              child: Text('Plating Colors', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold, size: 20),
+              tooltip: 'Add Custom Plating Color',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _showAddCustomOptionDialog(
+                title: 'Add Custom Plating Color',
+                hint: 'e.g., Gunmetal, Two-Tone',
+                onAdd: (value) {
+                  setState(() {
+                    if (!_availablePlatingColors.contains(value)) {
+                      _availablePlatingColors.add(value);
+                      _platingPriceModifiers[value] = 0.0;
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 4),
             TextButton.icon(
               icon: const Icon(Icons.select_all, size: 16),
               label: const Text('Select All', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               onPressed: () {
                 setState(() {
                   _availablePlatingColors = settings.platingColors.map((c) => c.name).toList();
@@ -1899,49 +2026,83 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: settings.platingColors.map((color) {
-            final isSelected = _availablePlatingColors.contains(color.name);
-            return FilterChip(
-              avatar: color.hexColor != null
-                  ? Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: _hexToColor(color.hexColor!),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade400, width: 0.5),
+          children: [
+            ...settings.platingColors.map((color) {
+              final isSelected = _availablePlatingColors.contains(color.name);
+              return FilterChip(
+                avatar: color.hexColor != null
+                    ? Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: _hexToColor(color.hexColor!),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey.shade400, width: 0.5),
+                        ),
+                      )
+                    : null,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(color.name),
+                    if (isSelected && (_platingPriceModifiers[color.name] ?? 0) > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '+₹${_platingPriceModifiers[color.name]!.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 10, color: Colors.green.shade700),
                       ),
-                    )
-                  : null,
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(color.name),
-                  if (isSelected && (_platingPriceModifiers[color.name] ?? 0) > 0) ...[
+                    ],
+                  ],
+                ),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _availablePlatingColors.add(color.name);
+                      _platingPriceModifiers[color.name] = 0.0;
+                    } else {
+                      _availablePlatingColors.remove(color.name);
+                      _platingPriceModifiers.remove(color.name);
+                    }
+                  });
+                },
+                selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+                checkmarkColor: AppTheme.primaryGold,
+              );
+            }),
+            // Custom plating colors (not from store settings)
+            ...customPlatingColors.map((color) {
+              return FilterChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(color),
+                    if ((_platingPriceModifiers[color] ?? 0) > 0) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '+₹${_platingPriceModifiers[color]!.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                      ),
+                    ],
                     const SizedBox(width: 4),
-                    Text(
-                      '+₹${_platingPriceModifiers[color.name]!.toStringAsFixed(0)}',
-                      style: TextStyle(fontSize: 10, color: Colors.green.shade700),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _availablePlatingColors.remove(color);
+                          _platingPriceModifiers.remove(color);
+                        });
+                      },
+                      child: Icon(Icons.close, size: 14, color: Colors.grey.shade600),
                     ),
                   ],
-                ],
-              ),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _availablePlatingColors.add(color.name);
-                    _platingPriceModifiers[color.name] = 0.0;
-                  } else {
-                    _availablePlatingColors.remove(color.name);
-                    _platingPriceModifiers.remove(color.name);
-                  }
-                });
-              },
-              selectedColor: AppTheme.primaryGold.withOpacity(0.3),
-              checkmarkColor: AppTheme.primaryGold,
-            );
-          }).toList(),
+                ),
+                selected: true,
+                onSelected: (_) {},
+                selectedColor: Colors.blue.shade100,
+                checkmarkColor: Colors.blue,
+              );
+            }),
+          ],
         ),
         if (_availablePlatingColors.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -1997,38 +2158,74 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       orElse: () => settings.sizeOptions.isNotEmpty ? settings.sizeOptions.first : SizeOption(category: 'Ring', sizes: []),
     );
 
+    // Get store size values for the current category
+    final storeSizeValues = sizeOption.sizes.map((s) => s.value).toList();
+    // Include custom sizes that are not in store settings
+    final customSizes = _availableSizes.where((s) => !storeSizeValues.contains(s)).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             Text('Available Sizes ($sizeCategory)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const Spacer(),
-            // Size category selector
-            DropdownButton<String>(
-              value: sizeCategory,
-              isDense: true,
-              underline: const SizedBox(),
-              items: settings.sizeOptions.map((opt) => DropdownMenuItem(
-                value: opt.category,
-                child: Text(opt.category, style: const TextStyle(fontSize: 12)),
-              )).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _availableSizes.clear(); // Clear when changing category
-                  });
-                }
-              },
-            ),
-            TextButton.icon(
-              icon: const Icon(Icons.select_all, size: 16),
-              label: const Text('All', style: TextStyle(fontSize: 12)),
-              onPressed: () {
-                setState(() {
-                  _availableSizes = sizeOption.sizes.map((s) => s.value).toList();
-                });
-              },
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Size category selector
+                DropdownButton<String>(
+                  value: sizeCategory,
+                  isDense: true,
+                  underline: const SizedBox(),
+                  items: settings.sizeOptions.map((opt) => DropdownMenuItem(
+                    value: opt.category,
+                    child: Text(opt.category, style: const TextStyle(fontSize: 12)),
+                  )).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _availableSizes.clear(); // Clear when changing category
+                      });
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle, color: AppTheme.primaryGold, size: 20),
+                  tooltip: 'Add Custom Size',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _showAddCustomOptionDialog(
+                    title: 'Add Custom Size',
+                    hint: 'e.g., US 15, XXL, 24 inch',
+                    onAdd: (value) {
+                      setState(() {
+                        if (!_availableSizes.contains(value)) {
+                          _availableSizes.add(value);
+                        }
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  icon: const Icon(Icons.select_all, size: 16),
+                  label: const Text('All', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _availableSizes = sizeOption.sizes.map((s) => s.value).toList();
+                    });
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -2036,24 +2233,50 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: sizeOption.sizes.map((size) {
-            final isSelected = _availableSizes.contains(size.value);
-            return FilterChip(
-              label: Text(size.name),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _availableSizes.add(size.value);
-                  } else {
-                    _availableSizes.remove(size.value);
-                  }
-                });
-              },
-              selectedColor: AppTheme.primaryGold.withOpacity(0.3),
-              checkmarkColor: AppTheme.primaryGold,
-            );
-          }).toList(),
+          children: [
+            ...sizeOption.sizes.map((size) {
+              final isSelected = _availableSizes.contains(size.value);
+              return FilterChip(
+                label: Text(size.name),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _availableSizes.add(size.value);
+                    } else {
+                      _availableSizes.remove(size.value);
+                    }
+                  });
+                },
+                selectedColor: AppTheme.primaryGold.withOpacity(0.3),
+                checkmarkColor: AppTheme.primaryGold,
+              );
+            }),
+            // Custom sizes (not from store settings)
+            ...customSizes.map((size) {
+              return FilterChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(size),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _availableSizes.remove(size);
+                        });
+                      },
+                      child: Icon(Icons.close, size: 14, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+                selected: true,
+                onSelected: (_) {},
+                selectedColor: Colors.blue.shade100,
+                checkmarkColor: Colors.blue,
+              );
+            }),
+          ],
         ),
       ],
     );
@@ -2459,6 +2682,56 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     );
   }
 
+  void _showAddCustomOptionDialog({
+    required String title,
+    required String hint,
+    required Function(String) onAdd,
+  }) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: 'Custom Option',
+            hintText: hint,
+            border: const OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.words,
+          autofocus: true,
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              onAdd(value.trim());
+              Navigator.pop(context);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                onAdd(value);
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGold,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddStoneDialog() {
     final nameController = TextEditingController();
     final shapeController = TextEditingController();
@@ -2725,7 +2998,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           'category': categoryName,
           'subcategory': _selectedSubcategory,
           'metalType': _selectedMetalType,
-          'stoneType': _selectedStoneType,
+          // Auto-derive stoneType from Stone Configuration if available
+          'stoneType': _stones.isNotEmpty ? _stones.first.name : _selectedStoneType,
           'material': _materialController.text,
           'weight': _weightController.text.isNotEmpty ? _parseNullableDouble(_weightController.text) : null,
           'size': _dimensionsController.text,

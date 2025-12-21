@@ -24,6 +24,22 @@ func AuthRequired(authService services.AuthService) gin.HandlerFunc {
 			return
 		}
 
+		// DEVELOPMENT: Accept mock tokens temporarily
+		if strings.HasPrefix(token, "mock_token_") {
+			// Extract phone from mock token (format: mock_token_+92312757...)
+			phone := strings.TrimPrefix(token, "mock_token_")
+
+			// Create a mock user context for development
+			c.Set("user", &models.User{
+				Phone: phone,
+				Name:  "Mock User",
+				Email: "mock@test.com",
+			})
+			c.Set("userID", "68d5661528b380947997840f") // Use test user ID
+			c.Next()
+			return
+		}
+
 		user, err := authService.ValidateToken(token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -47,6 +63,15 @@ func OptionalAuth(authService services.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := extractToken(c)
 		if token != "" {
+			// DEVELOPMENT: Accept mock tokens temporarily
+			if strings.HasPrefix(token, "mock_token_") {
+				phone := strings.TrimPrefix(token, "mock_token_")
+				c.Set("user", &models.User{Phone: phone, Name: "Mock User", Email: "mock@test.com"})
+				c.Set("userID", "68d5661528b380947997840f") // Use test user ID
+				c.Next()
+				return
+			}
+
 			user, err := authService.ValidateToken(token)
 			if err == nil {
 				// Set user in context if token is valid

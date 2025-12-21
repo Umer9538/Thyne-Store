@@ -111,10 +111,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Order Status',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Flexible(
+                  child: Text(
+                    'Order Status',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -138,9 +142,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 children: [
                   const Icon(Icons.local_shipping, size: 20, color: AppTheme.textSecondary),
                   const SizedBox(width: 8),
-                  Text(
-                    'Tracking: ${widget.order.trackingNumber}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  Expanded(
+                    child: Text(
+                      'Tracking: ${widget.order.trackingNumber}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.copy, size: 18),
@@ -435,12 +442,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: isTotal
-                ? Theme.of(context).textTheme.titleMedium
-                : Theme.of(context).textTheme.bodyMedium,
+          Flexible(
+            child: Text(
+              label,
+              style: isTotal
+                  ? Theme.of(context).textTheme.titleMedium
+                  : Theme.of(context).textTheme.bodyMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          const SizedBox(width: 8),
           Text(
             '\$${amount.abs().toStringAsFixed(2)}',
             style: TextStyle(

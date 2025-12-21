@@ -4,7 +4,6 @@ import '../../providers/product_provider.dart';
 import '../../providers/wishlist_provider.dart';
 import '../../utils/theme.dart';
 import '../../utils/responsive.dart';
-import '../../utils/mock_data.dart';
 import '../../widgets/product_card.dart';
 import '../../constants/sort_options.dart';
 import '../../constants/filter_options.dart';
@@ -15,6 +14,7 @@ import 'filter_bottom_sheet.dart';
 
 class ProductListScreen extends StatefulWidget {
   final String? category;
+  final String? subcategory; // Subcategory filter (e.g., 'Stud Earrings', 'Hoop Earrings')
   final String? styleTag;  // Style tag for filtering (e.g., 'traditional', 'contemporary')
   final bool isEmbedded;
   final int? minPrice;
@@ -25,6 +25,7 @@ class ProductListScreen extends StatefulWidget {
   const ProductListScreen({
     super.key,
     this.category,
+    this.subcategory,
     this.styleTag,
     this.isEmbedded = false,
     this.minPrice,
@@ -45,8 +46,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final productProvider = Provider.of<ProductProvider>(context, listen: false);
+
+      // Ensure products are loaded before applying filters
+      if (productProvider.products.isEmpty) {
+        await productProvider.loadProducts();
+      }
 
       // IMPORTANT: Clear all previous filters before applying new ones
       // This prevents stale filter state from previous navigations
@@ -64,7 +70,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
         // Also apply gender filter if provided with style
         if (widget.gender != null) {
           productProvider.filterByGender(widget.gender!);
-          setState(() => _selectedGender = GenderFilter.fromValue(widget.gender));
+          if (mounted) {
+            setState(() => _selectedGender = GenderFilter.fromValue(widget.gender));
+          }
         }
         return; // Style tag filter is standalone
       }
@@ -74,9 +82,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
         productProvider.filterByCategory(widget.category!);
       }
 
+      // Apply subcategory filter
+      if (widget.subcategory != null) {
+        productProvider.filterBySubcategory(widget.subcategory!);
+      }
+
       // Apply gender filter
       if (widget.gender != null) {
-        setState(() => _selectedGender = GenderFilter.fromValue(widget.gender));
+        if (mounted) {
+          setState(() => _selectedGender = GenderFilter.fromValue(widget.gender));
+        }
         productProvider.filterByGender(widget.gender!);
       }
 
@@ -148,35 +163,48 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
     final body = Column(
         children: [
-          // Category Chips
+          // Category Chips - get unique categories from products
           if (widget.category == null)
-            Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: MockData.categories.length,
-                itemBuilder: (context, index) {
-                  final category = MockData.categories[index];
-                  final isSelected = productProvider.selectedCategory == category;
+            Builder(
+              builder: (context) {
+                // Extract unique categories from all products
+                final categories = ['All', ...productProvider.allProducts
+                    .map((p) => p.category)
+                    .where((c) => c.isNotEmpty)
+                    .toSet()
+                    .toList()];
 
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(category),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        productProvider.filterByCategory(category);
-                      },
-                      selectedColor: AppTheme.primaryGold,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AppTheme.textPrimary,
-                      ),
-                    ),
-                  );
-                },
-              ),
+                if (categories.length <= 1) return const SizedBox.shrink();
+
+                return Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final category = categories[index];
+                      final isSelected = productProvider.selectedCategory == category;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            productProvider.filterByCategory(category);
+                          },
+                          selectedColor: AppTheme.primaryGold,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
 
           // Gender Filter Chips
@@ -313,6 +341,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
       // Get display name for style tag
       final style = ProductStyles.getBySlug(widget.styleTag!);
       appBarTitle = style?.name ?? widget.styleTag!;
+    } else if (widget.subcategory != null) {
+      // Show subcategory name (with category if available)
+      appBarTitle = widget.category != null
+          ? '${widget.category} - ${widget.subcategory}'
+          : widget.subcategory!;
     } else if (widget.category != null) {
       appBarTitle = widget.category!;
     } else {

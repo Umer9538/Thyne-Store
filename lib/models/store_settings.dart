@@ -701,12 +701,31 @@ class StoneQuality {
 /// Stone configuration for a product (supports multiple stones with shapes and colors)
 class StoneConfig {
   final String name; // e.g., "Center Stone", "Accent Stone A"
-  final String shape; // e.g., "Oval", "Round"
+  final String shape; // e.g., "Oval", "Round" - default shape
   final List<String> availableColors; // e.g., ["Red", "Blue", "Clear"]
   final List<StoneQuality> availableQualities; // Categories of quality
   final String category; // Explicit category: Precious, Semi-Precious, Lab-Grown, etc.
   final int? count; // Number of stones (for accent stones)
   final Map<String, double>? colorPriceModifiers; // color -> price modifier
+
+  // Shape selection fields
+  final List<String> availableShapes; // ['Round', 'Oval', 'Princess', ...]
+  final Map<String, double>? shapePriceModifiers; // shape -> price modifier
+
+  // Diamond 4Cs grading fields
+  final bool enableDiamondGrading; // Show 4Cs UI for this stone
+  final List<String>? availableColorGrades; // ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
+  final List<String>? availableClarityGrades; // ['VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2']
+  final List<String>? availableCutGrades; // ['Excellent', 'Very Good', 'Good']
+  final Map<String, double>? clarityPriceModifiers; // clarity -> multiplier
+  final Map<String, double>? cutGradePriceModifiers; // cut -> multiplier
+  final Map<String, double>? colorGradePriceModifiers; // color grade (D,E,F) -> multiplier
+
+  // Carat weight fields
+  final List<double>? availableCaratWeights; // [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+  final double? defaultCaratWeight; // Default carat weight
+  final double? pricePerCarat; // Base price per carat
+  final Map<double, double>? caratPriceMultipliers; // weight -> multiplier
 
   const StoneConfig({
     required this.name,
@@ -716,6 +735,19 @@ class StoneConfig {
     this.category = 'Precious',
     this.count,
     this.colorPriceModifiers,
+    this.availableShapes = const [],
+    this.shapePriceModifiers,
+    this.enableDiamondGrading = false,
+    this.availableColorGrades,
+    this.availableClarityGrades,
+    this.availableCutGrades,
+    this.clarityPriceModifiers,
+    this.cutGradePriceModifiers,
+    this.colorGradePriceModifiers,
+    this.availableCaratWeights,
+    this.defaultCaratWeight,
+    this.pricePerCarat,
+    this.caratPriceMultipliers,
   });
 
   factory StoneConfig.fromJson(Map<String, dynamic> json) {
@@ -735,6 +767,48 @@ class StoneConfig {
               ),
             )
           : null,
+      availableShapes: List<String>.from(json['availableShapes'] ?? []),
+      shapePriceModifiers: json['shapePriceModifiers'] != null
+          ? Map<String, double>.from(
+              (json['shapePriceModifiers'] as Map).map(
+                (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+              ),
+            )
+          : null,
+      enableDiamondGrading: json['enableDiamondGrading'] ?? false,
+      availableColorGrades: json['availableColorGrades'] != null
+          ? List<String>.from(json['availableColorGrades'])
+          : null,
+      availableClarityGrades: json['availableClarityGrades'] != null
+          ? List<String>.from(json['availableClarityGrades'])
+          : null,
+      availableCutGrades: json['availableCutGrades'] != null
+          ? List<String>.from(json['availableCutGrades'])
+          : null,
+      clarityPriceModifiers: _parseDoubleMap(json['clarityPriceModifiers']),
+      cutGradePriceModifiers: _parseDoubleMap(json['cutGradePriceModifiers']),
+      colorGradePriceModifiers: _parseDoubleMap(json['colorGradePriceModifiers']),
+      availableCaratWeights: json['availableCaratWeights'] != null
+          ? List<double>.from((json['availableCaratWeights'] as List).map((e) => (e as num).toDouble()))
+          : null,
+      defaultCaratWeight: json['defaultCaratWeight']?.toDouble(),
+      pricePerCarat: json['pricePerCarat']?.toDouble(),
+      caratPriceMultipliers: json['caratPriceMultipliers'] != null
+          ? Map<double, double>.from(
+              (json['caratPriceMultipliers'] as Map).map(
+                (key, value) => MapEntry(double.parse(key.toString()), (value as num).toDouble()),
+              ),
+            )
+          : null,
+    );
+  }
+
+  static Map<String, double>? _parseDoubleMap(dynamic json) {
+    if (json == null) return null;
+    return Map<String, double>.from(
+      (json as Map).map(
+        (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+      ),
     );
   }
 
@@ -747,6 +821,21 @@ class StoneConfig {
       'category': category,
       if (count != null) 'count': count,
       if (colorPriceModifiers != null) 'colorPriceModifiers': colorPriceModifiers,
+      if (availableShapes.isNotEmpty) 'availableShapes': availableShapes,
+      if (shapePriceModifiers != null) 'shapePriceModifiers': shapePriceModifiers,
+      'enableDiamondGrading': enableDiamondGrading,
+      if (availableColorGrades != null) 'availableColorGrades': availableColorGrades,
+      if (availableClarityGrades != null) 'availableClarityGrades': availableClarityGrades,
+      if (availableCutGrades != null) 'availableCutGrades': availableCutGrades,
+      if (clarityPriceModifiers != null) 'clarityPriceModifiers': clarityPriceModifiers,
+      if (cutGradePriceModifiers != null) 'cutGradePriceModifiers': cutGradePriceModifiers,
+      if (colorGradePriceModifiers != null) 'colorGradePriceModifiers': colorGradePriceModifiers,
+      if (availableCaratWeights != null) 'availableCaratWeights': availableCaratWeights,
+      if (defaultCaratWeight != null) 'defaultCaratWeight': defaultCaratWeight,
+      if (pricePerCarat != null) 'pricePerCarat': pricePerCarat,
+      if (caratPriceMultipliers != null) 'caratPriceMultipliers': caratPriceMultipliers?.map(
+        (key, value) => MapEntry(key.toString(), value),
+      ),
     };
   }
 
@@ -754,11 +843,67 @@ class StoneConfig {
   double getPriceModifier(String color) {
     return colorPriceModifiers?[color] ?? 0.0;
   }
-  
+
+  /// Get price modifier for a specific shape
+  double getShapePriceModifier(String shape) {
+    return shapePriceModifiers?[shape] ?? 0.0;
+  }
+
+  /// Get price multiplier for clarity grade
+  double getClarityMultiplier(String clarity) {
+    return clarityPriceModifiers?[clarity] ?? 1.0;
+  }
+
+  /// Get price multiplier for cut grade
+  double getCutMultiplier(String cut) {
+    return cutGradePriceModifiers?[cut] ?? 1.0;
+  }
+
+  /// Get price multiplier for color grade (D, E, F, etc.)
+  double getColorGradeMultiplier(String colorGrade) {
+    return colorGradePriceModifiers?[colorGrade] ?? 1.0;
+  }
+
+  /// Get price multiplier for carat weight
+  double getCaratMultiplier(double carat) {
+    return caratPriceMultipliers?[carat] ?? carat;
+  }
+
   /// Get default/fallback quality if none selected
-  StoneQuality get defaultQuality => availableQualities.isNotEmpty 
-      ? availableQualities.first 
+  StoneQuality get defaultQuality => availableQualities.isNotEmpty
+      ? availableQualities.first
       : StoneQuality.defaults.first;
+
+  /// Get effective shapes (fallback to common shapes if not set)
+  List<String> get effectiveShapes => availableShapes.isNotEmpty
+      ? availableShapes
+      : defaultShapes;
+
+  /// Default diamond/gemstone shapes
+  static const List<String> defaultShapes = [
+    'Round', 'Oval', 'Pear', 'Princess', 'Cushion', 'Emerald',
+    'Marquise', 'Heart', 'Radiant', 'Asscher', 'Baguette', 'Trillion'
+  ];
+
+  /// Default clarity grades
+  static const List<String> defaultClarityGrades = [
+    'FL', 'IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2'
+  ];
+
+  /// Default cut grades
+  static const List<String> defaultCutGrades = [
+    'Excellent', 'Very Good', 'Good', 'Fair'
+  ];
+
+  /// Default color grades for diamonds
+  static const List<String> defaultColorGrades = [
+    'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'
+  ];
+
+  /// Default carat weights
+  static const List<double> defaultCaratWeights = [
+    0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 2.00, 2.50, 3.00
+  ];
 }
 
 /// Selected customization options for cart/order
@@ -772,6 +917,11 @@ class ProductCustomization {
   final double? minThickness;
   final double? maxThickness;
 
+  // New fields for enhanced customization
+  final Map<String, String>? stoneShapeSelections; // stone name -> selected shape
+  final Map<String, DiamondGrading>? stoneDiamondGrading; // stone name -> 4Cs grading
+  final Map<String, double>? stoneCaratWeights; // stone name -> carat weight
+
   const ProductCustomization({
     this.metalType,
     this.platingColor,
@@ -781,6 +931,9 @@ class ProductCustomization {
     this.engraving,
     this.minThickness,
     this.maxThickness,
+    this.stoneShapeSelections,
+    this.stoneDiamondGrading,
+    this.stoneCaratWeights,
   });
 
   factory ProductCustomization.fromJson(Map<String, dynamic> json) {
@@ -797,6 +950,21 @@ class ProductCustomization {
       engraving: json['engraving']?.toString(),
       minThickness: json['minThickness']?.toDouble(),
       maxThickness: json['maxThickness']?.toDouble(),
+      stoneShapeSelections: json['stoneShapeSelections'] != null
+          ? Map<String, String>.from(json['stoneShapeSelections'])
+          : null,
+      stoneDiamondGrading: json['stoneDiamondGrading'] != null
+          ? (json['stoneDiamondGrading'] as Map).map(
+              (key, value) => MapEntry(key.toString(), DiamondGrading.fromJson(value)),
+            )
+          : null,
+      stoneCaratWeights: json['stoneCaratWeights'] != null
+          ? Map<String, double>.from(
+              (json['stoneCaratWeights'] as Map).map(
+                (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
+              ),
+            )
+          : null,
     );
   }
 
@@ -810,6 +978,11 @@ class ProductCustomization {
       if (engraving != null) 'engraving': engraving,
       if (minThickness != null) 'minThickness': minThickness,
       if (maxThickness != null) 'maxThickness': maxThickness,
+      if (stoneShapeSelections != null) 'stoneShapeSelections': stoneShapeSelections,
+      if (stoneDiamondGrading != null) 'stoneDiamondGrading': stoneDiamondGrading?.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
+      if (stoneCaratWeights != null) 'stoneCaratWeights': stoneCaratWeights,
     };
   }
 
@@ -820,7 +993,15 @@ class ProductCustomization {
     if (platingColor != null) lines.add('Plating: $platingColor');
     if (stoneColorSelections != null && stoneColorSelections!.isNotEmpty) {
       stoneColorSelections!.forEach((stone, color) {
-        lines.add('$stone: $color');
+        final shape = stoneShapeSelections?[stone];
+        final carat = stoneCaratWeights?[stone];
+        final grading = stoneDiamondGrading?[stone];
+
+        String summary = '$stone: $color';
+        if (shape != null) summary += ' ($shape)';
+        if (carat != null) summary += ' ${carat}ct';
+        if (grading != null) summary += ' [${grading.shortSummary}]';
+        lines.add(summary);
       });
     }
     if (ringSize != null) lines.add('Size: $ringSize');
@@ -831,5 +1012,146 @@ class ProductCustomization {
       lines.add('Engraving: "$engraving"');
     }
     return lines;
+  }
+
+  /// Create a copy with updated values
+  ProductCustomization copyWith({
+    String? metalType,
+    String? platingColor,
+    Map<String, String>? stoneColorSelections,
+    Map<String, String>? stoneQualitySelections,
+    String? ringSize,
+    String? engraving,
+    double? minThickness,
+    double? maxThickness,
+    Map<String, String>? stoneShapeSelections,
+    Map<String, DiamondGrading>? stoneDiamondGrading,
+    Map<String, double>? stoneCaratWeights,
+  }) {
+    return ProductCustomization(
+      metalType: metalType ?? this.metalType,
+      platingColor: platingColor ?? this.platingColor,
+      stoneColorSelections: stoneColorSelections ?? this.stoneColorSelections,
+      stoneQualitySelections: stoneQualitySelections ?? this.stoneQualitySelections,
+      ringSize: ringSize ?? this.ringSize,
+      engraving: engraving ?? this.engraving,
+      minThickness: minThickness ?? this.minThickness,
+      maxThickness: maxThickness ?? this.maxThickness,
+      stoneShapeSelections: stoneShapeSelections ?? this.stoneShapeSelections,
+      stoneDiamondGrading: stoneDiamondGrading ?? this.stoneDiamondGrading,
+      stoneCaratWeights: stoneCaratWeights ?? this.stoneCaratWeights,
+    );
+  }
+}
+
+/// Diamond 4Cs grading selection
+class DiamondGrading {
+  final String colorGrade; // D, E, F, G, H, I, J, K
+  final String clarityGrade; // FL, IF, VVS1, VVS2, VS1, VS2, SI1, SI2
+  final String cutGrade; // Excellent, Very Good, Good, Fair
+
+  const DiamondGrading({
+    required this.colorGrade,
+    required this.clarityGrade,
+    required this.cutGrade,
+  });
+
+  factory DiamondGrading.fromJson(Map<String, dynamic> json) {
+    return DiamondGrading(
+      colorGrade: json['colorGrade']?.toString() ?? 'G',
+      clarityGrade: json['clarityGrade']?.toString() ?? 'VS1',
+      cutGrade: json['cutGrade']?.toString() ?? 'Very Good',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'colorGrade': colorGrade,
+      'clarityGrade': clarityGrade,
+      'cutGrade': cutGrade,
+    };
+  }
+
+  /// Short summary for display
+  String get shortSummary => '$colorGrade/$clarityGrade/$cutGrade';
+
+  /// Full description
+  String get fullDescription => 'Color: $colorGrade, Clarity: $clarityGrade, Cut: $cutGrade';
+
+  /// Calculate combined price multiplier
+  double calculateMultiplier({
+    Map<String, double>? colorMultipliers,
+    Map<String, double>? clarityMultipliers,
+    Map<String, double>? cutMultipliers,
+  }) {
+    final colorMult = colorMultipliers?[colorGrade] ?? GradingPriceTable.colorMultipliers[colorGrade] ?? 1.0;
+    final clarityMult = clarityMultipliers?[clarityGrade] ?? GradingPriceTable.clarityMultipliers[clarityGrade] ?? 1.0;
+    final cutMult = cutMultipliers?[cutGrade] ?? GradingPriceTable.cutMultipliers[cutGrade] ?? 1.0;
+    return colorMult * clarityMult * cutMult;
+  }
+
+  /// Default grading
+  static const DiamondGrading defaultGrading = DiamondGrading(
+    colorGrade: 'G',
+    clarityGrade: 'VS1',
+    cutGrade: 'Very Good',
+  );
+}
+
+/// Default price multipliers for diamond grading
+class GradingPriceTable {
+  static const Map<String, double> colorMultipliers = {
+    'D': 2.00, 'E': 1.80, 'F': 1.60, 'G': 1.40,
+    'H': 1.25, 'I': 1.15, 'J': 1.05, 'K': 1.00,
+  };
+
+  static const Map<String, double> clarityMultipliers = {
+    'FL': 2.50, 'IF': 2.20, 'VVS1': 1.80, 'VVS2': 1.60,
+    'VS1': 1.40, 'VS2': 1.25, 'SI1': 1.10, 'SI2': 1.00,
+  };
+
+  static const Map<String, double> cutMultipliers = {
+    'Excellent': 1.30, 'Very Good': 1.15, 'Good': 1.00, 'Fair': 0.85,
+  };
+
+  /// Get description for color grade
+  static String getColorDescription(String grade) {
+    switch (grade) {
+      case 'D': return 'Absolutely colorless - Highest color grade';
+      case 'E': return 'Colorless - Minute traces of color';
+      case 'F': return 'Colorless - Slight color detected by expert';
+      case 'G': return 'Near colorless - Color difficult to detect';
+      case 'H': return 'Near colorless - Color noticeable when compared';
+      case 'I': return 'Near colorless - Slightly detectable color';
+      case 'J': return 'Near colorless - Noticeable color';
+      case 'K': return 'Faint color - Noticeable color';
+      default: return 'Standard color grade';
+    }
+  }
+
+  /// Get description for clarity grade
+  static String getClarityDescription(String grade) {
+    switch (grade) {
+      case 'FL': return 'Flawless - No inclusions or blemishes';
+      case 'IF': return 'Internally Flawless - No inclusions';
+      case 'VVS1': return 'Very Very Slightly Included - Difficult to see';
+      case 'VVS2': return 'Very Very Slightly Included - Somewhat difficult to see';
+      case 'VS1': return 'Very Slightly Included - Minor inclusions';
+      case 'VS2': return 'Very Slightly Included - Minor inclusions visible';
+      case 'SI1': return 'Slightly Included - Noticeable inclusions';
+      case 'SI2': return 'Slightly Included - Easily noticeable inclusions';
+      default: return 'Standard clarity grade';
+    }
+  }
+
+  /// Get description for cut grade
+  static String getCutDescription(String grade) {
+    switch (grade) {
+      case 'Excellent': return 'Maximum fire and brilliance';
+      case 'Very Good': return 'Superior light reflection';
+      case 'Good': return 'Good light reflection';
+      case 'Fair': return 'Adequate light reflection';
+      default: return 'Standard cut grade';
+    }
   }
 }

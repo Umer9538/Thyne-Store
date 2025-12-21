@@ -106,10 +106,18 @@ func main() {
 		log.Printf("Warning: Failed to initialize S3 service: %v (falling back to local storage)", err)
 	}
 
-	// Initialize SMS service for OTP
+	// Initialize SMS service for OTP (legacy Gupshup)
 	smsService, err := services.NewSMSService()
 	if err != nil {
-		log.Printf("Warning: Failed to initialize SMS service: %v (OTP features disabled)", err)
+		log.Printf("Warning: Failed to initialize legacy SMS service: %v", err)
+	}
+
+	// Initialize Mtalkz messaging service (preferred for OTP)
+	messagingService := services.NewMessagingService(db)
+	if messagingService.IsConfigured() {
+		log.Printf("Mtalkz messaging service initialized successfully")
+	} else {
+		log.Printf("Warning: Mtalkz not configured (set MTALKZ_API_KEY) - using development mode")
 	}
 
 	// Initialize Cashfree payment service
@@ -162,8 +170,8 @@ func main() {
 	// Initialize upload handler with S3 service
 	uploadHandler := handlers.NewUploadHandler(s3Service)
 
-	// Initialize OTP handler with SMS service
-	otpHandler := handlers.NewOTPHandler(smsService)
+	// Initialize OTP handler with Mtalkz messaging service (primary) and legacy SMS service (fallback)
+	otpHandler := handlers.NewOTPHandlerWithMessaging(smsService, messagingService)
 
 	// Initialize Cashfree handler
 	cashfreeHandler := handlers.NewCashfreeHandler(cashfreeService, orderService, authService)
@@ -439,6 +447,8 @@ func main() {
 			// Public endpoints - no auth required for better UX
 			ai.POST("/analyze-intent", aiHandler.AnalyzeIntent)
 			ai.POST("/estimate-price", aiHandler.EstimatePrice)
+			ai.POST("/chat/generate", aiHandler.GenerateChatResponse)
+			ai.POST("/chat/full", aiHandler.AnalyzeAndRespond)
 
 			// Protected endpoints - require authentication
 			aiAuth := ai.Group("")

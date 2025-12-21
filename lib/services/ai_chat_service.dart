@@ -1,62 +1,77 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
+import '../config/api_config.dart';
 import 'api_service.dart';
 
 /// Service for AI-powered jewelry chat and recommendations
+/// Routes through deployed backend API (uses OpenAI)
 class AIChatService {
-  // Gemini API Configuration
-  static const String _apiKey = 'AIzaSyDVWMp8jiNiA5bFSKOsThYp70Bqj9MVHc4';
-  static const String _model = 'gemini-2.0-flash';
-  static const String _apiUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
-
   // Singleton pattern
   static final AIChatService _instance = AIChatService._internal();
   factory AIChatService() => _instance;
   AIChatService._internal();
 
   /// Main chat method - processes user message and returns AI response
+  /// Uses deployed backend API for AI processing
   Future<ChatResponse> chat(String userMessage, {List<Product>? availableProducts}) async {
     try {
       print('🤖 AIChatService: Processing message: $userMessage');
 
-      // Step 1: Analyze user intent
-      final intent = await _analyzeIntent(userMessage);
-      print('🤖 AIChatService: Detected intent: ${intent.type}');
+      // Call the backend's combined intent analysis and response endpoint
+      final response = await _callBackendChat(userMessage);
 
-      // Step 2: Based on intent, either give general advice or fetch products
-      if (intent.type == IntentType.productRecommendation) {
-        // Fetch products based on parsed criteria
-        final products = await _fetchProducts(intent);
+      print('🤖 AIChatService: Backend response - Intent: ${response['intent']}, Success: ${response['success']}');
+
+      // Extract token info
+      final tokensUsed = (response['tokensUsed'] ?? 0) as int;
+      final tokensRemaining = (response['tokensRemaining'] ?? 1000000) as int;
+      final tokenLimit = (response['tokenLimit'] ?? 1000000) as int;
+
+      // If intent is search, fetch matching products
+      if (response['intent'] == 'search' && response['success'] == true) {
+        final products = await _fetchProducts(
+          category: response['category'],
+          minPrice: response['minPrice']?.toDouble(),
+          maxPrice: response['maxPrice']?.toDouble(),
+          metalType: response['metalType'],
+        );
 
         if (products.isEmpty) {
           return ChatResponse(
-            message: "I couldn't find any products matching your criteria. Try adjusting your budget or category preferences.",
+            message: response['message'] ?? "I couldn't find any products matching your criteria. Try adjusting your budget or category preferences.",
             products: [],
-            intentType: intent.type,
+            intentType: IntentType.productRecommendation,
+            tokensUsed: tokensUsed,
+            tokensRemaining: tokensRemaining,
+            tokenLimit: tokenLimit,
           );
         }
 
-        // Generate recommendation text with products
-        final recommendation = await _generateProductRecommendation(
-          userMessage,
-          products,
-          intent,
-        );
+        // Generate product-aware response if we have products
+        final productContext = products.take(5).map((p) =>
+          '- ${p.name}: ₹${p.price.toStringAsFixed(0)} (${p.metalType}, ${p.category})'
+        ).join('\n');
+
+        final enhancedResponse = await _generateProductResponse(userMessage, productContext);
 
         return ChatResponse(
-          message: recommendation,
+          message: enhancedResponse,
           products: products,
-          intentType: intent.type,
+          intentType: IntentType.productRecommendation,
+          tokensUsed: tokensUsed,
+          tokensRemaining: tokensRemaining,
+          tokenLimit: tokenLimit,
         );
       } else {
-        // General jewelry advice/information
-        final response = await _generateGeneralResponse(userMessage);
+        // General response - no products needed
         return ChatResponse(
-          message: response,
+          message: response['message'] ?? "I'm here to help with your jewelry questions!",
           products: [],
-          intentType: intent.type,
+          intentType: IntentType.general,
+          tokensUsed: tokensUsed,
+          tokensRemaining: tokensRemaining,
+          tokenLimit: tokenLimit,
         );
       }
     } catch (e) {
@@ -70,67 +85,86 @@ class AIChatService {
     }
   }
 
-  /// Analyze user message to determine intent and extract parameters
-  Future<UserIntent> _analyzeIntent(String message) async {
-    final prompt = '''Analyze this jewelry shopping query and extract information in JSON format.
-
-User message: "$message"
-
-Return ONLY a JSON object with these fields:
-{
-  "intentType": "product_recommendation" or "general_question",
-  "minBudget": number or null (in INR),
-  "maxBudget": number or null (in INR),
-  "category": string or null (one of: "rings", "necklaces", "earrings", "bracelets", "pendants", "bangles", "chains", "anklets", "nose-pins", "mangalsutra"),
-  "metalType": string or null (one of: "gold", "silver", "platinum", "rose-gold"),
-  "occasion": string or null,
-  "style": string or null,
-  "gender": string or null (one of: "men", "women", "unisex")
-}
-
-Examples:
-- "Show me gold rings under 50000" → {"intentType": "product_recommendation", "maxBudget": 50000, "category": "rings", "metalType": "gold"}
-- "What's the difference between 22k and 24k gold?" → {"intentType": "general_question"}
-- "I want a necklace for my wife's birthday, budget 1 lakh" → {"intentType": "product_recommendation", "maxBudget": 100000, "category": "necklaces", "gender": "women", "occasion": "birthday"}
-
-Return ONLY valid JSON, no other text.''';
+  /// Call the backend's combined chat endpoint
+  Future<Map<String, dynamic>> _callBackendChat(String message) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/ai/chat/full');
 
     try {
-      final response = await _callGemini(prompt);
-      final jsonStr = _extractJson(response);
-      final data = jsonDecode(jsonStr);
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'message': message}),
+      ).timeout(const Duration(seconds: 30));
 
-      return UserIntent(
-        type: data['intentType'] == 'product_recommendation'
-            ? IntentType.productRecommendation
-            : IntentType.general,
-        minBudget: data['minBudget']?.toDouble(),
-        maxBudget: data['maxBudget']?.toDouble(),
-        category: data['category'],
-        metalType: data['metalType'],
-        occasion: data['occasion'],
-        style: data['style'],
-        gender: data['gender'],
-      );
+      if (response.statusCode != 200) {
+        print('❌ Backend API Error ${response.statusCode}: ${response.body}');
+        throw Exception('Backend API error: ${response.statusCode}');
+      }
+
+      final data = jsonDecode(response.body);
+      if (data['success'] == true && data['data'] != null) {
+        return data['data'] as Map<String, dynamic>;
+      }
+
+      return {
+        'message': 'I encountered an issue processing your request.',
+        'intent': 'general',
+        'success': false,
+      };
     } catch (e) {
-      print('❌ Intent parsing error: $e');
-      // Default to general question if parsing fails
-      return UserIntent(type: IntentType.general);
+      print('❌ Backend chat error: $e');
+      rethrow;
     }
   }
 
-  /// Fetch products from API based on user intent
-  Future<List<Product>> _fetchProducts(UserIntent intent) async {
+  /// Generate a product-aware response using backend
+  Future<String> _generateProductResponse(String userMessage, String productContext) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/ai/chat/generate');
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userMessage': userMessage,
+          'type': 'product_recommendation',
+          'productContext': productContext,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode != 200) {
+        return "Here are some great options that match your preferences!";
+      }
+
+      final data = jsonDecode(response.body);
+      if (data['success'] == true && data['data'] != null) {
+        return data['data']['message'] ?? "Here are some recommendations for you!";
+      }
+
+      return "I found some beautiful pieces that might interest you!";
+    } catch (e) {
+      print('❌ Product response generation error: $e');
+      return "Here are some lovely options based on your preferences!";
+    }
+  }
+
+  /// Fetch products from API based on filters
+  Future<List<Product>> _fetchProducts({
+    String? category,
+    double? minPrice,
+    double? maxPrice,
+    String? metalType,
+  }) async {
     try {
       print('🔍 Fetching products with filters:');
-      print('   Category: ${intent.category}');
-      print('   Budget: ${intent.minBudget} - ${intent.maxBudget}');
-      print('   Metal: ${intent.metalType}');
+      print('   Category: $category');
+      print('   Budget: $minPrice - $maxPrice');
+      print('   Metal: $metalType');
 
       final result = await ApiService.getProducts(
-        category: intent.category,
-        minPrice: intent.minBudget,
-        maxPrice: intent.maxBudget,
+        category: category,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
         limit: 10,
         sortBy: 'rating',
         inStock: true,
@@ -143,9 +177,9 @@ Return ONLY valid JSON, no other text.''';
             .toList();
 
         // Filter by metal type if specified
-        if (intent.metalType != null) {
+        if (metalType != null && metalType.isNotEmpty) {
           return products
-              .where((p) => p.metalType.toLowerCase().contains(intent.metalType!.toLowerCase()))
+              .where((p) => p.metalType.toLowerCase().contains(metalType.toLowerCase()))
               .toList();
         }
 
@@ -157,106 +191,6 @@ Return ONLY valid JSON, no other text.''';
       print('❌ Error fetching products: $e');
       return [];
     }
-  }
-
-  /// Generate product recommendation text
-  Future<String> _generateProductRecommendation(
-    String userMessage,
-    List<Product> products,
-    UserIntent intent,
-  ) async {
-    final productSummary = products.take(5).map((p) =>
-      '- ${p.name}: ₹${p.price.toStringAsFixed(0)} (${p.metalType}, ${p.category})'
-    ).join('\n');
-
-    final prompt = '''You are a friendly jewelry shopping assistant at Thyne Jewels.
-
-User asked: "$userMessage"
-
-Based on their preferences, here are the top matching products:
-$productSummary
-
-Write a friendly, helpful response that:
-1. Acknowledges their request
-2. Briefly highlights 2-3 top recommendations from the list
-3. Mentions key features like metal type, design, and value
-4. Keeps the response concise (3-4 sentences max)
-5. Sounds natural and conversational
-
-Don't include prices in your response - they'll see them in the product cards.''';
-
-    return await _callGemini(prompt);
-  }
-
-  /// Generate general jewelry advice response
-  Future<String> _generateGeneralResponse(String userMessage) async {
-    final prompt = '''You are a knowledgeable jewelry expert assistant at Thyne Jewels, an Indian jewelry store.
-
-User question: "$userMessage"
-
-Provide a helpful, informative response that:
-1. Answers their question accurately
-2. Includes relevant jewelry expertise (materials, care, traditions, etc.)
-3. Is friendly and conversational
-4. Stays concise (3-5 sentences)
-5. Considers Indian jewelry traditions and preferences when relevant
-
-If they seem interested in buying, gently suggest they can ask for product recommendations with their budget and preferences.''';
-
-    return await _callGemini(prompt);
-  }
-
-  /// Call Gemini API
-  Future<String> _callGemini(String prompt) async {
-    final uri = Uri.parse('$_apiUrl?key=$_apiKey');
-
-    final payload = {
-      'contents': [
-        {
-          'parts': [
-            {'text': prompt}
-          ]
-        }
-      ],
-      'generationConfig': {
-        'temperature': 0.7,
-        'maxOutputTokens': 500,
-      }
-    };
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    ).timeout(const Duration(seconds: 30));
-
-    if (response.statusCode != 200) {
-      throw Exception('Gemini API error: ${response.statusCode}');
-    }
-
-    final data = jsonDecode(response.body);
-    final candidates = data['candidates'] as List?;
-    if (candidates == null || candidates.isEmpty) {
-      throw Exception('No response from Gemini');
-    }
-
-    final content = candidates[0]['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List?;
-    if (parts == null || parts.isEmpty) {
-      throw Exception('Empty response from Gemini');
-    }
-
-    return parts[0]['text'] as String;
-  }
-
-  /// Extract JSON from response text
-  String _extractJson(String text) {
-    // Try to find JSON in the response
-    final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(text);
-    if (jsonMatch != null) {
-      return jsonMatch.group(0)!;
-    }
-    throw Exception('No JSON found in response');
   }
 }
 
@@ -294,14 +228,34 @@ class ChatResponse {
   final List<Product> products;
   final IntentType intentType;
   final String? error;
+  // Token tracking
+  final int tokensUsed;
+  final int tokensRemaining;
+  final int tokenLimit;
 
   ChatResponse({
     required this.message,
     required this.products,
     required this.intentType,
     this.error,
+    this.tokensUsed = 0,
+    this.tokensRemaining = 1000000,
+    this.tokenLimit = 1000000,
   });
 
   bool get hasProducts => products.isNotEmpty;
   bool get hasError => error != null;
+
+  /// Format remaining tokens for display (e.g., "950K" or "1M")
+  String get formattedTokensRemaining {
+    if (tokensRemaining >= 1000000) {
+      return '${(tokensRemaining / 1000000).toStringAsFixed(1)}M';
+    } else if (tokensRemaining >= 1000) {
+      return '${(tokensRemaining / 1000).toStringAsFixed(0)}K';
+    }
+    return tokensRemaining.toString();
+  }
+
+  /// Usage percentage
+  double get usagePercent => tokenLimit > 0 ? (tokensUsed / tokenLimit) * 100 : 0;
 }

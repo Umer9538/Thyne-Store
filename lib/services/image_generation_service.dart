@@ -5,8 +5,8 @@ import '../utils/prompt_validator.dart';
 
 /// Service for generating jewelry images using Gemini 2.5 Flash Image API
 class ImageGenerationService {
-  // Gemini API Configuration
-  static const String _apiKey = 'AIzaSyDVWMp8jiNiA5bFSKOsThYp70Bqj9MVHc4';
+  // Gemini API Configuration - Updated API key
+  static const String _apiKey = 'AIzaSyBEPj4z2lIuAap-4fJnbzBcGzD-Qg2Lpq0';
   static const String _model = 'gemini-2.5-flash-image';
   static const String _apiUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';

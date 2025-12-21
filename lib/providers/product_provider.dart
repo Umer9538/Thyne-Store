@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
-import '../utils/mock_data.dart';
 import '../utils/search_utils.dart';
 import '../services/api_service.dart';
 
@@ -18,11 +17,15 @@ class ProductProvider extends ChangeNotifier {
 
   // Return filtered products when filter is active, even if empty (shows "no results")
   List<Product> get products => _isFilterActive ? _filteredProducts : _products;
+  // Always return all products (unfiltered) - useful for local filtering in widgets
+  List<Product> get allProducts => _products;
   List<Product> get featuredProducts => _products.where((p) => p.isFeatured).toList();
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String? get selectedGender => _selectedGender;
   String get sortBy => _sortBy;
+  double? get minPrice => _minPrice;
+  double? get maxPrice => _maxPrice;
 
   ProductProvider() {
     loadProducts();
@@ -43,16 +46,16 @@ class ProductProvider extends ChangeNotifier {
         }
       }
       
-      // If API fails, use mock data as fallback
-      debugPrint('API failed, using mock data');
-      _products = MockData.products;
-      _filteredProducts = _products;
+      // API failed - show empty state (no mock data)
+      debugPrint('⚠️ API failed to load products');
+      _products = [];
+      _filteredProducts = [];
       notifyListeners();
     } catch (e) {
-      debugPrint('Error loading products: $e');
-      // Final fallback to mock data
-      _products = MockData.products;
-      _filteredProducts = _products;
+      debugPrint('❌ Error loading products: $e');
+      // Show empty state on error (no mock data)
+      _products = [];
+      _filteredProducts = [];
       notifyListeners();
     } finally {
       _setLoading(false);
@@ -61,15 +64,27 @@ class ProductProvider extends ChangeNotifier {
 
 
   void filterByCategory(String category) {
+    debugPrint('📂 filterByCategory: "$category"');
+    debugPrint('📂 Total products available: ${_products.length}');
+
     _selectedCategory = category;
     _selectedTag = null;  // Clear tag filter when switching categories
     _isFilterActive = category != 'All';
     _applyFiltersAndSort();
+
+    debugPrint('📂 Filtered products count: ${_filteredProducts.length}');
+    if (_filteredProducts.isEmpty && _products.isNotEmpty) {
+      // Debug: show what categories exist in products
+      final existingCategories = _products.map((p) => p.category).toSet();
+      debugPrint('📂 Available categories in products: $existingCategories');
+    }
   }
 
   void filterByGender(String gender) {
+    debugPrint('👤 filterByGender: "$gender"');
     _selectedGender = gender;
     _applyFiltersAndSort();
+    debugPrint('👤 Filtered products count: ${_filteredProducts.length}');
   }
 
   void clearGenderFilter() {
@@ -98,6 +113,9 @@ class ProductProvider extends ChangeNotifier {
 
   String? _selectedTag;
   String? get selectedTag => _selectedTag;
+
+  String? _selectedSubcategory;
+  String? get selectedSubcategory => _selectedSubcategory;
 
   /// Filter products by a tag (e.g., style tags like 'traditional', 'contemporary')
   void filterByTag(String tag) {
@@ -152,6 +170,28 @@ class ProductProvider extends ChangeNotifier {
     _selectedTag = null;
     // Check if any other filters are still active
     _isFilterActive = _selectedCategory != 'All' ||
+                      _selectedSubcategory != null ||
+                      _selectedGender != null ||
+                      _minPrice != null ||
+                      _maxPrice != null;
+    _applyFiltersAndSort();
+  }
+
+  /// Filter products by subcategory (e.g., 'Stud Earrings', 'Hoop Earrings')
+  void filterBySubcategory(String subcategory) {
+    _selectedSubcategory = subcategory.toLowerCase();
+    _isFilterActive = true;
+
+    debugPrint('📦 filterBySubcategory: "$subcategory"');
+    _applyFiltersAndSort();
+    debugPrint('📦 Filtered products count: ${_filteredProducts.length}');
+  }
+
+  void clearSubcategoryFilter() {
+    _selectedSubcategory = null;
+    // Check if any other filters are still active
+    _isFilterActive = _selectedCategory != 'All' ||
+                      _selectedTag != null ||
                       _selectedGender != null ||
                       _minPrice != null ||
                       _maxPrice != null;
@@ -161,38 +201,52 @@ class ProductProvider extends ChangeNotifier {
   void _applyFiltersAndSort() {
     // Update _isFilterActive based on current filter state
     _isFilterActive = _selectedCategory != 'All' ||
+                      _selectedSubcategory != null ||
                       _selectedGender != null ||
                       _selectedTag != null ||
                       _minPrice != null ||
                       _maxPrice != null;
 
     _filteredProducts = _products.where((product) {
-      // Category filter
-      if (_selectedCategory != 'All' && product.category != _selectedCategory) {
+      // Category filter (case-insensitive comparison)
+      if (_selectedCategory != 'All' &&
+          product.category.toLowerCase() != _selectedCategory.toLowerCase()) {
         return false;
       }
 
-      // Gender filter - this would require adding gender field to Product model
-      // For now, we'll use tags to determine gender targeting
-      if (_selectedGender != null) {
-        final productTags = product.tags.map((tag) => tag.toLowerCase());
-        final genderTag = _selectedGender!.toLowerCase();
+      // Subcategory filter (case-insensitive comparison)
+      if (_selectedSubcategory != null &&
+          product.subcategory.toLowerCase() != _selectedSubcategory!.toLowerCase()) {
+        return false;
+      }
 
-        // Check if product has gender-specific tags
-        if (genderTag == 'male' && !productTags.any((tag) =>
-            tag.contains('men') || tag.contains('male') || tag.contains('groom'))) {
-          return false;
-        }
+      // Gender filter - check product's gender field and tags
+      if (_selectedGender != null && _selectedGender!.toLowerCase() != 'all') {
+        final genderFilter = _selectedGender!.toLowerCase();
 
-        if (genderTag == 'female' && !productTags.any((tag) =>
-            tag.contains('women') || tag.contains('female') || tag.contains('bride'))) {
-          return false;
-        }
+        // First check product's gender field if it exists
+        if (product.gender.isNotEmpty) {
+          final productGenders = product.gender.map((g) => g.toLowerCase()).toList();
+          // Include product if it matches the filter or is unisex/all
+          final matchesGender = productGenders.contains(genderFilter) ||
+                                productGenders.contains('all') ||
+                                productGenders.contains('unisex');
+          if (!matchesGender) {
+            // Also check for common variations
+            final isWomen = genderFilter == 'women' || genderFilter == 'female' || genderFilter == 'woman';
+            final isMen = genderFilter == 'men' || genderFilter == 'male' || genderFilter == 'man';
 
-        if (genderTag == 'unisex' && !productTags.any((tag) =>
-            tag.contains('unisex') || tag.contains('neutral'))) {
-          return false;
+            if (isWomen && !productGenders.any((g) =>
+                g == 'women' || g == 'female' || g == 'woman' || g == 'all' || g == 'unisex')) {
+              return false;
+            }
+            if (isMen && !productGenders.any((g) =>
+                g == 'men' || g == 'male' || g == 'man' || g == 'all' || g == 'unisex')) {
+              return false;
+            }
+          }
         }
+        // If product has no gender field, include it (don't filter out)
       }
 
       // Price range filter
@@ -535,6 +589,7 @@ class ProductProvider extends ChangeNotifier {
   void clearFilters() {
     _filters = {};
     _selectedCategory = 'All';
+    _selectedSubcategory = null;
     _selectedGender = null;
     _selectedTag = null;
     _minPrice = null;
@@ -572,11 +627,11 @@ class ProductProvider extends ChangeNotifier {
         return ['All', ...categories];
       }
     } catch (e) {
-      debugPrint('Error loading categories from API: $e');
+      debugPrint('❌ Error loading categories from API: $e');
     }
-    
-    // Fallback to mock categories
-    return MockData.categories;
+
+    // Return empty list if API fails (no mock data)
+    return [];
   }
 
   Future<Product?> getProductById(String id) async {

@@ -291,8 +291,9 @@ class _CreateSectionState extends State<CreateSection>
                       ? _buildWelcomeScreen()
                       : ListView.builder(
                           controller: _chatScrollController,
-                          padding: const EdgeInsets.only(
-                            left: 16, right: 16, top: 16, bottom: 160,
+                          padding: EdgeInsets.only(
+                            left: 20, right: 20, top: 16,
+                            bottom: 160 + MediaQuery.of(context).padding.bottom,
                           ),
                           itemCount: messages.length + (aiProvider.isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
@@ -306,11 +307,11 @@ class _CreateSectionState extends State<CreateSection>
               ],
             ),
 
-            // Floating input bar
+            // Floating input bar - matching Store/Community search bar position
             Positioned(
-              bottom: 80,
-              left: 16,
-              right: 16,
+              bottom: 80 + MediaQuery.of(context).padding.bottom,
+              left: 20,
+              right: 20,
               child: _buildFloatingInputBar(aiProvider),
             ),
           ],
@@ -319,34 +320,150 @@ class _CreateSectionState extends State<CreateSection>
     );
   }
 
-  /// Compact token usage indicator
+  /// Compact token usage indicator - shows remaining tokens
   Widget _buildCompactTokenIndicator(TokenUsage usage) {
     Color usageColor = usage.isUsageHigh ? Colors.red :
                        usage.isUsageMedium ? Colors.orange : Colors.green;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: usageColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            usage.isUsageHigh ? CupertinoIcons.exclamationmark_triangle :
-            CupertinoIcons.checkmark_seal,
-            size: 12,
-            color: usageColor,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${usage.usagePercent.toStringAsFixed(0)}%',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: () => _showTokenDetailsDialog(usage),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: usageColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: usageColor.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              usage.isUsageHigh ? CupertinoIcons.exclamationmark_triangle :
+              CupertinoIcons.sparkles,
+              size: 14,
               color: usageColor,
             ),
+            const SizedBox(width: 6),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  usage.tokensRemainingFormatted,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: usageColor,
+                  ),
+                ),
+                Text(
+                  'remaining',
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: usageColor.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show detailed token usage dialog
+  void _showTokenDetailsDialog(TokenUsage usage) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: ThyneTheme.createBlue.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(CupertinoIcons.sparkles, color: ThyneTheme.createBlue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('AI Token Usage', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Progress bar
+            Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: (usage.usagePercent / 100).clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: usage.isUsageHigh ? Colors.red :
+                           usage.isUsageMedium ? Colors.orange : Colors.green,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Token stats
+            _buildTokenStatRow('Used', usage.tokensUsedFormatted, Colors.grey[700]!),
+            _buildTokenStatRow('Remaining', usage.tokensRemainingFormatted, Colors.green),
+            _buildTokenStatRow('Monthly Limit', usage.tokenLimitFormatted, Colors.blue),
+            const Divider(height: 24),
+            _buildTokenStatRow('Images Generated', '${usage.imageCount}', ThyneTheme.primaryGold),
+            _buildTokenStatRow('Resets On', usage.resetDate, Colors.grey[600]!),
+            const SizedBox(height: 12),
+            // Info text
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ThyneTheme.createBlue.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(CupertinoIcons.info_circle, size: 16, color: ThyneTheme.createBlue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Each user gets 1M free tokens monthly for AI design generation.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTokenStatRow(String label, String value, Color valueColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: valueColor),
           ),
         ],
       ),
@@ -1072,125 +1189,129 @@ class _CreateSectionState extends State<CreateSection>
     );
   }
 
-  /// Floating input bar
+  /// Floating input bar - matching Store/Community search bar design
   Widget _buildFloatingInputBar(AIProvider aiProvider) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Context indicator - shows when previous design context is available
-        if (_lastImagePrompt != null)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: ThyneTheme.createBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: ThyneTheme.createBlue.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(CupertinoIcons.link, size: 12, color: ThyneTheme.createBlue),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'Context: "${_lastImagePrompt!.length > 30 ? '${_lastImagePrompt!.substring(0, 30)}...' : _lastImagePrompt}"',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: ThyneTheme.createBlue,
+    // Green color matching the Store/Community section button
+    const Color primaryGreen = Color(0xFF094010);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Context indicator - shows when previous design context is available
+          if (_lastImagePrompt != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: primaryGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: primaryGreen.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(CupertinoIcons.link, size: 12, color: primaryGreen),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Context: "${_lastImagePrompt!.length > 30 ? '${_lastImagePrompt!.substring(0, 30)}...' : _lastImagePrompt}"',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: primaryGreen,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => setState(() => _lastImagePrompt = null),
+                    child: Icon(CupertinoIcons.xmark_circle_fill, size: 14, color: primaryGreen.withOpacity(0.5)),
+                  ),
+                ],
+              ),
+            ),
+
+          Row(
+            children: [
+              // Sparkles button - matching Store/Community green circular button design
+              GestureDetector(
+                onTap: aiProvider.isLoading ? null : () => _sendMessage(aiProvider),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: aiProvider.isLoading ? Colors.grey : primaryGreen,
+                    shape: BoxShape.circle,
+                  ),
+                  child: aiProvider.isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(CupertinoIcons.sparkles, size: 28, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Input field - matching Store/Community search bar design
+              Expanded(
+                child: Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.search,
+                        size: 20,
+                        color: const Color(0xFF666666),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _promptController,
+                          focusNode: _promptFocusNode,
+                          decoration: InputDecoration(
+                            hintText: 'ask me anything',
+                            hintStyle: TextStyle(
+                              fontSize: 14,
+                              color: const Color(0xFF999999),
+                            ),
+                            border: InputBorder.none,
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(aiProvider),
+                        ),
+                      ),
+                      Icon(
+                        CupertinoIcons.mic,
+                        size: 20,
+                        color: const Color(0xFF666666),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                GestureDetector(
-                  onTap: () => setState(() => _lastImagePrompt = null),
-                  child: Icon(CupertinoIcons.xmark_circle_fill, size: 14, color: ThyneTheme.createBlue.withOpacity(0.5)),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-        Row(
-          children: [
-            // Send button
-            GestureDetector(
-              onTap: aiProvider.isLoading ? null : () => _sendMessage(aiProvider),
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: aiProvider.isLoading ? Colors.grey : ThyneTheme.createBlue,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: ThyneTheme.createBlue.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: aiProvider.isLoading
-                    ? const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(CupertinoIcons.sparkles, size: 24, color: Colors.white),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Input field
-            Expanded(
-              child: Container(
-                height: 56,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _lastImagePrompt != null ? CupertinoIcons.link : CupertinoIcons.text_bubble,
-                      size: 20,
-                      color: _lastImagePrompt != null ? ThyneTheme.createBlue : Colors.grey[600],
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _promptController,
-                        focusNode: _promptFocusNode,
-                        decoration: InputDecoration(
-                          hintText: _lastImagePrompt != null
-                              ? 'Modify design (e.g., add diamonds)...'
-                              : 'Describe your jewelry...',
-                          hintStyle: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                          border: InputBorder.none,
-                        ),
-                        style: const TextStyle(fontSize: 14),
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(aiProvider),
-                      ),
-                    ),
-                    Icon(CupertinoIcons.mic, size: 20, color: Colors.grey[600]),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 

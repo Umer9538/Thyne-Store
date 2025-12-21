@@ -8,9 +8,11 @@ import '../../providers/wishlist_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../utils/theme.dart';
+import '../../utils/product_navigation.dart';
 import '../../services/api_service.dart';
 import '../../models/homepage.dart';
 import '../../models/product.dart';
+import '../../models/storefront.dart';
 import '../../widgets/product_card.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_list_screen.dart';
@@ -120,15 +122,8 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
             };
           }).toList();
         } else {
-          // Default banner if none configured
-          _banners = [
-            {
-              'image': 'https://via.placeholder.com/800x400',
-              'title': 'Begin Your Bridal Journey',
-              'subtitle': 'Exquisite bridal jewelry with Khazana',
-              'action': 'EXPLORE BRIDAL',
-            }
-          ];
+          // No banners configured - show empty
+          _banners = [];
         }
 
         setState(() {
@@ -174,26 +169,64 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
     }
   }
 
-  void _loadCategories() {
+  Future<void> _loadCategories() async {
     try {
-      // Extract unique categories from products
-      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      // Load categories from backend API
+      final response = await ApiService.getVisibleCategories();
 
-      // Get unique categories from products
+      if (response['success'] == true && response['data'] != null) {
+        final categoriesData = response['data'] as List;
+        final categoriesList = categoriesData.map((cat) {
+          return {
+            'id': cat['id'] ?? cat['_id'] ?? '',
+            'name': cat['name'] ?? '',
+            'slug': cat['slug'] ?? '',
+            'description': cat['description'] ?? '',
+            'image': cat['image'] ?? '',
+            'subcategories': cat['subcategories'] ?? [],
+            'gender': cat['gender'] ?? ['all'],
+            'sortOrder': cat['sortOrder'] ?? 0,
+          };
+        }).toList();
+
+        // Sort by sortOrder
+        categoriesList.sort((a, b) => (a['sortOrder'] as int).compareTo(b['sortOrder'] as int));
+
+        if (mounted) {
+          setState(() {
+            _categories = categoriesList;
+          });
+        }
+        debugPrint('✅ Loaded ${categoriesList.length} categories from API');
+      } else {
+        debugPrint('⚠️ No categories from API, falling back to products');
+        _loadCategoriesFromProducts();
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading categories from API: $e');
+      _loadCategoriesFromProducts();
+    }
+  }
+
+  // Fallback: Extract categories from products if API fails
+  void _loadCategoriesFromProducts() {
+    try {
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
       final Set<String> uniqueCategories = {};
-      for (var product in productProvider.products) {
+
+      for (var product in productProvider.allProducts) {
         if (product.category.isNotEmpty) {
           uniqueCategories.add(product.category);
         }
       }
 
-      // Convert to list of maps
       final categoriesList = uniqueCategories.map((categoryName) {
         return {
           'id': categoryName.toLowerCase().replaceAll(' ', '-'),
           'name': categoryName,
-          'image': '', // No image for now
-          'gender': [], // Products will be filtered by gender
+          'image': '',
+          'subcategories': <String>[],
+          'gender': ['all'],
         };
       }).toList();
 
@@ -203,7 +236,7 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading categories: $e');
+      debugPrint('Error loading categories from products: $e');
     }
   }
 
@@ -601,19 +634,45 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
   Widget _buildExpandedCategoryContent(String categoryName) {
     final productProvider = Provider.of<ProductProvider>(context, listen: false);
 
-    // Filter products by category and gender
-    final categoryProducts = productProvider.products.where((product) {
-      // Match category
-      final matchesCategory = product.category.toLowerCase() == categoryName.toLowerCase();
-      if (!matchesCategory) return false;
+    // Get the category data to access subcategories
+    final categoryData = _categories.firstWhere(
+      (cat) => cat['name'].toString().toLowerCase() == categoryName.toLowerCase(),
+      orElse: () => <String, dynamic>{},
+    );
 
-      // Match gender
-      if (product.gender.isEmpty) return true;
-      return product.gender.contains(_selectedGenderFilter);
+    // Get subcategories from category data (from API)
+    final List<dynamic> subcategoriesRaw = categoryData['subcategories'] ?? [];
+    final List<String> subcategories = subcategoriesRaw.map((s) => s.toString()).toList();
+
+    // Get all products (not filtered)
+    final allProducts = productProvider.allProducts;
+
+    // Filter products by category
+    final categoryProducts = allProducts.where((product) {
+      final productCategory = product.category.toLowerCase();
+      final filterCategory = categoryName.toLowerCase();
+      return productCategory == filterCategory ||
+          productCategory.contains(filterCategory) ||
+          filterCategory.contains(productCategory);
     }).toList();
 
-    // Get trending products (first 4)
-    final trendingProducts = categoryProducts.take(4).toList();
+    // Extract unique style tags from category products
+    final Set<String> styleTags = {};
+    for (var product in categoryProducts) {
+      for (var tag in product.tags) {
+        // Only include style-related tags (not gender tags)
+        final lowerTag = tag.toLowerCase();
+        if (!['men', 'women', 'male', 'female', 'unisex', 'kids'].contains(lowerTag)) {
+          styleTags.add(tag);
+        }
+      }
+    }
+
+    // Get trending products (first 4) filtered by gender
+    final trendingProducts = categoryProducts.where((product) {
+      if (_selectedGenderFilter == 'all' || product.gender.isEmpty) return true;
+      return product.gender.any((g) => g.toLowerCase() == _selectedGenderFilter.toLowerCase());
+    }).take(4).toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -625,51 +684,108 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Trending Section
+          // Trending Section with horizontal scroll
           if (trendingProducts.isNotEmpty) ...[
             const Text(
               'Trending',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             SizedBox(
-              height: 240,
+              height: 80,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: trendingProducts.length,
                 itemBuilder: (context, index) {
                   final product = trendingProducts[index];
-                  return Container(
-                    width: 160,
-                    margin: const EdgeInsets.only(right: 12),
-                    child: ProductCard(
-                      product: product,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProductDetailScreen(product: product),
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProductDetailScreen(product: product),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 70,
+                      margin: const EdgeInsets.only(right: 8),
+                      child: Column(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              product.images.isNotEmpty ? product.images.first : '',
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 60,
+                                height: 60,
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.image, size: 24),
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                        ],
+                      ),
                     ),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
           ],
 
-          // Shop By Price Section
+          // Subcategories Section (from backend API)
+          if (subcategories.isNotEmpty) ...[
+            const Text(
+              'Subcategories',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: subcategories.map((subcategory) => ActionChip(
+                label: Text(subcategory),
+                backgroundColor: Colors.grey.shade100,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProductListScreen(
+                        category: categoryName,
+                        subcategory: subcategory,
+                        gender: _selectedGenderFilter == 'all' ? null : _selectedGenderFilter,
+                      ),
+                    ),
+                  );
+                },
+              )).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Shop By Style / Shop By Price toggle buttons
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    // Show style tags if available
+                    if (styleTags.isNotEmpty) {
+                      _showStyleTagsBottomSheet(categoryName, styleTags.toList());
+                    }
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.textSecondary,
                     side: BorderSide(color: Colors.grey.shade300),
@@ -696,20 +812,111 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
 
           // Price Range Buttons
           _buildPriceRangeGrid(categoryName),
+
+          const SizedBox(height: 16),
+
+          // View All Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProductListScreen(
+                      category: categoryName,
+                      gender: _selectedGenderFilter == 'all' ? null : _selectedGenderFilter,
+                    ),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryGold,
+                side: const BorderSide(color: AppTheme.primaryGold),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: Text('View All $categoryName'),
+            ),
+          ),
         ],
       ),
     );
   }
 
+  void _showStyleTagsBottomSheet(String categoryName, List<String> styleTags) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Shop $categoryName by Style',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: styleTags.map((tag) => ActionChip(
+                label: Text(tag),
+                backgroundColor: Colors.grey.shade100,
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProductListScreen(
+                        category: categoryName,
+                        styleTag: tag,
+                        gender: _selectedGenderFilter == 'all' ? null : _selectedGenderFilter,
+                      ),
+                    ),
+                  );
+                },
+              )).toList(),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPriceRangeGrid(String categoryName) {
-    final priceRanges = [
-      {'label': 'Under 10K', 'min': 0, 'max': 10000},
-      {'label': '10K - 20K', 'min': 10000, 'max': 20000},
-      {'label': '20K - 30K', 'min': 20000, 'max': 30000},
-      {'label': '30K - 50K', 'min': 30000, 'max': 50000},
-      {'label': '50K - 75K', 'min': 50000, 'max': 75000},
-      {'label': '75K & Above', 'min': 75000, 'max': 10000000},
-    ];
+    // Use budget ranges from API with fallback
+    final priceRanges = _budgetRanges.isNotEmpty
+        ? _budgetRanges.map((range) => {
+            'label': range['label'] ?? '',
+            'min': (range['minPrice'] ?? 0).toInt(),
+            'max': (range['maxPrice'] ?? 0).toInt(),
+          }).toList()
+        : [
+            {'label': 'Under 10K', 'min': 0, 'max': 10000},
+            {'label': '10K - 20K', 'min': 10000, 'max': 20000},
+            {'label': '20K - 30K', 'min': 20000, 'max': 30000},
+            {'label': '30K - 50K', 'min': 30000, 'max': 50000},
+            {'label': '50K - 75K', 'min': 50000, 'max': 75000},
+            {'label': '75K & Above', 'min': 75000, 'max': 10000000},
+          ];
 
     return GridView.builder(
       shrinkWrap: true,
@@ -935,7 +1142,9 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
             final occasion = occasions[index];
             return GestureDetector(
               onTap: () {
-                // TODO: Navigate to occasion products
+                // Navigate using ProductNavigation helper
+                final occasionModel = Occasion.fromJson(occasion);
+                ProductNavigation.toOccasion(context, occasionModel);
               },
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -1030,7 +1239,9 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
 
             return GestureDetector(
               onTap: () {
-                // TODO: Navigate to budget products
+                // Navigate using ProductNavigation helper
+                final budgetRange = BudgetRange.fromJson(budget);
+                ProductNavigation.toBudgetRange(context, budgetRange);
               },
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -1156,44 +1367,8 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
       );
     }
 
-    // Fallback to dummy countdown if no flash sale
-    final hours = _flashSaleTimeLeft.inHours.toString().padLeft(2, '0');
-    final minutes = (_flashSaleTimeLeft.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (_flashSaleTimeLeft.inSeconds % 60).toString().padLeft(2, '0');
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.errorRed.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.local_fire_department, color: AppTheme.errorRed, size: 28),
-          const SizedBox(width: 12),
-          const Text(
-            'Flash Deals',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-          const Text(
-            'Ends in',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
-          ),
-          const SizedBox(width: 8),
-          _buildTimeBox(hours),
-          const Text(' : ', style: TextStyle(fontWeight: FontWeight.bold)),
-          _buildTimeBox(minutes),
-          const Text(' : ', style: TextStyle(fontWeight: FontWeight.bold)),
-          _buildTimeBox(seconds),
-        ],
-      ),
-    );
+    // No flash sale available - return empty
+    return const SizedBox.shrink();
   }
 
   Widget _buildTimeBox(String value) {
@@ -1324,95 +1499,8 @@ class _RedesignedHomeScreenState extends State<RedesignedHomeScreen> {
       );
     }
 
-    // Fallback to dummy bundle
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Complete Your Look',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FFF4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.successGreen.withOpacity(0.3)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Complete Your Look',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Save ₹21100 (20% off)',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.successGreen,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.successGreen,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Bundle Deal',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Bundle items preview
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildBundleItemPreview(),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.add, size: 20),
-                    ),
-                    _buildBundleItemPreview(),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.add, size: 20),
-                    ),
-                    _buildBundleItemPreview(),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    // No bundle deals available - return empty
+    return const SizedBox.shrink();
   }
 
   Widget _buildBundleItemPreview() {

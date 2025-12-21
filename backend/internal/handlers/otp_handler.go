@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"thyne-jewels-backend/internal/models"
 	"thyne-jewels-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,8 @@ import (
 
 // OTPHandler handles OTP-related HTTP requests
 type OTPHandler struct {
-	smsService *services.SMSService
+	smsService       *services.SMSService
+	messagingService *services.MessagingService
 }
 
 // NewOTPHandler creates a new OTP handler
@@ -22,10 +24,19 @@ func NewOTPHandler(smsService *services.SMSService) *OTPHandler {
 	}
 }
 
+// NewOTPHandlerWithMessaging creates OTP handler with Mtalkz messaging service
+func NewOTPHandlerWithMessaging(smsService *services.SMSService, messagingService *services.MessagingService) *OTPHandler {
+	return &OTPHandler{
+		smsService:       smsService,
+		messagingService: messagingService,
+	}
+}
+
 // SendOTPRequest represents the request body for sending OTP
 type SendOTPRequest struct {
 	Phone   string `json:"phone" binding:"required"`
-	Purpose string `json:"purpose"` // login, register, reset_password, verify_phone
+	Purpose string `json:"purpose"`  // login, register, reset_password, verify_phone
+	Channel string `json:"channel"`  // sms, whatsapp (defaults to sms)
 }
 
 // VerifyOTPRequest represents the request body for verifying OTP
@@ -42,11 +53,11 @@ type SendSMSRequest struct {
 
 // SendOTP godoc
 // @Summary Send OTP to phone number
-// @Description Sends an OTP to the specified phone number for verification
+// @Description Sends an OTP to the specified phone number for verification via SMS or WhatsApp
 // @Tags OTP
 // @Accept json
 // @Produce json
-// @Param request body SendOTPRequest true "Phone number and purpose"
+// @Param request body SendOTPRequest true "Phone number, purpose, and channel"
 // @Success 200 {object} map[string]interface{} "OTP sent successfully"
 // @Failure 400 {object} map[string]interface{} "Invalid request"
 // @Failure 500 {object} map[string]interface{} "Failed to send OTP"
@@ -71,7 +82,41 @@ func (h *OTPHandler) SendOTP(c *gin.Context) {
 		return
 	}
 
-	// Check if SMS service is enabled
+	// Try Mtalkz messaging service first (preferred)
+	if h.messagingService != nil {
+		channel := models.OTPChannelSMS
+		if req.Channel == "whatsapp" {
+			channel = models.OTPChannelWhatsApp
+		}
+
+		mtalkzReq := &models.SendOTPRequest{
+			Phone:   req.Phone,
+			Channel: channel,
+			Purpose: req.Purpose,
+		}
+
+		response, err := h.messagingService.SendOTP(c.Request.Context(), mtalkzReq)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"error":   "Failed to send OTP",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success":   response.Success,
+			"message":   response.Message,
+			"messageId": response.MessageID,
+			"expiresIn": response.ExpiresIn,
+			"channel":   response.Channel,
+			"phone":     maskPhoneNumber(req.Phone),
+		})
+		return
+	}
+
+	// Fallback to legacy Gupshup SMS service
 	if h.smsService == nil || !h.smsService.IsEnabled() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
@@ -83,7 +128,7 @@ func (h *OTPHandler) SendOTP(c *gin.Context) {
 	// Generate message based on purpose
 	messageTemplate := getOTPMessageTemplate(req.Purpose)
 
-	// Send OTP
+	// Send OTP via legacy service
 	response, err := h.smsService.SendOTP(c.Request.Context(), req.Phone, messageTemplate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -107,6 +152,7 @@ func (h *OTPHandler) SendOTP(c *gin.Context) {
 		"message":       "OTP sent successfully",
 		"transactionId": response.TransactionID,
 		"phone":         maskPhoneNumber(req.Phone),
+		"channel":       "sms",
 	})
 }
 
@@ -150,7 +196,33 @@ func (h *OTPHandler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	// Check if SMS service is enabled
+	// Try Mtalkz messaging service first (preferred)
+	if h.messagingService != nil {
+		mtalkzReq := &models.VerifyOTPRequest{
+			Phone: req.Phone,
+			OTP:   req.OTP,
+		}
+
+		response, err := h.messagingService.VerifyOTP(c.Request.Context(), mtalkzReq)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success":  false,
+				"verified": false,
+				"error":    "Failed to verify OTP",
+				"details":  err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success":  response.Success,
+			"verified": response.Verified,
+			"message":  response.Message,
+		})
+		return
+	}
+
+	// Fallback to legacy Gupshup SMS service
 	if h.smsService == nil || !h.smsService.IsEnabled() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
@@ -159,7 +231,7 @@ func (h *OTPHandler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	// Verify OTP
+	// Verify OTP via legacy service
 	response, err := h.smsService.VerifyOTP(c.Request.Context(), req.Phone, req.OTP)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

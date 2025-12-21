@@ -10,9 +10,8 @@ import (
 	"thyne-jewels-backend/internal/models"
 	"thyne-jewels-backend/internal/repository"
 
-	"github.com/google/generative-ai-go/genai"
+	openai "github.com/sashabaranov/go-openai"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/api/option"
 )
 
 type AIService struct {
@@ -27,28 +26,20 @@ func NewAIService(aiRepo repository.AIRepository) *AIService {
 
 // ==================== Intent Filtering ====================
 
-// AnalyzeIntent uses Gemini AI to intelligently classify user intent
+// AnalyzeIntent uses OpenAI to intelligently classify user intent
 func (s *AIService) AnalyzeIntent(ctx context.Context, prompt string) (*models.IntentAnalysisResponse, error) {
 	prompt = strings.TrimSpace(prompt)
 
-	// Get Gemini API key
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	// Get OpenAI API key
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		// Fallback to simple heuristics if no API key
+		fmt.Println("OPENAI_API_KEY not set, using fallback")
 		return s.analyzeIntentFallback(prompt)
 	}
 
-	// Create Gemini client
-	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
-	if err != nil {
-		fmt.Printf("Failed to create Gemini client: %v, using fallback\n", err)
-		return s.analyzeIntentFallback(prompt)
-	}
-	defer client.Close()
-
-	// Use Gemini Flash for fast classification
-	model := client.GenerativeModel("gemini-1.5-flash")
-	model.SetTemperature(0.1) // Low temperature for consistent classification
+	// Create OpenAI client
+	client := openai.NewClient(apiKey)
 
 	// Create classification prompt
 	classificationPrompt := fmt.Sprintf(`You are an intent classifier for a jewelry e-commerce app. Analyze the user's query and determine their intent.
@@ -71,24 +62,31 @@ IMPORTANT RULES:
 Respond ONLY with valid JSON in this exact format:
 {"intent": "search" or "generate", "confidence": 0-100, "reason": "brief explanation"}`, prompt)
 
-	// Call Gemini
-	resp, err := model.GenerateContent(ctx, genai.Text(classificationPrompt))
+	// Call OpenAI
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: openai.GPT4oMini,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: classificationPrompt,
+				},
+			},
+			Temperature: 0.1, // Low temperature for consistent classification
+		},
+	)
 	if err != nil {
-		fmt.Printf("Gemini API error: %v, using fallback\n", err)
+		fmt.Printf("OpenAI API error: %v, using fallback\n", err)
 		return s.analyzeIntentFallback(prompt)
 	}
 
 	// Parse response
-	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+	if len(resp.Choices) == 0 {
 		return s.analyzeIntentFallback(prompt)
 	}
 
-	responseText := ""
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if text, ok := part.(genai.Text); ok {
-			responseText += string(text)
-		}
-	}
+	responseText := resp.Choices[0].Message.Content
 
 	// Clean up response (remove markdown code blocks if present)
 	responseText = strings.TrimSpace(responseText)
@@ -105,7 +103,7 @@ Respond ONLY with valid JSON in this exact format:
 	}
 
 	if err := json.Unmarshal([]byte(responseText), &result); err != nil {
-		fmt.Printf("Failed to parse Gemini response: %v, response: %s\n", err, responseText)
+		fmt.Printf("Failed to parse OpenAI response: %v, response: %s\n", err, responseText)
 		return s.analyzeIntentFallback(prompt)
 	}
 
@@ -136,6 +134,250 @@ Respond ONLY with valid JSON in this exact format:
 		Reason:          result.Reason,
 		EnhancedPrompt:  enhancedPrompt,
 		IsProfileView:   intent == models.IntentTypeImage,
+	}, nil
+}
+
+// GenerateChatResponse generates a chat response using OpenAI
+func (s *AIService) GenerateChatResponse(ctx context.Context, req *models.ChatGenerateRequest) (*models.ChatGenerateResponse, error) {
+	// Get OpenAI API key
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return &models.ChatGenerateResponse{
+			Message: "I'm sorry, the AI service is currently unavailable. Please try again later.",
+			Success: false,
+		}, nil
+	}
+
+	// Create OpenAI client
+	client := openai.NewClient(apiKey)
+
+	// Build system prompt based on request type
+	var systemPrompt string
+	if req.Type == "product_recommendation" {
+		systemPrompt = `You are a friendly jewelry shopping assistant at Thyne Jewels, an Indian jewelry store.
+Your role is to help customers find the perfect jewelry pieces.
+Be warm, helpful, and knowledgeable about jewelry (metals, stones, designs, traditions).
+Keep responses concise (3-4 sentences max).
+Don't include prices in your response - customers will see them in product cards.
+Consider Indian jewelry traditions and preferences when relevant.`
+	} else {
+		systemPrompt = `You are a knowledgeable jewelry expert assistant at Thyne Jewels, an Indian jewelry store.
+Provide helpful, informative responses about jewelry (materials, care, traditions, styling).
+Be friendly and conversational.
+Keep responses concise (3-5 sentences).
+Consider Indian jewelry traditions and preferences when relevant.
+If customers seem interested in buying, suggest they ask for product recommendations with their budget and preferences.`
+	}
+
+	// Build user prompt
+	userPrompt := req.UserMessage
+	if req.ProductContext != "" {
+		userPrompt = fmt.Sprintf("User asked: \"%s\"\n\nHere are matching products:\n%s\n\nProvide a helpful response highlighting 2-3 top recommendations.", req.UserMessage, req.ProductContext)
+	}
+
+	// Call OpenAI
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: openai.GPT4oMini,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: systemPrompt,
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: userPrompt,
+				},
+			},
+			Temperature: 0.7,
+			MaxTokens:   500,
+		},
+	)
+	if err != nil {
+		fmt.Printf("OpenAI API error in chat generation: %v\n", err)
+		return &models.ChatGenerateResponse{
+			Message: "I'm sorry, I encountered an error. Please try again.",
+			Success: false,
+		}, nil
+	}
+
+	if len(resp.Choices) == 0 {
+		return &models.ChatGenerateResponse{
+			Message: "I'm sorry, I couldn't generate a response. Please try again.",
+			Success: false,
+		}, nil
+	}
+
+	return &models.ChatGenerateResponse{
+		Message: resp.Choices[0].Message.Content,
+		Success: true,
+	}, nil
+}
+
+// AnalyzeAndRespond combines intent analysis and response generation in one call
+func (s *AIService) AnalyzeAndRespond(ctx context.Context, req *models.ChatFullRequest, userID primitive.ObjectID) (*models.ChatFullResponse, error) {
+	// Get current token usage for the user
+	var tokensUsed, tokensRemaining, tokenLimit int64 = 0, models.DefaultMonthlyTokenLimit, models.DefaultMonthlyTokenLimit
+
+	if userID != primitive.NilObjectID {
+		usage, err := s.GetTokenUsage(ctx, userID)
+		if err == nil {
+			tokensUsed = usage.TokensUsed
+			tokensRemaining = usage.TokensRemaining
+			tokenLimit = usage.TokenLimit
+		}
+
+		// Check if user has tokens remaining
+		if tokensRemaining <= 0 {
+			return &models.ChatFullResponse{
+				Message:         "You've used all your free tokens for this month. Your tokens will reset on the 1st of next month.",
+				Intent:          "general",
+				Confidence:      0,
+				Success:         false,
+				TokensUsed:      tokensUsed,
+				TokensRemaining: 0,
+				TokenLimit:      tokenLimit,
+			}, nil
+		}
+	}
+
+	// Get OpenAI API key
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return &models.ChatFullResponse{
+			Message:         "I'm sorry, the AI service is currently unavailable.",
+			Intent:          "general",
+			Confidence:      0,
+			Success:         false,
+			TokensUsed:      tokensUsed,
+			TokensRemaining: tokensRemaining,
+			TokenLimit:      tokenLimit,
+		}, nil
+	}
+
+	// Create OpenAI client
+	client := openai.NewClient(apiKey)
+
+	// Combined prompt for intent analysis and response
+	prompt := fmt.Sprintf(`You are a helpful jewelry shopping assistant at Thyne Jewels (Indian jewelry store).
+
+User message: "%s"
+
+Analyze the user's intent and provide a helpful response.
+
+Return a JSON response with:
+{
+  "intent": "search" (wants to find/buy products) or "general" (question/advice),
+  "confidence": 0-100,
+  "response": "your helpful response here",
+  "filters": {
+    "category": "rings/necklaces/earrings/bracelets/pendants/bangles" or null,
+    "minPrice": number or null,
+    "maxPrice": number or null,
+    "metalType": "gold/silver/platinum" or null
+  }
+}
+
+Rules:
+- If user mentions price/budget → intent is "search"
+- If user asks to show/find/list products → intent is "search"
+- Keep response concise (2-4 sentences)
+- Be friendly and knowledgeable about jewelry`, req.Message)
+
+	resp, err := client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: openai.GPT4oMini,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+			Temperature: 0.3,
+		},
+	)
+	if err != nil {
+		fmt.Printf("OpenAI API error: %v\n", err)
+		return &models.ChatFullResponse{
+			Message:         "I'm sorry, I encountered an error. Please try again.",
+			Intent:          "general",
+			Confidence:      0,
+			Success:         false,
+			TokensUsed:      tokensUsed,
+			TokensRemaining: tokensRemaining,
+			TokenLimit:      tokenLimit,
+		}, nil
+	}
+
+	if len(resp.Choices) == 0 {
+		return &models.ChatFullResponse{
+			Message:         "I couldn't process your request. Please try again.",
+			Intent:          "general",
+			Confidence:      0,
+			Success:         false,
+			TokensUsed:      tokensUsed,
+			TokensRemaining: tokensRemaining,
+			TokenLimit:      tokenLimit,
+		}, nil
+	}
+
+	// Track token usage if user is authenticated
+	actualTokensUsed := int64(resp.Usage.TotalTokens)
+	if userID != primitive.NilObjectID {
+		_ = s.RecordTokenUsage(ctx, userID, actualTokensUsed)
+		tokensUsed += actualTokensUsed
+		tokensRemaining -= actualTokensUsed
+		if tokensRemaining < 0 {
+			tokensRemaining = 0
+		}
+	}
+
+	// Parse response
+	responseText := strings.TrimSpace(resp.Choices[0].Message.Content)
+	responseText = strings.TrimPrefix(responseText, "```json")
+	responseText = strings.TrimPrefix(responseText, "```")
+	responseText = strings.TrimSuffix(responseText, "```")
+	responseText = strings.TrimSpace(responseText)
+
+	var result struct {
+		Intent     string  `json:"intent"`
+		Confidence float64 `json:"confidence"`
+		Response   string  `json:"response"`
+		Filters    struct {
+			Category  *string  `json:"category"`
+			MinPrice  *float64 `json:"minPrice"`
+			MaxPrice  *float64 `json:"maxPrice"`
+			MetalType *string  `json:"metalType"`
+		} `json:"filters"`
+	}
+
+	if err := json.Unmarshal([]byte(responseText), &result); err != nil {
+		// If parsing fails, return the raw response as general
+		return &models.ChatFullResponse{
+			Message:         responseText,
+			Intent:          "general",
+			Confidence:      50,
+			Success:         true,
+			TokensUsed:      tokensUsed,
+			TokensRemaining: tokensRemaining,
+			TokenLimit:      tokenLimit,
+		}, nil
+	}
+
+	return &models.ChatFullResponse{
+		Message:         result.Response,
+		Intent:          result.Intent,
+		Confidence:      result.Confidence,
+		Category:        result.Filters.Category,
+		MinPrice:        result.Filters.MinPrice,
+		MaxPrice:        result.Filters.MaxPrice,
+		MetalType:       result.Filters.MetalType,
+		Success:         true,
+		TokensUsed:      tokensUsed,
+		TokensRemaining: tokensRemaining,
+		TokenLimit:      tokenLimit,
 	}, nil
 }
 

@@ -12,6 +12,9 @@ import '../../services/api_service.dart';
 import '../../utils/theme.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/video_player_widget.dart';
+import '../../widgets/stone_shape_selector.dart';
+import '../../widgets/diamond_4cs_selector.dart';
+import '../../widgets/carat_weight_selector.dart';
 import 'review_submission_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -54,6 +57,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _selectedPlatingColor;
   Map<String, String> _selectedStoneColors = {}; // stone name -> selected color
   Map<String, String> _selectedStoneQualities = {}; // stone name -> selected quality
+  Map<String, String> _selectedStoneShapes = {}; // stone name -> selected shape
+  Map<String, DiamondGrading> _selectedDiamondGrading = {}; // stone name -> 4Cs grading
+  Map<String, double> _selectedCaratWeights = {}; // stone name -> carat weight
   String? _selectedRingSize;
   String _engravingText = '';
   final TextEditingController _engravingController = TextEditingController();
@@ -139,6 +145,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       } else {
         // Fallback default
         _selectedStoneQualities[stone.name] = StoneQuality.defaults.first.name;
+      }
+      // Initialize shape
+      if (stone.availableShapes.isNotEmpty) {
+        _selectedStoneShapes[stone.name] = stone.availableShapes.first;
+      } else {
+        _selectedStoneShapes[stone.name] = stone.shape; // Use default shape
+      }
+      // Initialize diamond grading (only for diamonds)
+      if (stone.enableDiamondGrading) {
+        _selectedDiamondGrading[stone.name] = DiamondGrading(
+          colorGrade: 'G',
+          clarityGrade: 'VS1',
+          cutGrade: 'Excellent',
+        );
+      }
+      // Initialize carat weight
+      if (stone.availableCaratWeights != null && stone.availableCaratWeights!.isNotEmpty) {
+        _selectedCaratWeights[stone.name] = stone.defaultCaratWeight ?? stone.availableCaratWeights!.first;
+      } else if (stone.defaultCaratWeight != null) {
+        _selectedCaratWeights[stone.name] = stone.defaultCaratWeight!;
       }
     }
     if (widget.product.availableSizes.isNotEmpty) {
@@ -1170,6 +1196,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _selectedPlatingColor != null ||
         _selectedRingSize != null ||
         _selectedStoneColors.isNotEmpty ||
+        _selectedStoneShapes.isNotEmpty ||
+        _selectedDiamondGrading.isNotEmpty ||
+        _selectedCaratWeights.isNotEmpty ||
         _engravingText.isNotEmpty;
 
     if (!hasSelection) return null;
@@ -1179,6 +1208,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       platingColor: _selectedPlatingColor,
       stoneColorSelections: _selectedStoneColors.isNotEmpty ? Map.from(_selectedStoneColors) : null,
       stoneQualitySelections: _selectedStoneQualities.isNotEmpty ? Map.from(_selectedStoneQualities) : null,
+      stoneShapeSelections: _selectedStoneShapes.isNotEmpty ? Map.from(_selectedStoneShapes) : null,
+      stoneDiamondGrading: _selectedDiamondGrading.isNotEmpty ? Map.from(_selectedDiamondGrading) : null,
+      stoneCaratWeights: _selectedCaratWeights.isNotEmpty ? Map.from(_selectedCaratWeights) : null,
       ringSize: _selectedRingSize,
       engraving: _engravingText.isNotEmpty ? _engravingText : null,
       minThickness: widget.product.minThickness,
@@ -1291,6 +1323,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  // Diamondere beige/cream color
+  static const Color _diamondereBeige = Color(0xFFF5F0E8);
+  static const Color _diamondereDarkBeige = Color(0xFFEDE5D8);
+
   Widget _buildMainCustomizeAccordion() {
     return Container(
       decoration: BoxDecoration(
@@ -1299,7 +1335,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       child: Column(
         children: [
-          // Header
+          // Header - Diamondere beige style
           InkWell(
             onTap: () {
               setState(() {
@@ -1309,7 +1345,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: _isCustomizeExpanded ? Colors.grey.shade50 : Colors.white,
+                color: _isCustomizeExpanded ? _diamondereBeige : const Color(0xFFFAF8F5),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(3),
+                  topRight: Radius.circular(3),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1372,6 +1412,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final isExpanded = _stoneExpanded[stone.name] ?? false;
     final selectedColor = _selectedStoneColors[stone.name];
 
+    // Format stone name for display (e.g., "Diamond" -> "Diamonds", "Ruby" -> "Rubies")
+    String formatStonePlural(String? color) {
+      if (color == null) return 'Select';
+      // Handle special pluralization
+      if (color.toLowerCase().endsWith('y') && !color.toLowerCase().endsWith('ey')) {
+        return '${color.substring(0, color.length - 1)}ies';
+      } else if (color.toLowerCase().endsWith('s') || color.toLowerCase().endsWith('x')) {
+        return '${color}es';
+      }
+      return '${color}s';
+    }
+
     return Column(
       children: [
         InkWell(
@@ -1382,6 +1434,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -1389,9 +1444,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     text: TextSpan(
                       style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
                       children: [
-                        TextSpan(text: 'Selected ${stone.name} - '),
+                        TextSpan(text: 'Selected Accent Stones ${index + 1} - '),
                         TextSpan(
-                          text: selectedColor ?? 'Select',
+                          text: formatStonePlural(selectedColor),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -1423,6 +1478,61 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   _buildQualitySelector(stone),
                 ],
 
+                // Shape Selection (Diamondere style)
+                if (selectedColor != null && stone.availableShapes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  StoneShapeSelector(
+                    availableShapes: stone.availableShapes,
+                    selectedShape: _selectedStoneShapes[stone.name],
+                    priceModifiers: stone.shapePriceModifiers,
+                    showPriceModifiers: true,
+                    onShapeSelected: (shape) {
+                      setState(() {
+                        _selectedStoneShapes[stone.name] = shape;
+                      });
+                    },
+                  ),
+                ],
+
+                // Diamond 4Cs Grading (only for diamonds with grading enabled)
+                if (selectedColor != null && stone.enableDiamondGrading) ...[
+                  const SizedBox(height: 16),
+                  Diamond4CsSelector(
+                    currentGrading: _selectedDiamondGrading[stone.name],
+                    availableColorGrades: stone.availableColorGrades ?? StoneConfig.defaultColorGrades,
+                    availableClarityGrades: stone.availableClarityGrades ?? StoneConfig.defaultClarityGrades,
+                    availableCutGrades: stone.availableCutGrades ?? StoneConfig.defaultCutGrades,
+                    colorPriceModifiers: stone.colorGradePriceModifiers ?? GradingPriceTable.colorMultipliers,
+                    clarityPriceModifiers: stone.clarityPriceModifiers ?? GradingPriceTable.clarityMultipliers,
+                    cutPriceModifiers: stone.cutGradePriceModifiers ?? GradingPriceTable.cutMultipliers,
+                    showPriceModifiers: true,
+                    onGradingChanged: (grading) {
+                      setState(() {
+                        _selectedDiamondGrading[stone.name] = grading;
+                      });
+                    },
+                  ),
+                ],
+
+                // Carat Weight Selection
+                if (selectedColor != null &&
+                    stone.availableCaratWeights != null &&
+                    stone.availableCaratWeights!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  CaratWeightSelector(
+                    availableWeights: stone.availableCaratWeights!,
+                    selectedWeight: _selectedCaratWeights[stone.name],
+                    pricePerCarat: stone.pricePerCarat,
+                    caratPriceMultipliers: stone.caratPriceMultipliers,
+                    showPriceImpact: true,
+                    onWeightSelected: (weight) {
+                      setState(() {
+                        _selectedCaratWeights[stone.name] = weight;
+                      });
+                    },
+                  ),
+                ],
+
                 // Stone description
                 if (selectedColor != null) ...[
                   const SizedBox(height: 12),
@@ -1452,7 +1562,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         if (stone.count != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'These ${stone.count} ${stone.shape.toLowerCase()}-cut ${selectedColor}s are of ${getSelectedQualityName(stone.name)} quality.',
+                            _buildStoneDescriptionText(stone, selectedColor),
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                           ),
                         ],
@@ -1472,6 +1582,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   String getSelectedQualityName(String stoneName) {
     return _selectedStoneQualities[stoneName] ?? 'Standard';
+  }
+
+  String _buildStoneDescriptionText(StoneConfig stone, String selectedColor) {
+    final shape = _selectedStoneShapes[stone.name] ?? stone.shape;
+    final quality = getSelectedQualityName(stone.name);
+    final grading = _selectedDiamondGrading[stone.name];
+    final caratWeight = _selectedCaratWeights[stone.name];
+
+    StringBuffer text = StringBuffer();
+    text.write('These ${stone.count} ${shape.toLowerCase()}-cut ${selectedColor}s');
+
+    if (caratWeight != null) {
+      text.write(' (${caratWeight.toStringAsFixed(2)} ct each)');
+    }
+
+    text.write(' are of $quality quality');
+
+    if (grading != null) {
+      text.write(' with ${grading.shortSummary} grading');
+    }
+
+    text.write('.');
+    return text.toString();
   }
 
   Widget _buildQualitySelector(StoneConfig stone) {
@@ -1928,31 +2061,140 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildMetalGrid() {
-    // Organize metals into grid format
-    final metalRows = <List<String?>>[];
+    // Dynamically organize metals from admin data into Diamondere-style grid
+    final availableMetals = widget.product.availableMetals;
 
-    // Row 1: White metals
-    metalRows.add(['Platinum', '18K White Gold', '14K White Gold', '10K White Gold', '925 Silver']);
-    // Row 2: Yellow metals
-    metalRows.add([null, '18K Yellow Gold', '14K Yellow Gold', '10K Yellow Gold', null]);
-    // Row 3: Rose metals
-    metalRows.add([null, '18K Rose Gold', '14K Rose Gold', '10K Rose Gold', null]);
+    // Categorize metals by color type and karat
+    final Map<String, Map<String, String>> metalMatrix = {
+      'White': {},
+      'Yellow': {},
+      'Rose': {},
+      'Black': {},
+    };
+
+    // Column order for display
+    final columnOrder = ['Platinum', '18K', '14K', '10K', '9K', '22K', 'Silver', 'Vermeil'];
+
+    for (final metal in availableMetals) {
+      final metalLower = metal.toLowerCase();
+
+      // Determine color type
+      String colorType = 'White'; // default
+      if (metalLower.contains('yellow')) {
+        colorType = 'Yellow';
+      } else if (metalLower.contains('rose') || metalLower.contains('pink')) {
+        colorType = 'Rose';
+      } else if (metalLower.contains('black')) {
+        colorType = 'Black';
+      }
+
+      // Determine karat/type column
+      String column = '';
+      if (metalLower.contains('platinum') || metalLower.contains('pt')) {
+        column = 'Platinum';
+      } else if (metalLower.contains('22k')) {
+        column = '22K';
+      } else if (metalLower.contains('18k')) {
+        column = '18K';
+      } else if (metalLower.contains('14k')) {
+        column = '14K';
+      } else if (metalLower.contains('10k')) {
+        column = '10K';
+      } else if (metalLower.contains('9k')) {
+        column = '9K';
+      } else if (metalLower.contains('silver') || metalLower.contains('925')) {
+        column = 'Silver';
+      } else if (metalLower.contains('vermeil')) {
+        column = 'Vermeil';
+      } else {
+        // For metals that don't fit the pattern, put them in their own column
+        column = metal;
+      }
+
+      metalMatrix[colorType]![column] = metal;
+    }
+
+    // Find which columns have at least one metal
+    final Set<String> activeColumns = {};
+    for (final colorMetals in metalMatrix.values) {
+      activeColumns.addAll(colorMetals.keys);
+    }
+
+    // Sort columns by preferred order
+    final sortedColumns = columnOrder.where((c) => activeColumns.contains(c)).toList();
+    // Add any columns not in the preferred order
+    for (final col in activeColumns) {
+      if (!sortedColumns.contains(col)) {
+        sortedColumns.add(col);
+      }
+    }
+
+    // Find which rows have at least one metal
+    final activeRows = metalMatrix.entries
+        .where((e) => e.value.isNotEmpty)
+        .map((e) => e.key)
+        .toList();
+
+    if (sortedColumns.isEmpty || activeRows.isEmpty) {
+      // Fallback: just show all metals as buttons in a wrap
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: availableMetals.map((metal) => _buildMetalButton(metal)).toList(),
+      );
+    }
 
     return Column(
-      children: metalRows.map((row) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            children: row.map((metal) {
-              if (metal == null || !widget.product.availableMetals.contains(metal)) {
-                return const SizedBox(width: 44);
-              }
-              return _buildMetalButton(metal);
-            }).toList(),
-          ),
-        );
-      }).toList(),
+      children: [
+        // Column headers
+        Row(
+          children: sortedColumns.map((col) {
+            return SizedBox(
+              width: 44,
+              child: Text(
+                _getColumnLabel(col),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        // Metal rows
+        ...activeRows.map((colorType) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: sortedColumns.map((col) {
+                final metal = metalMatrix[colorType]![col];
+                if (metal == null) {
+                  return const SizedBox(width: 44);
+                }
+                return _buildMetalButton(metal);
+              }).toList(),
+            ),
+          );
+        }),
+      ],
     );
+  }
+
+  String _getColumnLabel(String column) {
+    switch (column) {
+      case 'Platinum': return 'Platinum';
+      case '22K': return '22k';
+      case '18K': return '18k';
+      case '14K': return '14k';
+      case '10K': return '10k';
+      case '9K': return '9k';
+      case 'Silver': return 'Silver';
+      case 'Vermeil': return 'Vermeil';
+      default: return column;
+    }
   }
 
   Widget _buildMetalButton(String metal) {
@@ -1966,6 +2208,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } else if (metal.contains('Silver')) {
       label = 'SLV';
       bgColor = const Color(0xFFC0C0C0);
+    } else if (metal.contains('Vermeil')) {
+      label = 'VER';
+      bgColor = const Color(0xFFFFD700); // Gold color for vermeil
     } else if (metal.contains('18K')) {
       label = '18k';
     } else if (metal.contains('14K')) {
@@ -1974,12 +2219,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       label = '10k';
     }
 
+    // Apply color based on metal type
     if (metal.contains('White')) {
       bgColor = const Color(0xFFF5F5F5);
     } else if (metal.contains('Yellow')) {
       bgColor = const Color(0xFFFFD700);
     } else if (metal.contains('Rose')) {
       bgColor = const Color(0xFFE8B4B8);
+    } else if (metal.contains('Black')) {
+      bgColor = const Color(0xFF2C2C2C); // Dark grey/black for black gold
     }
 
     return Padding(
@@ -2007,7 +2255,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: metal.contains('Yellow') ? Colors.brown.shade800 : Colors.grey.shade700,
+                color: metal.contains('Black')
+                    ? Colors.white
+                    : metal.contains('Yellow') || metal.contains('Vermeil')
+                        ? Colors.brown.shade800
+                        : Colors.grey.shade700,
               ),
             ),
           ),
@@ -2043,6 +2295,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -2074,58 +2329,93 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
         if (_isRingSizeExpanded) ...[
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Size chips - selectable
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: parsedSizes.map((size) {
-                    final isSelected = _selectedRingSize == size;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedRingSize = size;
-                        });
-                      },
-                      child: Container(
-                        constraints: const BoxConstraints(minWidth: 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF2E5339) : Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: isSelected ? const Color(0xFF2E5339) : Colors.grey.shade400,
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Text(
-                          size,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            color: isSelected ? Colors.white : Colors.grey.shade800,
-                          ),
-                        ),
+                // Ring Size label and dropdown
+                Row(
+                  children: [
+                    Text(
+                      '${_getSizeLabelName()}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
                       ),
-                    );
-                  }).toList(),
+                    ),
+                    const Spacer(),
+                    // View Size Guide link
+                    GestureDetector(
+                      onTap: () {
+                        _showRingSizeGuide();
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View ${_getSizeLabelName()} Guide',
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 13,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                // View Size Guide link
-                GestureDetector(
-                  onTap: () {
-                    _showRingSizeGuide();
-                  },
-                  child: Text(
-                    'View Size Guide',
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontSize: 13,
-                      decoration: TextDecoration.underline,
+                // Dropdown menu - Diamondere style
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedRingSize,
+                      isExpanded: true,
+                      hint: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'Select ${_getSizeLabelName()}',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ),
+                      icon: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600),
+                      ),
+                      menuMaxHeight: 300,
+                      items: parsedSizes.map((size) {
+                        return DropdownMenuItem<String>(
+                          value: size,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                if (_selectedRingSize == size)
+                                  Icon(Icons.check, size: 16, color: Colors.grey.shade700),
+                                if (_selectedRingSize == size)
+                                  const SizedBox(width: 8),
+                                Text(
+                                  size,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedRingSize = value;
+                        });
+                      },
                     ),
                   ),
                 ),
@@ -2244,6 +2534,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: _isRingDetailsExpanded ? _diamondereBeige : const Color(0xFFFAF8F5),
+                borderRadius: BorderRadius.circular(3),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -2307,6 +2601,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: _isRingSummaryExpanded ? _diamondereBeige : const Color(0xFFFAF8F5),
+                borderRadius: BorderRadius.circular(3),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
