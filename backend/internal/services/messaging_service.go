@@ -297,13 +297,16 @@ func (s *MessagingService) sendSMS(ctx context.Context, phone, message, msgType,
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
+	// Log the raw response for debugging
+	fmt.Printf("[MTALKZ DEBUG] Status: %d, Response: %s\n", resp.StatusCode, string(body))
+
 	var smsResp models.MtalkzSMSResponse
 	if err := json.Unmarshal(body, &smsResp); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", fmt.Errorf("failed to parse response: %w (raw: %s)", err, string(body))
 	}
 
-	if smsResp.Error != "" {
-		return "", fmt.Errorf("mtalkz error: %s", smsResp.Error)
+	if errStr := smsResp.GetError(); errStr != "" {
+		return "", fmt.Errorf("mtalkz error: %s (message: %s)", errStr, smsResp.Message)
 	}
 
 	messageID := smsResp.ID
@@ -387,8 +390,8 @@ func (s *MessagingService) sendWhatsAppTemplate(ctx context.Context, phone strin
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	if waResp.Error != "" {
-		return "", fmt.Errorf("mtalkz whatsapp error: %s", waResp.Error)
+	if errStr := waResp.GetError(); errStr != "" {
+		return "", fmt.Errorf("mtalkz whatsapp error: %s", errStr)
 	}
 
 	return waResp.MessageID, nil
@@ -439,8 +442,8 @@ func (s *MessagingService) SendWhatsAppText(ctx context.Context, phone, message 
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	if waResp.Error != "" {
-		return "", fmt.Errorf("mtalkz whatsapp error: %s", waResp.Error)
+	if errStr := waResp.GetError(); errStr != "" {
+		return "", fmt.Errorf("mtalkz whatsapp error: %s", errStr)
 	}
 
 	return waResp.MessageID, nil

@@ -103,9 +103,27 @@ type MtalkzSMSResponse struct {
 		Recipient string `json:"recipient"`
 		MessageID string `json:"messageId"`
 	} `json:"data"`
-	TotalCount int    `json:"totalCount"`
-	Message    string `json:"message"`
-	Error      string `json:"error,omitempty"`
+	TotalCount int         `json:"totalCount"`
+	Message    string      `json:"message"`
+	Error      interface{} `json:"error,omitempty"` // Can be bool (false) or string
+}
+
+// GetError returns error as string, handling both bool and string types
+func (r *MtalkzSMSResponse) GetError() string {
+	if r.Error == nil {
+		return ""
+	}
+	switch v := r.Error.(type) {
+	case string:
+		return v
+	case bool:
+		if v {
+			return "unknown error"
+		}
+		return ""
+	default:
+		return ""
+	}
 }
 
 // MtalkzWhatsAppRequest represents Mtalkz WhatsApp API request
@@ -149,9 +167,27 @@ type MtalkzWhatsAppText struct {
 
 // MtalkzWhatsAppResponse represents Mtalkz WhatsApp API response
 type MtalkzWhatsAppResponse struct {
-	Success   bool   `json:"success"`
-	MessageID string `json:"messageId,omitempty"`
-	Error     string `json:"error,omitempty"`
+	Success   bool        `json:"success"`
+	MessageID string      `json:"messageId,omitempty"`
+	Error     interface{} `json:"error,omitempty"` // Can be bool (false) or string
+}
+
+// GetError returns error as string, handling both bool and string types
+func (r *MtalkzWhatsAppResponse) GetError() string {
+	if r.Error == nil {
+		return ""
+	}
+	switch v := r.Error.(type) {
+	case string:
+		return v
+	case bool:
+		if v {
+			return "unknown error"
+		}
+		return ""
+	default:
+		return ""
+	}
 }
 
 // SendTransactionalRequest represents request to send transactional message
