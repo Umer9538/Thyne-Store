@@ -358,8 +358,21 @@ func (h *OTPHandler) SendSMS(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "Service status"
 // @Router /otp/status [get]
 func (h *OTPHandler) GetSMSStatus(c *gin.Context) {
-	enabled := h.smsService != nil && h.smsService.IsEnabled()
+	// Check Mtalkz first (preferred provider)
+	if h.messagingService != nil && h.messagingService.IsConfigured() {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"data": gin.H{
+				"enabled":  true,
+				"provider": "Mtalkz",
+				"config":   h.messagingService.GetConfig(),
+			},
+		})
+		return
+	}
 
+	// Fallback to Gupshup
+	enabled := h.smsService != nil && h.smsService.IsEnabled()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
