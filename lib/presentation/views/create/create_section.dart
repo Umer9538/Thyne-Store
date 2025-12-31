@@ -7,13 +7,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 // Import theme and providers
 import '../../../theme/thyne_theme.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/ai_provider.dart';
-import '../../data/models/ai_creation.dart';
-import '../../data/models/product.dart';
-import '../../data/models/conversation.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/ai_provider.dart';
+import '../../../data/models/ai_creation.dart';
+import '../../../data/models/product.dart';
+import '../../../data/models/conversation.dart';
 import '../../../utils/prompt_validator.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/services/api_service.dart';
 import '../product/product_detail_screen.dart';
 
 class CreateSection extends StatefulWidget {

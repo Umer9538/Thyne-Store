@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
 import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/order_provider.dart';
-import '../../data/services/cashfree_service.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/order_provider.dart';
+import '../../../data/services/cashfree_service.dart';
 import '../../../utils/theme.dart';
-import '../../data/models/user.dart';
+import '../../../data/models/user.dart';
 import '../orders/order_success_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {

@@ -7,7 +7,7 @@ import '../viewmodels/product_provider.dart';
 import '../viewmodels/cart_provider.dart';
 import '../viewmodels/wishlist_provider.dart';
 import '../../data/services/promotion_manager.dart';
-import '../utils/theme.dart';
+import '../../utils/theme.dart';
 import 'glass/glass_ui.dart';
 
 class ProductCard extends StatefulWidget {

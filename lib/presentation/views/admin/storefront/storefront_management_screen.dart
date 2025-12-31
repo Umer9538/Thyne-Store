@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/storefront_config.dart';
+import '../../../../data/models/storefront_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 

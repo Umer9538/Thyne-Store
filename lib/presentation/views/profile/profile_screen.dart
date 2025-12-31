@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/auth_provider.dart';
+import '../../viewmodels/auth_provider.dart';
 import '../../../utils/theme.dart';
 import '../auth/login_screen.dart';
 import '../settings/notification_settings_screen.dart';
 import '../settings/privacy_policy_screen.dart';
 import '../settings/terms_conditions_screen.dart';
 import 'edit_profile_screen.dart';
-import '../widgets/glass/glass_ui.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});

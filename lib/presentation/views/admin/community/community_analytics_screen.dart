@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../../providers/community_provider.dart';
-import '../../../models/community.dart';
+import '../../../viewmodels/community_provider.dart';
+import '../../../../data/models/community.dart';
 import '../../../../utils/theme.dart';
 
 class CommunityAnalyticsScreen extends StatefulWidget {

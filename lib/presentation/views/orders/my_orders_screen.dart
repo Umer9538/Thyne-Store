@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/order_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/order.dart';
+import '../../viewmodels/order_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/order.dart';
 import '../../../utils/theme.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/services/api_service.dart';
 import 'order_tracking_screen.dart';
 
 class MyOrdersScreen extends StatefulWidget {

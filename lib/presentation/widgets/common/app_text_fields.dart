@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/core.dart';
+import '../../../core/core.dart';
 
 /// Standard text input field with consistent styling.
 class AppTextField extends StatelessWidget {

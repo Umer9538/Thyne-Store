@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/models/event_promotion.dart';
-import '../utils/theme.dart';
+import '../../utils/theme.dart';
 
 class EventPromotionPopup extends StatefulWidget {
   final EventPromotion promotion;

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../viewmodels/auth_provider.dart';
+import '../../viewmodels/auth_provider.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String phoneNumber;

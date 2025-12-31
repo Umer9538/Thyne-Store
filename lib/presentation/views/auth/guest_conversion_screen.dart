@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/guest_session_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/guest_session_provider.dart';
 import '../../../utils/theme.dart';
 
 class GuestConversionScreen extends StatefulWidget {

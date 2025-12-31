@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../utils/theme.dart';
-import '../../../providers/product_provider.dart';
-import '../../../models/product.dart';
+import '../../../viewmodels/product_provider.dart';
+import '../../../../data/models/product.dart';
 import '../../../../data/services/api_service.dart';
 import 'add_edit_product_screen.dart';
 

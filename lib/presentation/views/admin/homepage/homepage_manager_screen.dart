@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/banner.dart' as BannerModel;
+import '../../../../data/models/banner.dart' as BannerModel;
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 import 'banner_form_screen.dart';

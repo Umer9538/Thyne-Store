@@ -6,9 +6,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 // Import theme and providers
 import '../../../theme/thyne_theme.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/ai_provider.dart';
-import '../../data/models/ai_creation.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/ai_provider.dart';
+import '../../../data/models/ai_creation.dart';
 import '../../../utils/prompt_validator.dart';
 
 class CreateSection extends StatefulWidget {

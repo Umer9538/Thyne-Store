@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
-import '../../theme/glass_config.dart';
+import '../../../theme/glass_config.dart';
 
 /// iOS-style Glass AppBar with frosted blur effect
 /// Replicates iOS navigation bar with translucent background

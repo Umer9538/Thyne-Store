@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
 import '../../../utils/theme.dart';
 import 'redesigned_home_screen.dart';
 import '../search/enhanced_search_screen.dart';

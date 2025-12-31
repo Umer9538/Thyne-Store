@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/auth_provider.dart';
+import '../../viewmodels/auth_provider.dart';
 import '../../../utils/theme.dart';
 import '../onboarding/onboarding_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'admin_login_screen.dart';
 import 'otp_verification_screen.dart';
-import '../widgets/glass/glass_ui.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

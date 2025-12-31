@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/order_provider.dart';
-import '../viewmodels/guest_session_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/order_provider.dart';
+import '../../viewmodels/guest_session_provider.dart';
 import '../../../utils/theme.dart';
-import '../../data/models/user.dart';
+import '../../../data/models/user.dart';
 import '../orders/order_success_screen.dart';
 import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';

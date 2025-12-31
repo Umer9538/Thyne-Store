@@ -5,10 +5,10 @@ import 'package:carousel_slider/carousel_slider.dart' as carousel;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/product_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/product_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
 import '../../../theme/thyne_theme.dart';
 
 class ThyneHomeFigma extends StatefulWidget {

@@ -6,9 +6,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 
 // Import existing providers and models
-import '../viewmodels/community_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/community.dart';
+import '../../viewmodels/community_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/community.dart';
 import '../../../theme/thyne_theme.dart';
 
 class CommunitySectionNew extends StatefulWidget {

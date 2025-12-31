@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/address_provider.dart';
-import '../../data/models/user.dart';
+import '../../viewmodels/address_provider.dart';
+import '../../../data/models/user.dart';
 import '../../../utils/theme.dart';
 
 class AddEditAddressScreen extends StatefulWidget {

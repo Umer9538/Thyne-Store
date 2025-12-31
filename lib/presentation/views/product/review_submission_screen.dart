@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../data/models/product.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/models/product.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/services/api_service.dart';
 import '../../../utils/theme.dart';
 import 'dart:io';
 

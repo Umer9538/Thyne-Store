@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/community.dart';
-import '../../data/services/api_service.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/community.dart';
+import '../../../data/services/api_service.dart';
 import 'create_post_screen.dart';
 
 class ProfileTab extends StatefulWidget {

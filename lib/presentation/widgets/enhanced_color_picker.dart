@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import '../utils/theme.dart';
+import '../../utils/theme.dart';
 
 /// Enhanced color picker with both visual picker and hex input
 class EnhancedColorPicker extends StatefulWidget {

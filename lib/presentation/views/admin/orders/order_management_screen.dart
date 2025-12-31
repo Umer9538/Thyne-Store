@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../utils/theme.dart';
-import '../../../models/order.dart';
+import '../../../../data/models/order.dart';
 import '../../../../data/services/api_service.dart';
 
 class OrderManagementScreen extends StatefulWidget {

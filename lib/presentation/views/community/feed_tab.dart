@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../viewmodels/community_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/community.dart';
-import '../../data/models/product.dart';
-import '../../data/services/api_service.dart';
+import '../../viewmodels/community_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/community.dart';
+import '../../../data/models/product.dart';
+import '../../../data/services/api_service.dart';
 import '../product/product_detail_screen.dart';
 import 'create_post_screen.dart';
 

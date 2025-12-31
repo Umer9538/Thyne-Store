@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../utils/theme.dart';
 import '../../../utils/search_utils.dart';
-import '../viewmodels/product_provider.dart';
-import '../widgets/product_card.dart';
+import '../../viewmodels/product_provider.dart';
+import '../../widgets/product_card.dart';
 import '../product/product_detail_screen.dart';
 
 class EnhancedSearchScreen extends StatefulWidget {

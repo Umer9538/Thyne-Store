@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../data/services/api_service.dart';
-import '../../../models/invoice.dart';
+import '../../../../data/models/invoice.dart';
 import '../../../../utils/theme.dart';
 
 // Conditional imports for platform-specific code

@@ -5,7 +5,7 @@
 /// import 'package:your_app/widgets/glass/glass_ui.dart';
 
 // Core configuration
-export '../../theme/glass_config.dart';
+export '../../../theme/glass_config.dart';
 
 // Glass components
 export 'glass_container.dart';

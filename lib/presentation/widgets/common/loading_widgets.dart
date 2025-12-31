@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/core.dart';
+import '../../../core/core.dart';
 
 /// A simple circular loading indicator with optional text.
 class AppLoadingSpinner extends StatelessWidget {

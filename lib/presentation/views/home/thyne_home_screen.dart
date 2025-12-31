@@ -6,14 +6,14 @@ import 'package:carousel_slider/carousel_slider.dart' as carousel;
 import 'dart:ui';
 
 // Providers and models
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
-import '../viewmodels/product_provider.dart';
-import '../viewmodels/address_provider.dart';
-import '../../data/models/product.dart';
-import '../../data/models/banner.dart' as app_banner;
-import '../../data/services/api_service.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/product_provider.dart';
+import '../../viewmodels/address_provider.dart';
+import '../../../data/models/product.dart';
+import '../../../data/models/banner.dart' as app_banner;
+import '../../../data/services/api_service.dart';
 import '../../../theme/thyne_theme.dart';
 
 class ThyneHomeScreen extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
-import '../../theme/glass_config.dart';
+import '../../../theme/glass_config.dart';
 
 /// iOS-style Glass Bottom Navigation Bar with frosted blur effect
 class GlassBottomNavBar extends StatelessWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../models/store_settings.dart';
+import '../../../../data/models/store_settings.dart';
 
 /// Admin screen for managing quality tiers (Standard, Premium, Exclusive, etc.)
 class QualityTiersScreen extends StatefulWidget {

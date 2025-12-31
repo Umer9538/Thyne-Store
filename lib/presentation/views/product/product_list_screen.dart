@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/product_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/product_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
 import '../../../utils/theme.dart';
 import '../../../utils/responsive.dart';
-import '../widgets/product_card.dart';
+import '../../widgets/product_card.dart';
 import '../../../constants/sort_options.dart';
 import '../../../constants/filter_options.dart';
 import '../../../constants/app_spacing.dart';

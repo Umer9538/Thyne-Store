@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/loyalty_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/loyalty.dart';
+import '../../viewmodels/loyalty_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/loyalty.dart';
 import '../../../utils/theme.dart';
 
 class LoyaltyScreen extends StatefulWidget {

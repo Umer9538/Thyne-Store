@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../../../models/homepage.dart';
+import '../../../../data/models/homepage.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 

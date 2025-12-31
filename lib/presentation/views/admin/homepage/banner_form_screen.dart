@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../models/banner.dart' as BannerModel;
+import '../../../../data/models/banner.dart' as BannerModel;
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 

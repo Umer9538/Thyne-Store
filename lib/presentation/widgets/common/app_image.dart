@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../core/core.dart';
+import '../../../core/core.dart';
 import 'loading_widgets.dart';
 
 /// A network image widget with placeholder, error handling, and caching.

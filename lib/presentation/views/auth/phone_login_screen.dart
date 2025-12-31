@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../viewmodels/auth_provider.dart';
+import '../../viewmodels/auth_provider.dart';
 import '../../../core/core.dart';
 import 'otp_verification_screen.dart';
 import 'admin_login_screen.dart';

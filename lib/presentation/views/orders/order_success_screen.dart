@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../data/models/order.dart';
+import '../../../data/models/order.dart';
 import '../../../utils/theme.dart';
 
 class OrderSuccessScreen extends StatelessWidget {

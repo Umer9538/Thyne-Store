@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../viewmodels/community_provider.dart';
-import '../../data/models/community.dart';
+import '../../viewmodels/community_provider.dart';
+import '../../../data/models/community.dart';
 
 class SpotlightTab extends StatefulWidget {
   const SpotlightTab({super.key});

@@ -5,11 +5,11 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 
 // Import existing providers
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
-import '../viewmodels/product_provider.dart';
-import '../viewmodels/community_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/product_provider.dart';
+import '../../viewmodels/community_provider.dart';
 
 // Import theme
 import '../../../theme/thyne_theme.dart';

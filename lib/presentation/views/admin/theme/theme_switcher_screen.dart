@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../models/theme_config.dart';
+import '../../../../data/models/theme_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 import '../../../../utils/responsive.dart';
-import '../../../providers/theme_provider.dart';
+import '../../../viewmodels/theme_provider.dart';
 import '../../../widgets/responsive_screen_wrapper.dart';
 import 'custom_theme_form_screen.dart';
 

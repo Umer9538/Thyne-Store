@@ -2,18 +2,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../viewmodels/product_provider.dart';
+import '../../viewmodels/product_provider.dart';
 import '../../../utils/theme.dart';
 import '../../../utils/responsive.dart';
-import '../../data/services/api_service.dart';
-import '../../data/models/homepage.dart';
-import '../../data/models/product.dart';
-import '../widgets/deal_of_day_widget.dart';
-import '../widgets/flash_sale_widget.dart';
-import '../widgets/recently_viewed_widget.dart';
-import '../widgets/product_card.dart';
-import '../widgets/showcase_360_widget.dart';
-import '../widgets/bundle_deal_widget.dart';
+import '../../../data/services/api_service.dart';
+import '../../../data/models/homepage.dart';
+import '../../../data/models/product.dart';
+import '../../widgets/deal_of_day_widget.dart';
+import '../../widgets/flash_sale_widget.dart';
+import '../../widgets/recently_viewed_widget.dart';
+import '../../widgets/product_card.dart';
+import '../../widgets/showcase_360_widget.dart';
+import '../../widgets/bundle_deal_widget.dart';
 import '../product/product_detail_screen.dart';
 
 class DynamicHomeScreen extends StatefulWidget {

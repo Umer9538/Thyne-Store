@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/product_provider.dart';
-import '../../data/models/filter_params.dart';
+import '../../viewmodels/product_provider.dart';
+import '../../../data/models/filter_params.dart';
 import '../../../config/filter_config.dart';
 import '../../../utils/theme.dart';
 

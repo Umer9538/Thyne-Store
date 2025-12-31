@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/address_provider.dart';
-import '../../data/models/user.dart';
+import '../../viewmodels/address_provider.dart';
+import '../../../data/models/user.dart';
 import '../../../utils/theme.dart';
 import 'add_edit_address_screen.dart';
 

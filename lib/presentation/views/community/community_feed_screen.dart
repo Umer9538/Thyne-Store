@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/community_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../widgets/community_post_card.dart';
-import '../../data/models/community.dart';
+import '../../viewmodels/community_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../widgets/community_post_card.dart';
+import '../../../data/models/community.dart';
 import '../../../utils/theme.dart';
 import 'create_post_screen.dart';
 import 'post_detail_screen.dart';

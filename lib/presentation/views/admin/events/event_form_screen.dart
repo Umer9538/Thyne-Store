@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/event.dart';
+import '../../../../data/models/event.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 

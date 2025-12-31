@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../../../models/event.dart';
+import '../../../../data/models/event.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../utils/theme.dart';
 import 'event_form_screen.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../models/store_settings.dart';
-import '../../../providers/store_settings_provider.dart';
+import '../../../../data/models/store_settings.dart';
+import '../../../viewmodels/store_settings_provider.dart';
 import '../../../../utils/theme.dart';
 
 class StoreSettingsScreen extends StatefulWidget {

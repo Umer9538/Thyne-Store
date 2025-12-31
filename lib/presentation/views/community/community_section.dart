@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
 import '../../../utils/theme.dart';
 import 'feed_tab.dart';
 import 'spotlight_tab.dart';

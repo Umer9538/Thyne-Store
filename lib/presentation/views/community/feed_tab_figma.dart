@@ -4,9 +4,9 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/community_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/community.dart';
+import '../../viewmodels/community_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/community.dart';
 
 class FeedTabFigma extends StatefulWidget {
   const FeedTabFigma({super.key});

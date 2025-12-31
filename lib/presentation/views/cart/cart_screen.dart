@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/guest_session_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/guest_session_provider.dart';
 import '../../../utils/theme.dart';
 import '../product/product_detail_screen.dart';
 import '../checkout/checkout_screen.dart';
-import '../widgets/glass/glass_ui.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});

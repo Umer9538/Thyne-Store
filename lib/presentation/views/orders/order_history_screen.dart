@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/order_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/order.dart';
+import '../../viewmodels/order_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/order.dart';
 import '../../../utils/theme.dart';
 import '../../../constants/order_constants.dart';
 import '../../../constants/app_spacing.dart';

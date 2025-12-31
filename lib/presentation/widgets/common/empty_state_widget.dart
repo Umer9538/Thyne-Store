@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/core.dart';
+import '../../../core/core.dart';
 import 'app_buttons.dart';
 
 /// A widget to display when there's no data or content.

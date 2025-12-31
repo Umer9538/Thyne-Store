@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
 import '../viewmodels/cart_provider.dart';
 import '../viewmodels/theme_provider.dart';
-import '../utils/theme.dart';
-import '../utils/responsive.dart';
+import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
 import 'glass/glass_ui.dart';
 import 'dart:ui';
 

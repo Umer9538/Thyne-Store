@@ -3,12 +3,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/models/collection.dart';
-import '../../data/models/product.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/models/collection.dart';
+import '../../../data/models/product.dart';
+import '../../../data/services/api_service.dart';
 import '../../../theme/thyne_theme.dart';
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
 import '../../../utils/currency_formatter.dart';
 import '../product/product_detail_screen.dart';
 

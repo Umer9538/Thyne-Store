@@ -4,14 +4,14 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
-import '../viewmodels/community_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../../data/models/community.dart';
-import '../../data/models/order.dart';
-import '../../data/models/product.dart';
-import '../../data/services/api_service.dart';
+import '../../viewmodels/community_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../../data/models/community.dart';
+import '../../../data/models/order.dart';
+import '../../../data/models/product.dart';
+import '../../../data/services/api_service.dart';
 import '../../../utils/theme.dart';
-import '../widgets/glass/glass_ui.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});

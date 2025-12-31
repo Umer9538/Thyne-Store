@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../utils/theme.dart';
+import '../../utils/theme.dart';
 import '../viewmodels/product_provider.dart';
 import '../viewmodels/wishlist_provider.dart';
 import '../widgets/product_card.dart';
 import '../views/product/product_detail_screen.dart';
-import '../constants/sort_options.dart';
-import '../constants/filter_options.dart';
-import '../constants/app_spacing.dart';
+import '../../constants/sort_options.dart';
+import '../../constants/filter_options.dart';
+import '../../constants/app_spacing.dart';
 
 /// A widget that displays content as an overlay on top of the current screen
 /// instead of navigating to a new route. This creates a "page upon page" effect.

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/wishlist_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/cart_provider.dart';
-import '../../data/models/product.dart';
+import '../../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../../data/models/product.dart';
 import '../../../utils/theme.dart';
-import '../widgets/product_card.dart';
-import '../widgets/glass/glass_ui.dart';
+import '../../widgets/product_card.dart';
+import '../../widgets/glass/glass_ui.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({super.key});

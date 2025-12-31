@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../viewmodels/order_provider.dart';
-import '../../data/models/order.dart';
+import '../../viewmodels/order_provider.dart';
+import '../../../data/models/order.dart';
 import '../../../utils/theme.dart';
 import 'order_tracking_screen.dart';
 

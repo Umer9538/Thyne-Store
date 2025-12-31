@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:badges/badges.dart' as badges;
-import '../viewmodels/cart_provider.dart';
-import '../viewmodels/auth_provider.dart';
-import '../viewmodels/guest_session_provider.dart';
-import '../viewmodels/wishlist_provider.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/guest_session_provider.dart';
+import '../../viewmodels/wishlist_provider.dart';
 import '../../../utils/theme.dart';
 import '../search/search_screen.dart';
 import 'dynamic_home_screen.dart';

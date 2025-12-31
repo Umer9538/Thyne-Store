@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../data/models/community.dart';
-import '../utils/theme.dart';
+import '../../utils/theme.dart';
 import 'glass/glass_ui.dart';
 
 class CommunityPostCard extends StatelessWidget {

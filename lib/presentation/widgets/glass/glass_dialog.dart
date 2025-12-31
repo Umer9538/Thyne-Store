@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import '../../theme/glass_config.dart';
+import '../../../theme/glass_config.dart';
 import 'glass_container.dart';
 import 'glass_button.dart';
 

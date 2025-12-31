@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../../providers/community_provider.dart';
-import '../../../providers/auth_provider.dart';
-import '../../../models/community.dart';
+import '../../../viewmodels/community_provider.dart';
+import '../../../viewmodels/auth_provider.dart';
+import '../../../../data/models/community.dart';
 import '../../../../utils/theme.dart';
 
 class CommunityModerationScreen extends StatefulWidget {

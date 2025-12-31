@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../data/models/product.dart';
-import '../../data/models/homepage.dart';
-import '../viewmodels/cart_provider.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/models/product.dart';
+import '../../../data/models/homepage.dart';
+import '../../viewmodels/cart_provider.dart';
+import '../../../data/services/api_service.dart';
 import '../../../utils/theme.dart';
 import '../product/product_detail_screen.dart';
 

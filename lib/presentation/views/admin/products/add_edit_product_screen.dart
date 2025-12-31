@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../utils/theme.dart';
-import '../../../models/product.dart';
-import '../../../models/store_settings.dart';
-import '../../../providers/store_settings_provider.dart';
+import '../../../../data/models/product.dart';
+import '../../../../data/models/store_settings.dart';
+import '../../../viewmodels/store_settings_provider.dart';
 import '../../../../data/services/api_service.dart';
-import '../../../constants/style_options.dart';
+import '../../../../constants/style_options.dart';
 
 // Import StockType from product model
 

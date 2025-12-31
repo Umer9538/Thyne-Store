@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
-import '../../theme/glass_config.dart';
+import '../../../theme/glass_config.dart';
 import 'glass_container.dart';
 
 /// iOS-style Glass Button with frosted effect and haptic feedback

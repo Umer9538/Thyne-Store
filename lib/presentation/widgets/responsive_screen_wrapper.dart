@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/responsive.dart';
+import '../../utils/responsive.dart';
 
 /// Wrapper that provides responsive layouts for all screens
 /// Automatically handles mobile, tablet, and desktop layouts
