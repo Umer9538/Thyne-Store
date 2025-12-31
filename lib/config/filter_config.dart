@@ -1,7 +1,7 @@
 /// Filter configuration for the app
 /// Contains default filter options that can be overridden by backend data
 
-import '../models/filter_params.dart';
+import '../data/models/filter_params.dart';
 
 /// Metal type options for filtering
 class MetalTypeOption {

@@ -1,4 +1,4 @@
-import '../models/ai_creation.dart';
+import '../data/models/ai_creation.dart';
 
 /// Web implementation of DatabaseHelper using in-memory storage
 /// Since sqflite doesn't work on web, we use a simple in-memory storage

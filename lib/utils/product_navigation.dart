@@ -2,9 +2,9 @@
 /// Use this instead of directly pushing ProductListScreen
 
 import 'package:flutter/material.dart';
-import '../models/filter_params.dart';
-import '../models/storefront.dart';
-import '../screens/product/product_list_screen.dart';
+import '../data/models/filter_params.dart';
+import '../data/models/storefront.dart';
+import '../presentation/views/product/product_list_screen.dart';
 
 /// Helper class for navigating to product screens with filters
 class ProductNavigation {

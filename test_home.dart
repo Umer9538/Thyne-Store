@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'lib/providers/auth_provider.dart';
-import 'lib/providers/theme_provider.dart';
-import 'lib/providers/product_provider.dart';
-import 'lib/providers/cart_provider.dart';
-import 'lib/providers/order_provider.dart';
-import 'lib/providers/guest_session_provider.dart';
-import 'lib/providers/loyalty_provider.dart';
-import 'lib/providers/wishlist_provider.dart';
-import 'lib/providers/address_provider.dart';
-import 'lib/providers/community_provider.dart';
-import 'lib/screens/home/thyne_home_complete.dart';
-import 'lib/services/storage_service.dart';
+import 'lib/presentation/viewmodels/auth_provider.dart';
+import 'lib/presentation/viewmodels/theme_provider.dart';
+import 'lib/presentation/viewmodels/product_provider.dart';
+import 'lib/presentation/viewmodels/cart_provider.dart';
+import 'lib/presentation/viewmodels/order_provider.dart';
+import 'lib/presentation/viewmodels/guest_session_provider.dart';
+import 'lib/presentation/viewmodels/loyalty_provider.dart';
+import 'lib/presentation/viewmodels/wishlist_provider.dart';
+import 'lib/presentation/viewmodels/address_provider.dart';
+import 'lib/presentation/viewmodels/community_provider.dart';
+import 'lib/presentation/views/home/thyne_home_complete.dart';
+import 'lib/data/services/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

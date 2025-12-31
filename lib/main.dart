@@ -10,89 +10,89 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'constants/routes.dart';
 
 // Providers
-import 'providers/auth_provider.dart';
-import 'providers/product_provider.dart';
-import 'providers/cart_provider.dart';
-import 'providers/order_provider.dart';
-import 'providers/guest_session_provider.dart';
-import 'providers/wishlist_provider.dart';
-import 'providers/address_provider.dart';
-import 'providers/theme_provider.dart';
-import 'providers/recently_viewed_provider.dart';
-import 'providers/loyalty_provider.dart';
-import 'providers/community_provider.dart';
-import 'providers/ai_provider.dart';
-import 'providers/store_settings_provider.dart';
+import 'presentation/viewmodels/auth_provider.dart';
+import 'presentation/viewmodels/product_provider.dart';
+import 'presentation/viewmodels/cart_provider.dart';
+import 'presentation/viewmodels/order_provider.dart';
+import 'presentation/viewmodels/guest_session_provider.dart';
+import 'presentation/viewmodels/wishlist_provider.dart';
+import 'presentation/viewmodels/address_provider.dart';
+import 'presentation/viewmodels/theme_provider.dart';
+import 'presentation/viewmodels/recently_viewed_provider.dart';
+import 'presentation/viewmodels/loyalty_provider.dart';
+import 'presentation/viewmodels/community_provider.dart';
+import 'presentation/viewmodels/ai_provider.dart';
+import 'presentation/viewmodels/store_settings_provider.dart';
 
 // Theme
 import 'theme/thyne_theme.dart';
 import 'utils/theme.dart';
 
 // Services
-import 'services/notification_service.dart';
-import 'services/storage_service.dart';
+import 'data/services/notification_service.dart';
+import 'data/services/storage_service.dart';
 
 // Screens - Auth
-import 'screens/auth/login_screen.dart';
-import 'screens/auth/admin_login_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
+import 'presentation/views/auth/login_screen.dart';
+import 'presentation/views/auth/admin_login_screen.dart';
+import 'presentation/views/onboarding/onboarding_screen.dart';
 
 // Screens - Home & Navigation
-import 'widgets/main_navigation.dart';
-import 'widgets/three_section_navigation.dart';
-import 'screens/home/thyne_home_figma.dart';
-import 'screens/home/thyne_home_complete.dart';
+import 'presentation/widgets/main_navigation.dart';
+import 'presentation/widgets/three_section_navigation.dart';
+import 'presentation/views/home/thyne_home_figma.dart';
+import 'presentation/views/home/thyne_home_complete.dart';
 
 // Screens - Shopping
-import 'screens/cart/cart_screen.dart';
-import 'screens/checkout/checkout_screen.dart';
-import 'screens/checkout/guest_checkout_screen.dart';
-import 'screens/search/enhanced_search_screen.dart';
-import 'screens/wishlist/wishlist_screen.dart';
-import 'screens/loyalty/loyalty_screen.dart';
+import 'presentation/views/cart/cart_screen.dart';
+import 'presentation/views/checkout/checkout_screen.dart';
+import 'presentation/views/checkout/guest_checkout_screen.dart';
+import 'presentation/views/search/enhanced_search_screen.dart';
+import 'presentation/views/wishlist/wishlist_screen.dart';
+import 'presentation/views/loyalty/loyalty_screen.dart';
 
 // Screens - Orders
-import 'screens/orders/order_history_screen.dart';
-import 'screens/orders/track_order_screen.dart';
-import 'screens/orders/my_orders_screen.dart';
+import 'presentation/views/orders/order_history_screen.dart';
+import 'presentation/views/orders/track_order_screen.dart';
+import 'presentation/views/orders/my_orders_screen.dart';
 
 // Screens - Profile
-import 'screens/profile/addresses_screen.dart';
-import 'screens/profile/profile_screen.dart';
+import 'presentation/views/profile/addresses_screen.dart';
+import 'presentation/views/profile/profile_screen.dart';
 
 // Screens - Community
-import 'screens/community/community_feed_screen.dart';
-import 'screens/community/create_post_screen.dart';
+import 'presentation/views/community/community_feed_screen.dart';
+import 'presentation/views/community/create_post_screen.dart';
 
 // Screens - Admin
-import 'screens/admin/admin_dashboard.dart';
-import 'screens/admin/users/user_management_screen.dart';
-import 'screens/admin/products/product_management_screen.dart';
-import 'screens/admin/categories/category_management_screen.dart';
-import 'screens/admin/inventory/inventory_management_screen.dart';
-import 'screens/admin/orders/order_management_screen.dart';
-import 'screens/admin/orders/custom_orders_screen.dart';
-import 'screens/admin/analytics/analytics_dashboard.dart';
-import 'screens/admin/storefront/storefront_management_screen.dart';
-import 'screens/admin/storefront/storefront_data_management_screen.dart';
-import 'screens/admin/events/event_calendar_screen.dart';
-import 'screens/admin/homepage/homepage_manager_screen.dart';
-import 'screens/admin/homepage/layout_manager_screen.dart';
-import 'screens/admin/theme/theme_switcher_screen.dart';
-import 'screens/admin/community/admin_community_dashboard.dart';
-import 'screens/admin/settings/store_settings_screen.dart';
+import 'presentation/views/admin/admin_dashboard.dart';
+import 'presentation/views/admin/users/user_management_screen.dart';
+import 'presentation/views/admin/products/product_management_screen.dart';
+import 'presentation/views/admin/categories/category_management_screen.dart';
+import 'presentation/views/admin/inventory/inventory_management_screen.dart';
+import 'presentation/views/admin/orders/order_management_screen.dart';
+import 'presentation/views/admin/orders/custom_orders_screen.dart';
+import 'presentation/views/admin/analytics/analytics_dashboard.dart';
+import 'presentation/views/admin/storefront/storefront_management_screen.dart';
+import 'presentation/views/admin/storefront/storefront_data_management_screen.dart';
+import 'presentation/views/admin/events/event_calendar_screen.dart';
+import 'presentation/views/admin/homepage/homepage_manager_screen.dart';
+import 'presentation/views/admin/homepage/layout_manager_screen.dart';
+import 'presentation/views/admin/theme/theme_switcher_screen.dart';
+import 'presentation/views/admin/community/admin_community_dashboard.dart';
+import 'presentation/views/admin/settings/store_settings_screen.dart';
 
 // Screens - Admin Dynamic Content
-import 'screens/admin/dynamic_content/dynamic_content_dashboard.dart';
-import 'screens/admin/dynamic_content/deals_of_day_screen.dart';
-import 'screens/admin/dynamic_content/bundle_deals_screen.dart';
-import 'screens/admin/dynamic_content/flash_sales_screen.dart';
-import 'screens/admin/dynamic_content/showcases_360_screen.dart';
-import 'screens/admin/dynamic_content/brands_screen.dart';
-import 'screens/admin/dynamic_content/create_deal_form.dart';
-import 'screens/admin/dynamic_content/create_flash_sale_form.dart';
-import 'screens/admin/dynamic_content/create_showcase_form.dart';
-import 'screens/admin/dynamic_content/create_bundle_form.dart';
+import 'presentation/views/admin/dynamic_content/dynamic_content_dashboard.dart';
+import 'presentation/views/admin/dynamic_content/deals_of_day_screen.dart';
+import 'presentation/views/admin/dynamic_content/bundle_deals_screen.dart';
+import 'presentation/views/admin/dynamic_content/flash_sales_screen.dart';
+import 'presentation/views/admin/dynamic_content/showcases_360_screen.dart';
+import 'presentation/views/admin/dynamic_content/brands_screen.dart';
+import 'presentation/views/admin/dynamic_content/create_deal_form.dart';
+import 'presentation/views/admin/dynamic_content/create_flash_sale_form.dart';
+import 'presentation/views/admin/dynamic_content/create_showcase_form.dart';
+import 'presentation/views/admin/dynamic_content/create_bundle_form.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,4 +1,4 @@
-import '../models/ai_creation.dart';
+import '../data/models/ai_creation.dart';
 
 /// Stub implementation for conditional imports
 class DatabaseHelper {

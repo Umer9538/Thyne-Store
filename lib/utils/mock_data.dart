@@ -1,4 +1,4 @@
-import '../models/product.dart';
+import '../data/models/product.dart';
 
 class MockData {
   static final List<Product> products = [

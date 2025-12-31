@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/ai_creation.dart';
+import '../data/models/ai_creation.dart';
 
 /// Simple storage service for web using SharedPreferences
 class StorageServiceWeb {
