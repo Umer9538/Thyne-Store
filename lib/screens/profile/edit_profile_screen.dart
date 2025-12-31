@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../providers/auth_provider.dart';
 import '../../utils/theme.dart';
+import '../../core/core.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -307,15 +308,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     borderSide: const BorderSide(color: AppTheme.primaryGold),
                   ),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  if (value.trim().length < 2) {
-                    return 'Name must be at least 2 characters';
-                  }
-                  return null;
-                },
+                validator: FormValidators.nameWithMinLength,
                 textCapitalization: TextCapitalization.words,
               ),
               
@@ -336,17 +329,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-                  // Basic phone validation - you can make this more sophisticated
-                  final phoneRegex = RegExp(r'^\+?[\d\s\-\(\)]{10,}$');
-                  if (!phoneRegex.hasMatch(value.trim())) {
-                    return 'Please enter a valid phone number';
-                  }
-                  return null;
-                },
+                validator: FormValidators.phoneFlexible,
               ),
               
               const SizedBox(height: 20),

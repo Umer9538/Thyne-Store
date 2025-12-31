@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/core.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -23,26 +24,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your email';
-    }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-      return 'Please enter a valid email address';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your password';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
   }
 
   Future<void> _handleLogin() async {
@@ -245,7 +226,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           ),
                         ),
                       ),
-                      validator: _validateEmail,
+                      validator: FormValidators.email,
                     ),
 
                     const SizedBox(height: 16),
@@ -308,7 +289,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           ),
                         ),
                       ),
-                      validator: _validatePassword,
+                      validator: FormValidators.password,
                     ),
 
                     const SizedBox(height: 12),

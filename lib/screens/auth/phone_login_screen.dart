@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/core.dart';
 import 'otp_verification_screen.dart';
 import 'admin_login_screen.dart';
 
@@ -16,42 +17,15 @@ class PhoneLoginScreen extends StatefulWidget {
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
-  String _selectedCountryCode = '+92';  // Changed default to Pakistan
+  String _selectedCountryCode = CountryData.defaultDialCode;
   bool _notifyOrders = true;
   bool _subscribeNewsletter = false;
   bool _isLoading = false;
-
-  final List<Map<String, String>> _countryCodes = [
-    {'code': '+92', 'country': 'Pakistan', 'flag': '🇵🇰'},
-    {'code': '+91', 'country': 'India', 'flag': '🇮🇳'},
-    {'code': '+1', 'country': 'USA', 'flag': '🇺🇸'},
-    {'code': '+44', 'country': 'UK', 'flag': '🇬🇧'},
-    {'code': '+971', 'country': 'UAE', 'flag': '🇦🇪'},
-    {'code': '+966', 'country': 'Saudi', 'flag': '🇸🇦'},
-    {'code': '+965', 'country': 'Kuwait', 'flag': '🇰🇼'},
-    {'code': '+968', 'country': 'Oman', 'flag': '🇴🇲'},
-    {'code': '+973', 'country': 'Bahrain', 'flag': '🇧🇭'},
-    {'code': '+974', 'country': 'Qatar', 'flag': '🇶🇦'},
-  ];
 
   @override
   void dispose() {
     _phoneController.dispose();
     super.dispose();
-  }
-
-  String? _validatePhoneNumber(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your phone number';
-    }
-    // Remove any non-digit characters
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-
-    // Check if it's a valid phone number length (typically 10 digits)
-    if (digits.length < 10) {
-      return 'Please enter a valid phone number';
-    }
-    return null;
   }
 
   Future<void> _handleContinue() async {
@@ -212,10 +186,10 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           children: [
                             // Country code dropdown
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding: AppDimensions.paddingHorizontal12,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: AppDimensions.borderRadius12,
                                 border: Border.all(
                                   color: const Color(0xFFE5E5E5),
                                   width: 1,
@@ -224,21 +198,21 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                               child: DropdownButton<String>(
                                 value: _selectedCountryCode,
                                 underline: const SizedBox(),
-                                icon: const Icon(Icons.arrow_drop_down, size: 20),
-                                items: _countryCodes.map((country) {
+                                icon: const Icon(Icons.arrow_drop_down, size: AppDimensions.iconSizeMedium),
+                                items: CountryData.countryCodes.map((country) {
                                   return DropdownMenuItem<String>(
-                                    value: country['code'],
+                                    value: country.dialCode,
                                     child: Row(
                                       children: [
                                         Text(
-                                          country['flag']!,
+                                          country.flag,
                                           style: const TextStyle(fontSize: 20),
                                         ),
-                                        const SizedBox(width: 8),
+                                        AppDimensions.horizontalSpace8,
                                         Text(
-                                          country['code']!,
+                                          country.dialCode,
                                           style: GoogleFonts.inter(
-                                            fontSize: 14,
+                                            fontSize: AppDimensions.fontSizeMedium,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -299,7 +273,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                     vertical: 16,
                                   ),
                                 ),
-                                validator: _validatePhoneNumber,
+                                validator: FormValidators.phone,
                               ),
                             ),
                           ],

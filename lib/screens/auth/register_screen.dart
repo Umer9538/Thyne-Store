@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/theme.dart';
+import '../../core/core.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -57,26 +58,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  String? _getPasswordStrength(String password) {
-    if (password.isEmpty) return null;
-    if (password.length < 6) return 'Weak';
-    if (password.length < 10) return 'Medium';
-    if (RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]')
-        .hasMatch(password)) {
-      return 'Strong';
-    }
-    return 'Medium';
-  }
-
-  Color _getPasswordStrengthColor(String? strength) {
+  Color _getPasswordStrengthColor(PasswordStrength strength) {
     switch (strength) {
-      case 'Weak':
+      case PasswordStrength.weak:
         return AppTheme.errorRed;
-      case 'Medium':
+      case PasswordStrength.medium:
         return AppTheme.warningAmber;
-      case 'Strong':
+      case PasswordStrength.strong:
         return AppTheme.successGreen;
-      default:
+      case PasswordStrength.none:
         return Colors.grey;
     }
   }
@@ -141,12 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           labelText: 'Full Name',
                           prefixIcon: Icon(Icons.person_outline),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your name';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.name,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -156,15 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           labelText: 'Email',
                           prefixIcon: Icon(Icons.email_outlined),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Please enter a valid email';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.email,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -175,15 +152,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: Icon(Icons.phone_outlined),
                           prefixText: '+91 ',
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your phone number';
-                          }
-                          if (value.length != 10) {
-                            return 'Please enter a valid 10-digit phone number';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.phoneWithLength,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -206,34 +175,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a password';
-                          }
-                          if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.password,
                       ),
                       if (_passwordController.text.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Text(
-                              'Password Strength: ',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              _getPasswordStrength(_passwordController.text) ?? '',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: _getPasswordStrengthColor(
-                                      _getPasswordStrength(_passwordController.text),
-                                    ),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
+                        Builder(
+                          builder: (context) {
+                            final strength = FormValidators.getPasswordStrength(_passwordController.text);
+                            return Row(
+                              children: [
+                                Text(
+                                  'Password Strength: ',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text(
+                                  strength.label,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: _getPasswordStrengthColor(strength),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -256,15 +220,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please confirm your password';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
-                        },
+                        validator: FormValidators.confirmPassword(_passwordController.text),
                       ),
                       const SizedBox(height: 24),
 
