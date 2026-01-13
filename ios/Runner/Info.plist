@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Thyne Jewels needs access to your photo library to let you upload images for custom jewelry designs and profile pictures.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Thyne Jewels needs camera access to let you take photos for custom jewelry designs.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Thyne Jewels needs permission to save images to your photo library.</string>
 </dict>
 </plist>
