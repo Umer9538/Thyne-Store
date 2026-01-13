@@ -248,16 +248,16 @@ func (s *MessagingService) ResendOTP(ctx context.Context, req *models.ResendOTPR
 
 // ==================== SMS Methods ====================
 
-// sendSMSOTP sends OTP via SMS
+// sendSMSOTP sends OTP via SMS using Mtalkz V2 API
 func (s *MessagingService) sendSMSOTP(ctx context.Context, phone, otp string) (string, error) {
-	// Format message
-	message := fmt.Sprintf("Your Thyne Jewels verification code is %s. Valid for %d minutes. Do not share with anyone.", otp, models.OTPExpiryMinutes)
+	// Format message - MUST match DLT approved template exactly
+	message := fmt.Sprintf("Your OTP to sign in to Thyne is %s.\nThis code is valid for %d minutes.\nDo not share this code with anyone.\n- Team Thyne", otp, models.OTPExpiryMinutes)
 
-	return s.sendSMS(ctx, phone, message, "OTP", s.smsOTPTemplateID)
+	return s.sendSMSV2(ctx, phone, message, s.smsOTPTemplateID)
 }
 
-// sendSMS sends SMS via Mtalkz API
-func (s *MessagingService) sendSMS(ctx context.Context, phone, message, msgType, templateID string) (string, error) {
+// sendSMSV2 sends SMS via Mtalkz V2 API (http://msg.mtalkz.com/V2/http-api-post.php)
+func (s *MessagingService) sendSMSV2(ctx context.Context, phone, message, templateID string) (string, error) {
 	// Check if API key is configured
 	if s.apiKey == "" {
 		// Development mode - just log and return success
@@ -265,12 +265,14 @@ func (s *MessagingService) sendSMS(ctx context.Context, phone, message, msgType,
 		return "dev-" + time.Now().Format("20060102150405"), nil
 	}
 
-	reqBody := models.MtalkzSMSRequest{
-		Sender:     s.senderID,
-		To:         phone,
-		Text:       message,
-		Type:       msgType,
-		TemplateID: templateID,
+	// Mtalkz V2 API request format
+	reqBody := map[string]string{
+		"apikey":      s.apiKey,
+		"senderid":    s.senderID,
+		"number":      phone,
+		"message":     message,
+		"format":      "json",
+		"template_id": templateID,
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -278,13 +280,15 @@ func (s *MessagingService) sendSMS(ctx context.Context, phone, message, msgType,
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.baseURL+"/v1/sms", bytes.NewBuffer(jsonBody))
+	// Log the request for debugging
+	fmt.Printf("[MTALKZ V2 DEBUG] Request to msg.mtalkz.com: %s\n", string(jsonBody))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "http://msg.mtalkz.com/V2/http-api-post.php", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("apikey", s.apiKey)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -298,23 +302,40 @@ func (s *MessagingService) sendSMS(ctx context.Context, phone, message, msgType,
 	}
 
 	// Log the raw response for debugging
-	fmt.Printf("[MTALKZ DEBUG] Status: %d, Response: %s\n", resp.StatusCode, string(body))
+	fmt.Printf("[MTALKZ V2 DEBUG] Status: %d, Response: %s\n", resp.StatusCode, string(body))
 
-	var smsResp models.MtalkzSMSResponse
-	if err := json.Unmarshal(body, &smsResp); err != nil {
+	// Parse V2 response format: {"status":"OK","data":[{"id":"...","mobile":"...","status":"SUBMITTED"}],"msgid":"...","message":"..."}
+	var v2Resp struct {
+		Status  string `json:"status"`
+		MsgID   string `json:"msgid"`
+		Message string `json:"message"`
+		Data    []struct {
+			ID     string `json:"id"`
+			Mobile string `json:"mobile"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &v2Resp); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w (raw: %s)", err, string(body))
 	}
 
-	if errStr := smsResp.GetError(); errStr != "" {
-		return "", fmt.Errorf("mtalkz error: %s (message: %s)", errStr, smsResp.Message)
+	if v2Resp.Status != "OK" {
+		return "", fmt.Errorf("mtalkz error: %s", v2Resp.Message)
 	}
 
-	messageID := smsResp.ID
-	if len(smsResp.Data) > 0 {
-		messageID = smsResp.Data[0].MessageID
+	messageID := v2Resp.MsgID
+	if len(v2Resp.Data) > 0 && v2Resp.Data[0].ID != "" {
+		messageID = v2Resp.Data[0].ID
 	}
 
 	return messageID, nil
+}
+
+// sendSMS sends SMS via Mtalkz API (legacy v1 - kept for backwards compatibility)
+func (s *MessagingService) sendSMS(ctx context.Context, phone, message, msgType, templateID string) (string, error) {
+	// Use V2 API for all SMS
+	return s.sendSMSV2(ctx, phone, message, templateID)
 }
 
 // SendTransactionalSMS sends a transactional SMS
