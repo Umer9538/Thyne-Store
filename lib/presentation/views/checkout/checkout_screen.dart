@@ -45,6 +45,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
+  /// Check if an address has all required fields for order placement
+  bool _isAddressValid(Address address) {
+    return address.houseNoFloor.isNotEmpty &&
+        address.buildingBlock.isNotEmpty &&
+        address.landmarkArea.isNotEmpty &&
+        address.city.isNotEmpty &&
+        address.state.isNotEmpty &&
+        address.pincode.length == 6;
+  }
+
   void _onStepContinue(int currentStep) {
     if (currentStep == 0) {
       // Validate address step
@@ -71,7 +81,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           );
         }
       } else {
-        // If a saved address is selected, proceed to next step
+        // Validate selected saved address has all required fields
+        if (!_isAddressValid(_selectedAddress!)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Selected address is incomplete. Please update it in Profile > Addresses or add a new address below.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          // Deselect the invalid address so user can add new one
+          setState(() {
+            _selectedAddress = null;
+          });
+          return;
+        }
+        // If a saved address is selected and valid, proceed to next step
         setState(() {
           _currentStep = currentStep + 1;
         });
@@ -376,6 +401,7 @@ return Row(
 
   Widget _buildAddressCard(Address address) {
     final isSelected = _selectedAddress?.id == address.id;
+    final isComplete = _isAddressValid(address);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -400,7 +426,7 @@ return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      address.shortAddress,
+                      address.shortAddress.isNotEmpty ? address.shortAddress : address.fullAddress,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
@@ -409,25 +435,48 @@ return Row(
                       '${address.state}, ${address.pincode}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    if (address.isDefault)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryGold,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'Default',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
+                    Row(
+                      children: [
+                        if (address.isDefault)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4, right: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryGold,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'Default',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        if (!isComplete)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'Incomplete - Update in Profile',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -719,6 +768,21 @@ return Row(
             country: 'India',
             label: addressLabel,
           );
+
+      // Final validation of shipping address before sending to backend
+      if (!_isAddressValid(shippingAddress)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Shipping address is incomplete. Please fill all required fields.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isProcessingPayment = false;
+          _currentStep = 0; // Go back to address step
+        });
+        return;
+      }
 
       // Ensure user is authenticated before placing order
       if (!authProvider.isAuthenticated || authProvider.user == null) {
