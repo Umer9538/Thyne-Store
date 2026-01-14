@@ -66,31 +66,52 @@ class CashfreeService {
     String currency = 'INR',
   }) async {
     try {
+      // Ensure email is not empty - Cashfree requires a valid email
+      final email = (customerEmail != null && customerEmail.isNotEmpty)
+          ? customerEmail
+          : 'customer_${customerPhone.replaceAll('+', '')}@thynejewels.com';
+
+      // Ensure phone is in proper format (10 digits without country code for Cashfree)
+      String phone = customerPhone.replaceAll('+91', '').replaceAll(' ', '');
+      if (phone.length > 10) {
+        phone = phone.substring(phone.length - 10);
+      }
+
+      final requestBody = {
+        'orderId': orderId,
+        'amount': amount,
+        'currency': currency,
+        'customerPhone': phone,
+        'customerEmail': email,
+        'customerName': customerName ?? 'Customer',
+        'returnUrl': returnUrl,
+      };
+
+      print('📤 Creating Cashfree order: $requestBody');
+
       final response = await http.post(
         Uri.parse('$baseUrl/payment/cashfree/create-order'),
         headers: await _getHeaders(),
-        body: json.encode({
-          'orderId': orderId,
-          'amount': amount,
-          'currency': currency,
-          'customerPhone': customerPhone,
-          'customerEmail': customerEmail,
-          'customerName': customerName,
-          'returnUrl': returnUrl,
-        }),
+        body: json.encode(requestBody),
       );
+
+      print('📥 Cashfree response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
           return CashfreeOrderResponse.fromJson(data['data']);
+        } else {
+          print('❌ Cashfree API returned success=false: ${data['error'] ?? data['message']}');
         }
+      } else {
+        print('❌ Cashfree API returned status ${response.statusCode}: ${response.body}');
       }
 
-      print('❌ Failed to create Cashfree order: ${response.body}');
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Error creating Cashfree order: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
