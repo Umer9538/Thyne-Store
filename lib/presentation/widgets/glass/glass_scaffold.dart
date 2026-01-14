@@ -21,6 +21,9 @@ class GlassScaffold extends StatelessWidget {
   final bool extendBody;
   final double backgroundBlur;
   final bool resizeToAvoidBottomInset;
+  final bool useSafeArea;
+  final bool safeAreaTop;
+  final bool safeAreaBottom;
 
   const GlassScaffold({
     super.key,
@@ -38,6 +41,9 @@ class GlassScaffold extends StatelessWidget {
     this.extendBody = false,
     this.backgroundBlur = 0,
     this.resizeToAvoidBottomInset = true,
+    this.useSafeArea = true,
+    this.safeAreaTop = true,
+    this.safeAreaBottom = true,
   });
 
   @override
@@ -93,6 +99,16 @@ class GlassScaffold extends StatelessWidget {
       );
     }
 
+    // Wrap body with SafeArea if enabled
+    Widget effectiveBody = body;
+    if (useSafeArea) {
+      effectiveBody = SafeArea(
+        top: safeAreaTop && appBar == null, // Don't add top safe area if appBar exists
+        bottom: safeAreaBottom && bottomNavigationBar == null, // Don't add bottom if nav bar exists
+        child: body,
+      );
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: extendBodyBehindAppBar,
       extendBody: extendBody,
@@ -107,7 +123,7 @@ class GlassScaffold extends StatelessWidget {
           // Background
           background,
           // Body content
-          body,
+          effectiveBody,
         ],
       ),
       bottomNavigationBar: bottomNavigationBar,

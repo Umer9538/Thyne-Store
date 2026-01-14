@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../data/models/community.dart';
 import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
 import 'glass/glass_ui.dart';
 
 class CommunityPostCard extends StatelessWidget {
@@ -186,21 +187,22 @@ class CommunityPostCard extends StatelessWidget {
     if (totalMedia == 1) {
       // Single image or video
       final imageUrl = post.images.isNotEmpty ? post.images[0] : null;
+      final imageHeight = Responsive.cardHeight(context);
       if (imageUrl != null) {
         return ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: CachedNetworkImage(
             imageUrl: imageUrl,
-            height: 300,
+            height: imageHeight,
             width: double.infinity,
             fit: BoxFit.cover,
             placeholder: (context, url) => Container(
-              height: 300,
+              height: imageHeight,
               color: Colors.grey[200],
               child: const Center(child: CircularProgressIndicator()),
             ),
             errorWidget: (context, url, error) => Container(
-              height: 300,
+              height: imageHeight,
               color: Colors.grey[200],
               child: const Icon(Icons.error),
             ),

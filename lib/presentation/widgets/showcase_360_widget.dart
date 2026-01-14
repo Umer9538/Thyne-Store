@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:thyne_jewls/data/models/homepage.dart';
 import 'package:thyne_jewls/data/models/product.dart';
 import 'package:thyne_jewls/presentation/views/product/product_detail_screen.dart';
+import 'package:thyne_jewls/utils/responsive.dart';
 import 'package:video_player/video_player.dart';
 
 class Showcase360Widget extends StatefulWidget {
@@ -155,7 +156,7 @@ class _Showcase360WidgetState extends State<Showcase360Widget> {
             onHorizontalDragStart: _showVideo ? null : _onHorizontalDragStart,
             onHorizontalDragUpdate: _showVideo ? null : _onHorizontalDragUpdate,
             child: Container(
-              height: 350,
+              height: Responsive.imageHeight(context, mobileHeight: 280, tabletHeight: 350, desktopHeight: 400),
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.grey[100],

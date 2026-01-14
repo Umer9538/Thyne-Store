@@ -97,6 +97,43 @@ class Responsive {
 
   static bool isLandscape(BuildContext context) =>
       MediaQuery.of(context).orientation == Orientation.landscape;
+
+  // Responsive image/card height based on screen size
+  // Returns a height that scales with the device but has min/max bounds
+  static double imageHeight(BuildContext context, {
+    double mobileHeight = 250,
+    double tabletHeight = 300,
+    double desktopHeight = 350,
+  }) {
+    final screenH = screenHeight(context);
+
+    // Use percentage of screen height with device-specific bounds
+    if (isMobile(context)) {
+      // On mobile, use ~35% of screen height, bounded between 200-350
+      return (screenH * 0.35).clamp(200.0, mobileHeight + 50);
+    } else if (isTablet(context)) {
+      return tabletHeight;
+    } else {
+      return desktopHeight;
+    }
+  }
+
+  // Responsive card height for community posts, showcases etc.
+  static double cardHeight(BuildContext context) {
+    final screenH = screenHeight(context);
+    // Use ~30% of screen height, with min 200 and max 400
+    return (screenH * 0.30).clamp(200.0, 400.0);
+  }
+
+  // Get safe bottom padding (for devices with bottom notch/home indicator)
+  static double safeBottomPadding(BuildContext context) {
+    return MediaQuery.of(context).padding.bottom;
+  }
+
+  // Get safe top padding (for devices with notch/status bar)
+  static double safeTopPadding(BuildContext context) {
+    return MediaQuery.of(context).padding.top;
+  }
 }
 
 // Responsive breakpoints
@@ -119,4 +156,13 @@ extension ResponsiveExtension on BuildContext {
   double responsiveFontSize(double size) => Responsive.fontSize(this, size);
   double responsivePadding(double size) => Responsive.padding(this, size);
   double responsiveSpacing(double size) => Responsive.spacing(this, size);
+
+  // Responsive heights for images and cards
+  double get responsiveCardHeight => Responsive.cardHeight(this);
+  double responsiveImageHeight({double mobile = 250, double tablet = 300, double desktop = 350}) =>
+      Responsive.imageHeight(this, mobileHeight: mobile, tabletHeight: tablet, desktopHeight: desktop);
+
+  // Safe area paddings
+  double get safeBottomPadding => Responsive.safeBottomPadding(this);
+  double get safeTopPadding => Responsive.safeTopPadding(this);
 }

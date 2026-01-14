@@ -128,7 +128,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         title: const Text('Checkout'),
         elevation: 0,
       ),
-      body: Theme(
+      body: SafeArea(
+        top: false, // AppBar handles top safe area
+        child: Theme(
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context).colorScheme.copyWith(
                 primary: AppTheme.primaryGold,
@@ -197,6 +199,7 @@ return Row(
           ],
         ),
       ),
+      ), // SafeArea
     );
   }
 
