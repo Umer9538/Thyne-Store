@@ -62,7 +62,7 @@ class CommunityPostCard extends StatelessWidget {
               // Images/Videos
               if (post.images.isNotEmpty || post.videos.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _buildMediaGallery(),
+                _buildMediaGallery(context),
               ],
 
               const SizedBox(height: 12),
@@ -179,7 +179,7 @@ class CommunityPostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMediaGallery() {
+  Widget _buildMediaGallery(BuildContext context) {
     final totalMedia = post.images.length + post.videos.length;
 
     if (totalMedia == 0) return const SizedBox.shrink();
