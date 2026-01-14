@@ -63,4 +63,31 @@ class ApiConfig {
   // Debug settings - disable in production
   static bool get enableApiLogging => !isProduction;
   static bool get enableMockFallback => !isProduction;
+
+  // Production server base (without /api/v1)
+  static const String productionServerBase = 'http://13.203.247.178:8080';
+
+  /// Transform localhost URLs to production server URLs
+  /// This fixes images uploaded with localhost URLs in the database
+  static String fixImageUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+
+    // Replace localhost with production server
+    if (url.contains('localhost:8080')) {
+      return url.replaceAll('http://localhost:8080', productionServerBase);
+    }
+
+    // Also handle 127.0.0.1
+    if (url.contains('127.0.0.1:8080')) {
+      return url.replaceAll('http://127.0.0.1:8080', productionServerBase);
+    }
+
+    return url;
+  }
+
+  /// Transform a list of image URLs
+  static List<String> fixImageUrls(List<String>? urls) {
+    if (urls == null) return [];
+    return urls.map((url) => fixImageUrl(url)).toList();
+  }
 }

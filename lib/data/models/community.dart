@@ -1,3 +1,5 @@
+import '../../config/api_config.dart';
+
 // Moderation status enum for community posts
 enum ModerationStatus {
   pending,
@@ -112,7 +114,7 @@ class ProductTag {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       price: (json['price'] ?? 0.0).toDouble(),
-      imageUrl: json['imageUrl']?.toString() ?? '',
+      imageUrl: ApiConfig.fixImageUrl(json['imageUrl']?.toString()),
       customization: json['customization'] != null
           ? ProductCustomizationTag.fromJson(json['customization'])
           : null,
@@ -262,13 +264,17 @@ class CommunityPost {
       tagSource = sourceStr == 'order' ? PostTagSource.order : PostTagSource.product;
     }
 
+    // Fix localhost URLs in images
+    final rawImages = List<String>.from(json['images'] ?? []);
+    final fixedImages = ApiConfig.fixImageUrls(rawImages);
+
     return CommunityPost(
       id: json['id']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
       userName: json['userName']?.toString() ?? '',
-      userAvatar: json['userAvatar']?.toString(),
+      userAvatar: ApiConfig.fixImageUrl(json['userAvatar']?.toString()),
       content: json['content']?.toString() ?? '',
-      images: List<String>.from(json['images'] ?? []),
+      images: fixedImages,
       videos: List<String>.from(json['videos'] ?? []),
       likeCount: json['likeCount'] ?? 0,
       voteCount: json['voteCount'] ?? 0,
@@ -357,7 +363,7 @@ class PostComment {
       postId: json['postId']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
       userName: json['userName']?.toString() ?? '',
-      userAvatar: json['userAvatar']?.toString(),
+      userAvatar: ApiConfig.fixImageUrl(json['userAvatar']?.toString()),
       content: json['content']?.toString() ?? '',
       likeCount: json['likeCount'] ?? 0,
       createdAt: json['createdAt'] != null
@@ -453,7 +459,7 @@ class InstagramProfile {
       instagramId: json['instagramId']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
       displayName: json['displayName']?.toString(),
-      profilePicUrl: json['profilePicUrl']?.toString(),
+      profilePicUrl: ApiConfig.fixImageUrl(json['profilePicUrl']?.toString()),
       bio: json['bio']?.toString(),
       followerCount: json['followerCount'] ?? 0,
       followingCount: json['followingCount'] ?? 0,
