@@ -197,39 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Admin login button
-            Positioned(
-              top: 16,
-              left: 16,
-              child: GlassButton(
-                text: 'Admin',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
-                  );
-                },
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                height: 44,
-                blur: GlassConfig.softBlur,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.admin_panel_settings_outlined, size: 18, color: Colors.black54),
-                    SizedBox(width: 6),
-                    Text(
-                      'Admin',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Skip button
+            // Skip button at top right
             Positioned(
               top: 16,
               right: 16,
@@ -551,6 +519,33 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextStyle(
                                   color: Colors.black87,
                                   fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Admin login link
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+                            );
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.admin_panel_settings_outlined, size: 16, color: Colors.black45),
+                              SizedBox(width: 6),
+                              Text(
+                                'Admin Login',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black45,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
