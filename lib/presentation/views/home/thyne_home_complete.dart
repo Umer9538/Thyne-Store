@@ -495,35 +495,37 @@ class _ThyneHomeCompleteState extends State<ThyneHomeComplete> with TickerProvid
               // Top Row - Logo and User Avatar
               Row(
                 children: [
-                  // Logo Icon
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFE0E0E0),
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: SvgPicture.asset(
-                        'assets/thyne.svg',
-                        width: 24,
-                        height: 24,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // THYNE Text
-                  Text(
-                    'THYNE',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                      color: const Color(0xFF1A1A1A),
+                  // Logo + THYNE Text (clickable, navigates to Home)
+                  GestureDetector(
+                    onTap: () {
+                      // Navigate to home - scroll to top if already on home
+                      if (ModalRoute.of(context)?.settings.name == '/home') {
+                        // Already on home, could scroll to top if needed
+                      } else {
+                        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Logo Icon (no circle)
+                        SvgPicture.asset(
+                          'assets/thyne.svg',
+                          width: 32,
+                          height: 32,
+                        ),
+                        const SizedBox(width: 8),
+                        // THYNE Text
+                        Text(
+                          'THYNE',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),

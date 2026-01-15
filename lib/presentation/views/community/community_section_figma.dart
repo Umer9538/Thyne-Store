@@ -87,35 +87,32 @@ class _CommunitySectionFigmaState extends State<CommunitySectionFigma> with Sing
               // Top Row - Logo and User Avatar
               Row(
                 children: [
-                  // Logo Icon
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFE0E0E0),
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: SvgPicture.asset(
-                        'assets/thyne.svg',
-                        width: 24,
-                        height: 24,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // THYNE Text
-                  const Text(
-                    'THYNE',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                      color: Color(0xFF1A1A1A),
+                  // Logo + THYNE Text (clickable, navigates to Home)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Logo Icon (no circle)
+                        SvgPicture.asset(
+                          'assets/thyne.svg',
+                          width: 32,
+                          height: 32,
+                        ),
+                        const SizedBox(width: 8),
+                        // THYNE Text
+                        const Text(
+                          'THYNE',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),
