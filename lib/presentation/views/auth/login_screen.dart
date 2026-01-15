@@ -23,31 +23,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _notifyOrders = true;
   bool _subscribeNewsletter = false;
 
-  // Country code data
-  String _selectedCountryCode = '+92';
-  String _selectedCountryFlag = '🇵🇰';
+  // Country code data - India only
+  String _selectedCountryCode = '+91';
+  String _selectedCountryFlag = '🇮🇳';
 
   final List<Map<String, String>> _countryCodes = [
-    {'code': '+92', 'flag': '🇵🇰', 'name': 'Pakistan'},
     {'code': '+91', 'flag': '🇮🇳', 'name': 'India'},
-    {'code': '+1', 'flag': '🇺🇸', 'name': 'USA'},
-    {'code': '+44', 'flag': '🇬🇧', 'name': 'UK'},
-    {'code': '+971', 'flag': '🇦🇪', 'name': 'UAE'},
-    {'code': '+966', 'flag': '🇸🇦', 'name': 'Saudi Arabia'},
-    {'code': '+65', 'flag': '🇸🇬', 'name': 'Singapore'},
-    {'code': '+60', 'flag': '🇲🇾', 'name': 'Malaysia'},
-    {'code': '+61', 'flag': '🇦🇺', 'name': 'Australia'},
-    {'code': '+49', 'flag': '🇩🇪', 'name': 'Germany'},
-    {'code': '+33', 'flag': '🇫🇷', 'name': 'France'},
-    {'code': '+81', 'flag': '🇯🇵', 'name': 'Japan'},
-    {'code': '+86', 'flag': '🇨🇳', 'name': 'China'},
-    {'code': '+82', 'flag': '🇰🇷', 'name': 'South Korea'},
-    {'code': '+39', 'flag': '🇮🇹', 'name': 'Italy'},
-    {'code': '+34', 'flag': '🇪🇸', 'name': 'Spain'},
-    {'code': '+55', 'flag': '🇧🇷', 'name': 'Brazil'},
-    {'code': '+52', 'flag': '🇲🇽', 'name': 'Mexico'},
-    {'code': '+7', 'flag': '🇷🇺', 'name': 'Russia'},
-    {'code': '+27', 'flag': '🇿🇦', 'name': 'South Africa'},
   ];
 
   @override
@@ -273,42 +254,33 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Country code selector
-                            GestureDetector(
-                              onTap: _showCountryCodePicker,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F5F0),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _selectedCountryFlag,
-                                      style: const TextStyle(fontSize: 20),
+                            // Country code display (India only - no dropdown)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F0),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _selectedCountryFlag,
+                                    style: const TextStyle(fontSize: 20),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _selectedCountryCode,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _selectedCountryCode,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.arrow_drop_down,
-                                      color: Colors.grey[600],
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 12),

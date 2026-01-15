@@ -201,9 +201,51 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     }
   }
 
+  /// Handle OTP autofill - distribute digits across all fields
+  void _handleOTPAutofill(String value, int index) {
+    // Filter to digits only
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digits.length > 1) {
+      // Multi-digit paste/autofill detected - distribute across fields
+      for (int i = 0; i < digits.length && i < 6; i++) {
+        _otpControllers[i].text = digits[i];
+      }
+      // Focus the last filled field or the next empty one
+      final nextIndex = digits.length < 6 ? digits.length : 5;
+      _focusNodes[nextIndex].requestFocus();
+      setState(() {});
+
+      // Auto-submit if all 6 digits filled
+      if (digits.length >= 6) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _verifyOTP();
+        });
+      }
+    } else if (digits.length == 1) {
+      // Single digit - normal flow
+      _otpControllers[index].text = digits;
+      if (index < 5) {
+        _focusNodes[index + 1].requestFocus();
+      }
+      setState(() {});
+
+      // Auto-submit when last field is filled
+      if (index == 5) {
+        bool allFilled = _otpControllers.every((c) => c.text.isNotEmpty);
+        if (allFilled) {
+          _verifyOTP();
+        }
+      }
+    } else if (digits.isEmpty && index > 0) {
+      // Empty - go back
+      _focusNodes[index - 1].requestFocus();
+      setState(() {});
+    }
+  }
+
   Widget _buildOTPField(int index) {
     final hasValue = _otpControllers[index].text.isNotEmpty;
-    final isFocused = _focusNodes[index].hasFocus;
 
     return SizedBox(
       width: 50,
@@ -213,7 +255,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         focusNode: _focusNodes[index],
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
-        maxLength: 1,
+        maxLength: 6, // Allow paste of full OTP
+        autofillHints: index == 0 ? const [AutofillHints.oneTimeCode] : null,
         style: GoogleFonts.inter(
           fontSize: 28,
           fontWeight: FontWeight.bold,
@@ -221,7 +264,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         ),
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
-          LengthLimitingTextInputFormatter(1),
         ],
         decoration: InputDecoration(
           counterText: '',
@@ -243,28 +285,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
             ),
           ),
         ),
-        onChanged: (value) {
-          if (value.isNotEmpty && index < 5) {
-            _focusNodes[index + 1].requestFocus();
-          } else if (value.isEmpty && index > 0) {
-            _focusNodes[index - 1].requestFocus();
-          }
-          setState(() {});
-
-          // Auto-submit when all fields are filled
-          if (index == 5 && value.isNotEmpty) {
-            bool allFilled = true;
-            for (int i = 0; i < 6; i++) {
-              if (_otpControllers[i].text.isEmpty) {
-                allFilled = false;
-                break;
-              }
-            }
-            if (allFilled) {
-              _verifyOTP();
-            }
-          }
-        },
+        onChanged: (value) => _handleOTPAutofill(value, index),
       ),
     );
   }
@@ -343,14 +364,16 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
                   const SizedBox(height: 32),
 
-                  // OTP Input Fields
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      6,
-                      (index) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: _buildOTPField(index),
+                  // OTP Input Fields with AutofillGroup for SMS autofill
+                  AutofillGroup(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        6,
+                        (index) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: _buildOTPField(index),
+                        ),
                       ),
                     ),
                   ),
