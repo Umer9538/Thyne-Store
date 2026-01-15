@@ -346,7 +346,7 @@ class _AppWrapperState extends State<AppWrapper> {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3D1F1F)),
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF094010)), // Dark green theme color
           ),
         ),
       );
@@ -424,6 +424,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Theme dark green color
+    const darkGreen = Color(0xFF094010);
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -431,9 +434,9 @@ class _SplashScreenState extends State<SplashScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.primaryGold.withOpacity(0.2),
+              darkGreen.withOpacity(0.1),
               Colors.white,
-              AppTheme.secondaryRoseGold.withOpacity(0.2),
+              darkGreen.withOpacity(0.05),
             ],
           ),
         ),
@@ -452,11 +455,11 @@ class _SplashScreenState extends State<SplashScreen>
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryGold,
+                          color: darkGreen,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryGold.withOpacity(0.3),
+                              color: darkGreen.withOpacity(0.3),
                               blurRadius: 30,
                               offset: const Offset(0, 15),
                             ),
@@ -474,7 +477,7 @@ class _SplashScreenState extends State<SplashScreen>
                         style: GoogleFonts.playfairDisplay(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
+                          color: darkGreen,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -489,7 +492,7 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 60),
                       const CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.primaryGold,
+                          darkGreen,
                         ),
                       ),
                     ],
